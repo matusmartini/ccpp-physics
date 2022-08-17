@@ -1825,10 +1825,42 @@
       logical :: file_exist
 
       character :: cline*80, ctyp*3
+      ! neptune kludge, 20210414
+      integer, external :: neptune_communicator, neptune_mpi_rank
+      logical           :: read_and_broadcast = .false.
+      integer           :: mp_comm, ierr, real_datatype
+      ! end neptune kludge, 20210414
 !
 !===>  ...  begin here
 !
+      do j = 1, JMXAE
+        do i = 1, IMXAE
+          do m = 1, NXC
+            idxcg(m,i,j) = 0
+            cmixg(m,i,j) = f_zero
+          enddo
+        enddo
+      enddo
+
+      do j = 1, JMXAE
+        do i = 1, IMXAE
+          denng(1,i,j) = f_zero
+          denng(2,i,j) = f_zero
+        enddo
+      enddo
+
 !  --- ...  reading climatological aerosols data
+
+      ! neptune kludge, 20210414
+      mp_comm = neptune_communicator()
+      if ( kind_phys == 4 ) then
+        real_datatype = MPI_REAL
+      else
+        real_datatype = MPI_DOUBLE_PRECISION
+      endif
+      if ( mp_comm .ne. -1 ) read_and_broadcast = .true.
+      if ( .not. read_and_broadcast .or. neptune_mpi_rank().eq.0 ) then
+      ! end neptune kludge, 20210414
 
       inquire (file=aeros_file, exist=file_exist)
 
@@ -1847,24 +1879,6 @@
         print *,'    *** Stopped in subroutine trop_update !!'
         call ccpp_external_abort("radiation_aerosols.f:trop_update")
       endif      ! end if_file_exist_block
-
-!$omp parallel do private(i,j,m)
-      do j = 1, JMXAE
-        do i = 1, IMXAE
-          do m = 1, NXC
-            idxcg(m,i,j) = 0
-            cmixg(m,i,j) = f_zero
-          enddo
-        enddo
-      enddo
-
-!$omp parallel do private(i,j)
-      do j = 1, JMXAE
-        do i = 1, IMXAE
-          denng(1,i,j) = f_zero
-          denng(2,i,j) = f_zero
-        enddo
-      enddo
 
 !  --- ...  loop over 12 month global distribution
 
@@ -1914,6 +1928,36 @@
         endif     ! end if_m_block
 
       enddo  Lab_do_12mon
+      endif  ! read_and_broadcast  (first) neptune kludge, 20210414
+
+      ! neptune kludge, 20210414
+      if ( read_and_broadcast ) then
+        call mpi_bcast(kprfg,size(kprfg),MPI_INTEGER,0,mp_comm,ierr )
+        if ( ierr .ne. MPI_SUCCESS ) then
+          write(0,*)'radiation_aerosols.f: error bcasting kprfg'
+          call mpi_abort( mp_comm, 90210, ierr )
+        endif
+
+        call mpi_bcast( denng,size(denng),real_datatype,0,mp_comm,ierr )
+        if ( ierr .ne. MPI_SUCCESS ) then
+          write(0,*)'radiation_aerosols.f: error bcasting denng'
+          call mpi_abort( mp_comm, 90210, ierr )
+        endif
+
+        call mpi_bcast( idxcg,size(idxcg),MPI_INTEGER,0,mp_comm,ierr )
+        if ( ierr .ne. MPI_SUCCESS ) then
+          write(0,*)'radiation_aerosols.f: error bcasting idxcg'
+          call mpi_abort( mp_comm, 90210, ierr )
+        endif
+
+        call mpi_bcast( cmixg,size(cmixg),real_datatype,0,mp_comm,ierr )
+        if ( ierr .ne. MPI_SUCCESS ) then
+          write(0,*)'radiation_aerosols.f: error bcasting cmixg'
+          call mpi_abort( mp_comm, 90210, ierr )
+        endif
+
+      endif ! read_and_broadcast (second) neptune kludge, 20210414
+      ! end neptune kludge, 20210414
 
 !  --  check print
 
@@ -2800,7 +2844,7 @@
 !  ---  map grid in longitude direction, lon from 0 to 355 deg resolution
 
 !       print *,' Seeking lon index for point i =',i
-        i3 = i1
+        i3 = 1
         lab_do_IMXAE : do while ( i3 <= IMXAE )
           tmp1 = dltg * (i3 - 1)
           dtmp = alon(i) - tmp1
@@ -2838,7 +2882,7 @@
 !  ---  map grid in latitude direction, lat from 90n to 90s in 5 deg resolution
 
 !       print *,' Seeking lat index for point i =',i
-        j3 = j1
+        j3 = 1
         lab_do_JMXAE : do while ( j3 <= JMXAE )
           tmp2 = 90.0 - dltg * (j3 - 1)
           dtmp = tmp2 - alat(i)
@@ -3053,8 +3097,8 @@
           do m = 1, NBDSW
             do k = 1, NLAY
               aerosw(i,k,m,1) = tauae(k,m)
-              aerosw(i,k,m,2) = ssaae(k,m)
-              aerosw(i,k,m,3) = asyae(k,m)
+              aerosw(i,k,m,2) = ssaae(k,m)  ! cray: ignore use b4 set warning
+              aerosw(i,k,m,3) = asyae(k,m)  ! cray: ignore use b4 set warning
             enddo
           enddo
 
@@ -3077,8 +3121,8 @@
             do m = 1, NBDLW
               do k = 1, NLAY
                 aerolw(i,k,m,1) = tauae(k,m1)
-                aerolw(i,k,m,2) = ssaae(k,m1)
-                aerolw(i,k,m,3) = asyae(k,m1)
+                aerolw(i,k,m,2) = ssaae(k,m1) ! cray: ignore use b4 set warning
+                aerolw(i,k,m,3) = asyae(k,m1) ! cray: ignore use b4 set warning
               enddo
             enddo
           else
