@@ -976,7 +976,7 @@ MODULE module_mp_thompson
       call readwrite_tables(thomp_table_file, "write", mpicomm, mpirank, mpiroot, ierr)
       if (ierr/=0) then
           write(0,*) "An error occurred writing Thompson tables to disk"
-          stop 1
+          call ccpp_external_abort(__FILE__)
       end if
       call cpu_time(etime)
       if (mpirank==mpiroot) print '("Writing Thompson tables took ",f10.3," seconds.")', etime-stime
@@ -1122,7 +1122,7 @@ MODULE module_mp_thompson
             errflg = 1
             return
          else
-            stop
+            call ccpp_external_abort(__FILE__)
          end if
       end if
 
@@ -1142,7 +1142,7 @@ MODULE module_mp_thompson
             errflg = 1
             return
          else
-            stop
+            call ccpp_external_abort(__FILE__)
          end if
       else if (.not.is_aerosol_aware .and. (present(nwfa)   .or. &
                                             present(nifa)   .or. &

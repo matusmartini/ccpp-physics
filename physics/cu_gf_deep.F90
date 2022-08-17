@@ -4806,7 +4806,7 @@ endif
     ! if x is ouside the xi(1)-xi(ni) interval set deriv3=0.0
     if (xx < xi(1) .or. xx > xi(ni)) then
       deriv3 = 0.0
-      stop "problems with finding the 2nd derivative"
+      call ccpp_external_abort("problems with finding the 2nd derivative")
     end if
 
     ! a binary (bisectional) search to find i so that xi(i-1) < x < xi(i)

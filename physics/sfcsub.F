@@ -6852,7 +6852,7 @@ cjfe
       return
    70 write(6,6000)
  6000 format(//5x,'error in gauaw'//)
-      stop
+      call ccpp_external_abort("sfcsub.F90")
       end
 !-----------------------------------------------------------------------
 !>\ingroup mod_sfcsub

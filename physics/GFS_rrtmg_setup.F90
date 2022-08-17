@@ -248,7 +248,7 @@ module GFS_rrtmg_setup
       iaermdl = iaer/1000               ! control flag for aerosol scheme selection
       if ( iaermdl < 0 .or.  (iaermdl>2 .and. iaermdl/=5) ) then
          print *, ' Error -- IAER flag is incorrect, Abort'
-         stop 7777
+         call ccpp_external_abort(__FILE__)
       endif
 
 !     if ( ntcw > 0 ) then
@@ -535,7 +535,7 @@ module GFS_rrtmg_setup
         else
           print *,' - ERROR!!! ISUBCLW=',isubclw,' is not a ',          &
      &            'valid option '
-          stop
+          call ccpp_external_abort(__FILE__)
         endif
 
         if ( isubcsw == 0 ) then
@@ -550,7 +550,7 @@ module GFS_rrtmg_setup
         else
           print *,' - ERROR!!! ISUBCSW=',isubcsw,' is not a ',          &
      &            'valid option '
-          stop
+          call ccpp_external_abort(__FILE__)
         endif
 
         if ( isubcsw /= isubclw ) then

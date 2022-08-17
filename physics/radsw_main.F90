@@ -1651,7 +1651,7 @@
       if ( iovr<0 .or. iovr>4 ) then
         print *,'  *** Error in specification of cloud overlap flag',   &
      &          ' IOVR=',iovr,' in RSWINIT !!'
-        stop
+        call ccpp_external_abort(__FILE__)
       endif
 
       if (me == 0) then
@@ -1684,7 +1684,7 @@
         else
           print *,'  *** Error in specification of sub-column cloud ',  &
      &            ' control flag isubcsw =',isubcsw,' !!'
-          stop
+          call ccpp_external_abort(__FILE__)
         endif
       endif
 
@@ -1694,7 +1694,7 @@
      &    (icldflg == 1 .and. iswcliq == 0)) then
         print *,'  *** Model cloud scheme inconsistent with SW',        &
      &          ' radiation cloud radiative property setup !!'
-        stop
+        call ccpp_external_abort(__FILE__)
       endif
 
       if ( isubcsw==0 .and. iovr>2 ) then
@@ -6115,7 +6115,7 @@
 ! Must use pmid from bottom four layers.                                                   
          do i=1,ncol                                                                       
             if (pmid(i,1).lt.pmid(i,2)) then                                               
-               stop 'MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.'
+               call ccpp_external_abort('MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.')
             endif                                                                          
             seed1(i) = (pmid(i,1) - int(pmid(i,1)))  * 1000000000_im                       
             seed2(i) = (pmid(i,2) - int(pmid(i,2)))  * 1000000000_im                       

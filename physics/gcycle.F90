@@ -172,7 +172,7 @@ contains
       inquire (file=trim(Model%fn_nml),exist=exists)
       if (.not. exists) then
         write(6,*) 'gcycle:: namelist file: ',trim(Model%fn_nml),' does not exist'
-        stop
+        call ccpp_external_abort(__FILE__)
       else
         open (unit=Model%nlunit, file=trim(Model%fn_nml), action='READ', status='OLD', iostat=ios)
         rewind (Model%nlunit)
