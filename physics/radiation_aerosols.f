@@ -1777,6 +1777,7 @@
 !! profiles in five degree horizontal resolution.
 !--------------------------------
       subroutine trop_update
+      use mpi  ! neptune kludge, 20210414
 !................................
 !  ---  inputs:    (in scope variables, module variables)
 !  ---  outputs:   (module variables)
