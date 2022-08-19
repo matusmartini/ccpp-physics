@@ -127,11 +127,11 @@ contains
       integer, intent(in)               :: im,levs
       real (kind=kind_phys), intent(in) :: grav
       real (kind=kind_phys), intent(in),dimension(:,:)  :: phil,ref3D,tk
+      real (kind=kind_phys), intent(inout),dimension(:) :: refd,refd263k
       integer               :: i,k,ll,ipt,kpt
       real :: dbz1avg,zmidp1,zmidloc,refl,fact
       real, dimension(im,levs) :: z
       real, dimension(im) :: zintsfc
-      real, dimension(:), intent(inout) :: refd,refd263k
       REAL :: dbz1(2),dbzk,dbzk1
       logical :: counter
       do i=1,im
