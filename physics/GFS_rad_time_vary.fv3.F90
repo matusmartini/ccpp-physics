@@ -59,7 +59,7 @@
 
          ! Local variables
          type (random_stat) :: stat
-         integer :: ii, ix, nb, j, i, nblks, ipseed
+         integer :: ix, nb, j, i, nblks, ipseed
          integer :: numrdm(cnx*cny*2)
 
          ! Initialize CCPP error handling variables
@@ -73,22 +73,28 @@
            !--- call to GFS_radupdate_run is now in GFS_rrtmg_setup_run
 
 !$OMP parallel num_threads(nthrds) default(none)        &
-!$OMP          private (nb,ix,ii, i,j)                      &
+!$OMP          private (nb,ix,i,j)                      &
 !$OMP          shared (lrseeds,isubc_lw,isubc_sw,ipsdlim,ipsd0,ipseed) &
 !$OMP          shared (cnx,cny,sec,numrdm,stat,nblks,isc,jsc)  &
-!$OMP          shared (blksz,icsdsw,icsdlw,jmap,imap)
+!$OMP          shared (blksz,icsdsw,icsdlw,jmap,imap,rseeds)
 
            !--- set up random seed index in a reproducible way for entire cubed-sphere face (lat-lon grid)
            if ((isubc_lw==2) .or. (isubc_sw==2)) then
 !NRL If random seeds supplied by NEPTUNE
              if(lrseeds) then
-               ii = 1
-               do nb=1,nblks
-                 do ix=1,blksz(nb)
-                   icsdsw(ix) = rseeds(ix,1)
-                   icsdlw(ix) = rseeds(ix,2)
-                 end do
-               enddo
+!$OMP single
+          ! jm 20211207, these are all globally dimensioned over blocks
+          ! so it's sufficient to copy them wholesale, as long as this is
+          ! a single threaded region (which it is)
+               icsdsw(:) = rseeds(:,1)
+               icsdlw(:) = rseeds(:,2)
+          !     do nb=1,nblks
+          !       do ix=1,blksz(nb)
+          !         icsdsw(ix) = rseeds(ix,1)
+          !         icsdlw(ix) = rseeds(ix,2)
+          !       end do
+          !     enddo
+!$OMP end single
              else
 !$OMP single
                ipseed = mod(nint(con_100*sqrt(sec)), ipsdlim) + 1 + ipsd0
