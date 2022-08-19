@@ -2954,7 +2954,7 @@
             enddo
           else
             do i=1,imax
-              data(imax-i+1,jj) = work(i,j)
+              data(imax-i+1,jj) = work(i,j)  ! TODO: jj will be undefined if dlon <= 0.0
             enddo
           endif
         else
