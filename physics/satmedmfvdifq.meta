@@ -85,6 +85,13 @@
   type = integer
   intent = in
   optional = F
+[ntrw]
+  standard_name = index_for_rain_water
+  long_name = tracer index for rain water in the vertically diffused tracer array
+  units = index
+  dimensions = ()
+  type = integer
+  intent = in
 [ntiw]
   standard_name = index_for_ice_cloud_condensate_vertical_diffusion_tracer
   long_name = tracer index for ice water in the vertically diffused tracer array
@@ -290,23 +297,14 @@
   kind = kind_phys
   intent = in
   optional = F
-[islimsk]
-  standard_name = sea_land_ice_mask
-  long_name = sea/land/ice mask (=0/1/2)
-  units = flag
-  dimensions = (horizontal_loop_extent)
-  type = integer
-  intent = in
-  optional = F
-[snwdph_lnd]
-  standard_name = surface_snow_thickness_water_equivalent_over_land
-  long_name = water equivalent snow depth over land
-  units = mm
+[zvfun]
+  standard_name = function_of_surface_roughness_length_and_green_vegetation_fraction
+  long_name = function of surface roughness length and green vegetation fraction
+  units = none
   dimensions = (horizontal_loop_extent)
   type = real
   kind = kind_phys
   intent = in
-  optional = F
 [psk]
   standard_name = dimensionless_exner_function_at_lowest_model_interface
   long_name = dimensionless Exner function at the surface interface
@@ -557,6 +555,15 @@
   kind = kind_phys
   intent = out
   optional = F
+[elm]
+  standard_name = mixing_length
+  long_name = mixing length in meters
+  units = m
+  dimensions = (horizontal_loop_extent,vertical_dimension)
+  type = real
+  kind = kind_phys
+  intent = inout
+  optional = F
 [kinver]
   standard_name = index_of_highest_temperature_inversion
   long_name = index of highest temperature inversion
@@ -619,6 +626,13 @@
   kind = kind_phys
   intent = in
   optional = F
+[sfc_rlm]
+  standard_name = choice_of_near_surface_mixing_length_in_boundary_layer_mass_flux_scheme
+  long_name = choice of near surface mixing length in boundary layer mass flux scheme
+  units = none
+  dimensions = ()
+  type = integer
+  intent = in
 [ntoz]
   standard_name = index_for_ozone
   long_name = tracer index for ozone mixing ratio
@@ -696,6 +710,13 @@
   type = logical
   intent = in
   optional = F
+[ntqv]
+  standard_name = index_for_water_vapor
+  long_name = tracer index for water vapor (specific humidity)
+  units = index
+  dimensions = ()
+  type = integer
+  intent = in
 [errmsg]
   standard_name = ccpp_error_message
   long_name = error message for error handling in CCPP

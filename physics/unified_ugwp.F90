@@ -40,6 +40,10 @@ module unified_ugwp
 
     use drag_suite, only: drag_suite_run
 
+    use mod_cires_ugwp_triggers
+    
+    use mod_ugwp_driver_v0
+
     implicit none
 
     private

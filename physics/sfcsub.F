@@ -2954,7 +2954,7 @@
             enddo
           else
             do i=1,imax
-              data(imax-i+1,jj) = work(i,j)
+              data(imax-i+1,jj) = work(i,j)  ! TODO: jj will be undefined if dlon <= 0.0
             enddo
           endif
         else
@@ -6852,7 +6852,7 @@ cjfe
       return
    70 write(6,6000)
  6000 format(//5x,'error in gauaw'//)
-      stop
+      call ccpp_external_abort("sfcsub.F90")
       end
 !-----------------------------------------------------------------------
 !>\ingroup mod_sfcsub

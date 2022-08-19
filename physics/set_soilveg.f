@@ -386,15 +386,15 @@ c-----------------------------
 
          IF (DEFINED_SOIL .GT. MAX_SOILTYP) THEN
             WRITE(0,*) 'Warning: DEFINED_SOIL too large in namelist'
-            STOP 222
+            call ccpp_external_abort("set_soilveg.f:set_soilveg")
          ENDIF
          IF (DEFINED_VEG .GT. MAX_VEGTYP) THEN
             WRITE(0,*) 'Warning: DEFINED_VEG too large in namelist'
-            STOP 222
+            call ccpp_external_abort("set_soilveg.f:set_soilveg1")
          ENDIF
          IF (DEFINED_SLOPE .GT. MAX_SLOPETYP) THEN
             WRITE(0,*) 'Warning: DEFINED_SLOPE too large in namelist'
-            STOP 222
+            call ccpp_external_abort("set_soilveg.f:set_soilveg2")
          ENDIF
          
          SMLOW  = SMLOW_DATA

@@ -1,3 +1,5 @@
+      module mod_sflx
+      contains
 !>\file sflx.f
 !! This file is the entity of GFS Noah LSM Model(Version 2.7).
 
@@ -906,7 +908,14 @@
         eta = etp
       endif
 
-      beta = eta / etp
+!      beta = eta / etp
+!  guard against div zero (from WRF, JM 20211104)
+      IF (ETP == 0.0) THEN
+        BETA = 0.0
+      ELSE
+        BETA = ETA/ETP
+      ENDIF
+
 
 !>  - Convert the sign of soil heat flux so that:
 !!   -  ssoil>0: warm the surface  (night time)
@@ -1865,17 +1874,17 @@
       if (soiltyp > defined_soil) then
         write(*,*) 'warning: too many soil types,soiltyp=',soiltyp,     &
      &   'defined_soil=',defined_soil
-        stop 333
+        call ccpp_external_abort("sflx.f:redprm")
       endif
 
       if (vegtyp > defined_veg) then
         write(*,*) 'warning: too many veg types'
-        stop 333
+        call ccpp_external_abort("sflx.f:redprm1")
       endif
 
       if (slopetyp > defined_slope) then
         write(*,*) 'warning: too many slope types'
-        stop 333
+        call ccpp_external_abort("sflx.f:redprm2")
       endif
 
 !  --- ...  set-up universal parameters (not dependent on soiltyp, vegtyp
@@ -1932,7 +1941,7 @@
 
       if (nroot > nsoil) then
         write(*,*) 'warning: too many root layers'
-        stop 333
+        call ccpp_external_abort("sflx.f:redprm3")
       endif
 
 !  --- ...  calculate root distribution.  present version assumes uniform
@@ -3547,7 +3556,7 @@
 !  --- ...  store ice content at each soil layer before calling srt & sstep
 
       do i = 1, nsoil
-        sice(i) = smc(i) - sh2o(i)
+        sice(i) = smc(i) - sh2o(i) ! cray: ignore compiler warning smc used before set
       enddo
 
 !  --- ...  call subroutines srt and sstep to solve the soil moisture
@@ -3994,8 +4003,8 @@
           do while ( (nlog < 10) .and. (kcount == 0) )
             nlog = nlog + 1
 
-            df = alog( (psis*gs2/lsubf) * ( (1.0 + ck*swl)**2.0 )       &
-     &         * (smcmax/(smc-swl))**bx ) - alog(-(tkelv-tfreez)/tkelv)
+            df = log( (psis*gs2/lsubf) * ( (1.0 + ck*swl)**2.0 )        &
+     &         * (smcmax/(smc-swl))**bx ) - log(-(tkelv-tfreez)/tkelv)
 
             denom = 2.0*ck/(1.0 + ck*swl) + bx/(smc - swl)
             swlk  = swl - df/denom
@@ -5800,3 +5809,4 @@ c ----------------------------------------------------------------------
       end subroutine gfssflx
 !! @}
 !-----------------------------------
+      end module mod_sflx

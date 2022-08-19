@@ -3596,7 +3596,7 @@ subroutine gfdl_cloud_microphys_mod_init (me, master, nlunit, input_nml_file, lo
     inquire (file = trim (fn_nml), exist = exists)
     if (.not. exists) then
         write (6, *) 'gfdl - mp :: namelist file: ', trim (fn_nml), ' does not exist'
-        stop
+        call ccpp_external_abort(__FILE__)
     else
         open (unit = nlunit, file = fn_nml, action = 'read' , status = 'old', iostat = ios)
     endif

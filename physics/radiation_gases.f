@@ -317,7 +317,7 @@
           print *,' - Using climatology ozone distribution'
           print *,' timeozc=',timeozc, ' is not monthly mean',          &
      &            ' - job aborting in subroutin gas_init!!!'
-          stop
+          call ccpp_external_abort("radiation_gases.f:gas_init")
         endif
 
         allocate (pkstr(LOZ), o3r(JMR,LOZ,12))
@@ -394,7 +394,7 @@
           if ( .not. file_exist ) then
             print *,'   Can not find user CO2 data file: ',co2usr_file, &
      &              ' - Stopped in subroutine gas_init !!'
-            stop
+            call ccpp_external_abort("radiation_gases.f:gas_init2")
           else
             close (NICO2CN)
             open(NICO2CN,file=co2usr_file,form='formatted',status='old')
@@ -437,7 +437,7 @@
             else
               print *,' ICO2=',ico2flg,' is not a valid selection',     &
      &                ' - Stoped in subroutine gas_init!!!'
-              stop
+              call ccpp_external_abort("radiation_gases.f:gas_init3")
             endif    ! endif_ico2flg_block
 
             close (NICO2CN)
@@ -458,7 +458,7 @@
           else
             print *,' ICO2=',ico2flg,' is not a valid selection',       &
      &              ' - Stoped in subroutine gas_init!!!'
-            stop
+            call ccpp_external_abort("radiation_gases.f:gas_init4")
           endif
 
           if ( ictmflg == -2 ) then
@@ -468,7 +468,7 @@
                 print *,'   Can not find seasonal cycle CO2 data: ',    &
      &               co2cyc_file,' - Stopped in subroutine gas_init !!'
               endif
-              stop
+              call ccpp_external_abort("radiation_gases.f:gas_init5")
             else
               allocate( co2cyc_sav(IMXCO2,JMXCO2,12) )
 
@@ -685,7 +685,7 @@
         if ( .not. file_exist ) then
           print *,'   Requested co2 data file "',co2gbl_file,           &
      &            '" not found - Stopped in subroutine gas_update!!'
-          stop
+          call ccpp_external_abort("radiation_gases.f:gas_update")
         else
           close(NICO2CN)
           open (NICO2CN,file=co2gbl_file,form='formatted',status='old')
@@ -754,7 +754,7 @@
      &               ' not found !!  Need to change namelist ICTM !!'
               print *,'   *** Stopped in subroutine gas_update !!'
             endif
-            stop
+            call ccpp_external_abort("radiation_gases.f:gas_update1")
           else Lab_if_ictm                        ! looking for latest available data
             if ( me == 0 ) then
               print *,'   Requested co2 data for year',idyr,            &
@@ -780,7 +780,7 @@
                 print *,'   Can not find co2 data source file'
                 print *,'   *** Stopped in subroutine gas_update !!'
               endif
-              stop
+              call ccpp_external_abort("radiation_gases.f:gas_update2")
             endif
           endif  Lab_if_ictm
         endif   ! end if_file_exist_block

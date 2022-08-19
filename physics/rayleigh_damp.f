@@ -97,17 +97,17 @@
       hfbcpdt = half / (cp*dt)
 !
       DO K=1,km
-        IF(PRSL(1,K) < PRSLRD0) THEN    ! applied only on constant pressure surfaces
-          wrk1 = LOG(PRSLRD0/PRSL(1,K))
-          if (k > levr) then
-            RTRD = RTRD1 * wrk1 * wrk1
-          else
-            RTRD = RTRD1 * wrk1
-          endif
-        ELSE
-          RTRD = 0
-        ENDIF
         DO I = 1,IM
+          IF(PRSL(I,K) < PRSLRD0) THEN    ! applied only on constant pressure surfaces
+            wrk1 = LOG(PRSLRD0/PRSL(I,K))
+            if (k > levr) then
+              RTRD = RTRD1 * wrk1 * wrk1
+            else
+              RTRD = RTRD1 * wrk1
+            endif
+          ELSE
+            RTRD = 0
+          ENDIF
           RFACTRD = CONS1 / (CONS1+DT*RTRD) - cons1
           DTAUX   = U1(I,k) * RFACTRD
           DTAUY   = V1(I,k) * RFACTRD

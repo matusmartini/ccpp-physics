@@ -351,7 +351,7 @@
 
       if ( icldflg == 0 ) then
         print *,' - Diagnostic Cloud Method has been discontinued'
-        stop
+        call ccpp_external_abort("radiation_clouds.f:cld_init")
 
       else
         if (me == 0) then
@@ -373,7 +373,7 @@
           else
             print *,'  !!! ERROR in cloud microphysc specification!!!', &
      &              '  imp_physics (NP3D) =',imp_physics
-            stop
+            call ccpp_external_abort("radiation_clouds.f:cld_init2")
           endif
         endif
       endif

@@ -310,7 +310,7 @@
       use physcons,         only : con_g, con_cp, con_avgd, con_amd,    &
      &                             con_amw, con_amo3
       use machine,          only : rb => kind_phys, im => kind_io4,     &
-     &                             kind_phys
+     &                             kind_phys, kind_dbl_prec
 
       use module_radsw_parameters
       use mersenne_twister, only : random_setseed, random_number,       &
@@ -1651,7 +1651,7 @@
       if ( iovr<0 .or. iovr>4 ) then
         print *,'  *** Error in specification of cloud overlap flag',   &
      &          ' IOVR=',iovr,' in RSWINIT !!'
-        stop
+        call ccpp_external_abort(__FILE__)
       endif
 
       if (me == 0) then
@@ -1684,7 +1684,7 @@
         else
           print *,'  *** Error in specification of sub-column cloud ',  &
      &            ' control flag isubcsw =',isubcsw,' !!'
-          stop
+          call ccpp_external_abort(__FILE__)
         endif
       endif
 
@@ -1694,7 +1694,7 @@
      &    (icldflg == 1 .and. iswcliq == 0)) then
         print *,'  *** Model cloud scheme inconsistent with SW',        &
      &          ' radiation cloud radiative property setup !!'
-        stop
+        call ccpp_external_abort(__FILE__)
       endif
 
       if ( isubcsw==0 .and. iovr>2 ) then
@@ -1733,6 +1733,10 @@
         tfn = float(i) / float(NTBMX-i)
         tau = bpade * tfn
         exp_tbl(i) = exp( -tau )
+#ifdef SINGLE_PREC
+        ! from WRF version, prevents zero at single prec
+        if (exp_tbl(i) .le. expeps) exp_tbl(i) = expeps
+#endif
       enddo
 
       return
@@ -2213,8 +2217,9 @@
 
 !  ---  locals:
       real (kind=kind_phys) :: cdfunc(nlay,ngptsw), tem1,               &
-     &       rand2d(nlay*ngptsw), rand1d(ngptsw), fac_lcf(nlay),        &
+     &                                            fac_lcf(nlay),        &
      &       cdfun2(nlay,ngptsw)
+      real (kind=kind_dbl_prec) :: rand2d(nlay*ngptsw), rand1d(ngptsw)
 
       type (random_stat) :: stat          ! for thread safe random generator
 
@@ -6110,7 +6115,7 @@
 ! Must use pmid from bottom four layers.                                                   
          do i=1,ncol                                                                       
             if (pmid(i,1).lt.pmid(i,2)) then                                               
-               stop 'MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.'
+               call ccpp_external_abort('MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID FROM BOTTOM FOUR LAYERS.')
             endif                                                                          
             seed1(i) = (pmid(i,1) - int(pmid(i,1)))  * 1000000000_im                       
             seed2(i) = (pmid(i,2) - int(pmid(i,2)))  * 1000000000_im                       

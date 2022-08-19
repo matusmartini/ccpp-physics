@@ -6936,7 +6936,7 @@ print *,'INFMAX,INFMAX1,HYDRO(1)*SOILIQW(1),-TOTLIQ', &
        if (area.gt.1.) area=1.
        if (area <= 0.) then
           print *,'Bad area of grid box', area
-          stop
+          call ccpp_external_abort(__FILE__)
        endif
 
     IF (debug_print ) THEN

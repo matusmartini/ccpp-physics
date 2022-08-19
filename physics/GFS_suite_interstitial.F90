@@ -486,7 +486,7 @@
     subroutine GFS_suite_interstitial_3_run (im, levs, nn, cscnv,       &
                satmedmf, trans_trac, do_shoc, ltaerosol, ntrac, ntcw,   &
                ntiw, ntclamt, ntrw, ntsw, ntrnc, ntsnc, ntgl, ntgnc,    &
-               xlon, xlat, gt0, gq0, imp_physics, imp_physics_mg,       &
+               ntoz, xlon, xlat, gt0, gq0, imp_physics, imp_physics_mg, &
                imp_physics_zhao_carr, imp_physics_zhao_carr_pdf,        &
                imp_physics_gfdl, imp_physics_thompson,                  &
                imp_physics_wsm6, imp_physics_fer_hires, prsi,           &
@@ -500,7 +500,7 @@
 
       ! interface variables
       integer,              intent(in   )                   :: im, levs, nn, ntrac, ntcw, ntiw, ntclamt, ntrw, ntsw,&
-        ntrnc, ntsnc, ntgl, ntgnc, imp_physics, imp_physics_mg, imp_physics_zhao_carr, imp_physics_zhao_carr_pdf,   &
+        ntrnc, ntsnc, ntgl, ntgnc, ntoz, imp_physics, imp_physics_mg, imp_physics_zhao_carr, imp_physics_zhao_carr_pdf,   &
         imp_physics_gfdl, imp_physics_thompson, imp_physics_wsm6,imp_physics_fer_hires, me
       integer,              intent(in   ), dimension(:)     :: islmsk, kpbl, kinver
       logical,              intent(in   )                   :: cscnv, satmedmf, trans_trac, do_shoc, ltaerosol, ras
@@ -540,10 +540,17 @@
 
       if (cscnv .or. satmedmf .or. trans_trac .or. ras) then
         tracers = 2
+!------------------------------------------------------------------------------------------
+! NRL-MMD 24 Jan 2022
+! Convective transport of ozone was leading to spurious generation of low-level
+! ozone that became numerically unstable.  Do not update ccpp state with convectively
+! transport of ozone.  Required update to .meta file and additional pass of ntoz argument.
+!------------------------------------------------------------------------------------------
         do n=2,ntrac
           if ( n /= ntcw  .and. n /= ntiw  .and. n /= ntclamt .and. &
                n /= ntrw  .and. n /= ntsw  .and. n /= ntrnc   .and. &
-               n /= ntsnc .and. n /= ntgl  .and. n /= ntgnc) then
+               n /= ntsnc .and. n /= ntgl  .and. n /= ntgnc   .and. &
+               n /= ntoz) then
             tracers = tracers + 1
             do k=1,levs
               do i=1,im
@@ -654,11 +661,11 @@
 !! \htmlinclude GFS_suite_interstitial_4_run.html
 !!
     subroutine GFS_suite_interstitial_4_run (im, levs, ltaerosol, cplchm, tracers_total, ntrac, ntcw, ntiw, ntclamt, &
-      ntrw, ntsw, ntrnc, ntsnc, ntgl, ntgnc, ntlnc, ntinc, nn, imp_physics, imp_physics_gfdl, imp_physics_thompson,  &
+      ntrw, ntsw, ntrnc, ntsnc, ntgl, ntgnc, ntlnc, ntinc, ntoz, nn, imp_physics, imp_physics_gfdl, imp_physics_thompson,  &
       imp_physics_zhao_carr, imp_physics_zhao_carr_pdf, convert_dry_rho, dtf, save_qc, save_qi, con_pi,              &
       gq0, clw, prsl, save_tcp, con_rd, con_eps, nwfa, spechum, dqdti, errmsg, errflg)
 
-      use machine,               only: kind_phys
+      use machine,               only: kind_phys, r8=>kind_dbl_prec
       use module_mp_thompson_make_number_concentrations, only: make_IceNumber, make_DropletNumber
 
       implicit none
@@ -666,7 +673,7 @@
       ! interface variables
 
       integer,              intent(in   )                   :: im, levs, tracers_total, ntrac, ntcw, ntiw, ntclamt, ntrw, &
-        ntsw, ntrnc, ntsnc, ntgl, ntgnc, ntlnc, ntinc, nn, imp_physics, imp_physics_gfdl, imp_physics_thompson,           &
+        ntsw, ntrnc, ntsnc, ntgl, ntgnc, ntlnc, ntinc, ntoz, nn, imp_physics, imp_physics_gfdl, imp_physics_thompson,     &
         imp_physics_zhao_carr, imp_physics_zhao_carr_pdf
 
       logical,              intent(in   )                   :: ltaerosol, cplchm, convert_dry_rho
@@ -706,14 +713,20 @@
 
 !  --- update the tracers due to deep & shallow cumulus convective transport
 !           (except for suspended water and ice)
-
+!------------------------------------------------------------------------------------------
+! NRL-MMD 24 Jan 2022
+! Convective transport of ozone was leading to spurious generation of low-level
+! ozone that became numerically unstable.  Do not update ccpp state with convectively
+! transport of ozone.  Required update to .meta file and additional pass of ntoz argument.
+!------------------------------------------------------------------------------------------
       if (tracers_total > 0) then
         tracers = 2
         do n=2,ntrac
 !         if ( n /= ntcw .and. n /= ntiw .and. n /= ntclamt) then
           if ( n /= ntcw  .and. n /= ntiw  .and. n /= ntclamt .and. &
                n /= ntrw  .and. n /= ntsw  .and. n /= ntrnc   .and. &
-               n /= ntsnc .and. n /= ntgl  .and. n /= ntgnc ) then
+               n /= ntsnc .and. n /= ntgl  .and. n /= ntgnc   .and. &
+               n /= ntoz ) then
               tracers = tracers + 1
             do k=1,levs
               do i=1,im

@@ -1520,7 +1520,7 @@
          if (Model%kdt==1 .and. blkno==size(Model%blksz)) then
              if (Model%me==Model%master) write(0,*) "GFS_abort_run: ABORTING MODEL"
              call sleep(10)
-             stop
+             call ccpp_external_abort(__FILE__)
          end if
 
       end subroutine GFS_abort_run

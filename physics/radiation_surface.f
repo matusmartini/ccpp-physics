@@ -749,8 +749,8 @@
 !                                                                       !
 !  ====================    end of description    =====================  !
 !
-      use set_soilveg_ruc_mod,  only: set_soilveg_ruc
-      use namelist_soilveg_ruc
+!      use set_soilveg_ruc_mod,  only: set_soilveg_ruc
+!      use namelist_soilveg_ruc
 
       implicit none
 

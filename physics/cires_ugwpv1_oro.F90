@@ -999,7 +999,7 @@ contains
 !    
           enddo
           print *
-          stop
+          call ccpp_external_abort(__FILE__)
         endif
        endif
        

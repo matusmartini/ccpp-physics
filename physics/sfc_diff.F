@@ -85,6 +85,7 @@
      &                     fm10_wat,  fm10_lnd,  fm10_ice,              &  !intent(inout)
      &                      fh2_wat,   fh2_lnd,   fh2_ice,              &  !intent(inout)
      &                    ztmax_wat, ztmax_lnd, ztmax_ice,              &  !intent(inout)
+     &                    zvfun,                                        &  !intent(out)
      &                    errmsg, errflg)                                  !intent(out)
 !
       implicit none
@@ -124,6 +125,7 @@
      &                     fm10_wat,  fm10_lnd,  fm10_ice,              &
      &                      fh2_wat,   fh2_lnd,   fh2_ice,              &
      &                    ztmax_wat, ztmax_lnd, ztmax_ice
+      real(kind=kind_phys), dimension(:), intent(out)    :: zvfun
 !
       character(len=*), intent(out) :: errmsg
       integer,          intent(out) :: errflg
@@ -139,6 +141,7 @@
       real(kind=kind_phys) :: tv1
 
       real(kind=kind_phys) :: tvs, z0, z0max
+      real(kind=kind_phys), parameter :: z0lo=0.1, z0up=1.0
 !
       real(kind=kind_phys), parameter ::
      &        one=1.0_kp, zero=0.0_kp, half=0.5_kp, qmin=1.0e-8_kp
@@ -191,6 +194,7 @@
             thv1    = t1(i) / prslk1(i) * virtfac
           endif
 
+          zvfun(i) = zero
 !  compute stability dependent exchange coefficients
 !  this portion of the code is presently suppressed
 !
@@ -263,6 +267,13 @@
             endif
             ztmax_lnd(i) = max(ztmax_lnd(i), zmin)
 !
+! compute a function of surface roughness & green vegetation fraction (zvfun)       
+!
+            tem1 = (z0max - z0lo) / (z0up - z0lo)
+            tem1 = min(max(tem1, zero), 1.0_kp)
+            tem2 = max(sigmaf(i), 0.1_kp)
+            zvfun(i) = sqrt(tem1 * tem2)
+!
             call stability
 !  ---  inputs:
      &       (z1(i), snwdph_lnd(i), thv1, wind(i),
@@ -273,6 +284,8 @@
           endif ! Dry points
 
           if (icy(i)) then ! Some ice
+
+            zvfun(i) = zero
 
             if(thsfc_loc) then ! Use local potential temperature
               tvs   = half * (tsurf_ice(i)+tskin_ice(i)) * virtfac
@@ -318,6 +331,8 @@
 !      the stuff now put into "stability"
 
           if (wet(i)) then ! Some open ocean
+  
+            zvfun(i) = zero
 
             if(thsfc_loc) then ! Use local potential temperature
               tvs        = half * (tsurf_wat(i)+tskin_wat(i)) * virtfac
@@ -353,7 +368,7 @@
               call znot_t_v7(wind10m, ztmax_wat(i))   ! 10-m wind,m/s, ztmax(m)
             else if (sfc_z0_type > 0) then
               write(0,*)'no option for sfc_z0_type=',sfc_z0_type
-              stop
+              call ccpp_external_abort("sfc_diff.F")
             endif
 !
             call stability

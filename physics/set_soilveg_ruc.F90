@@ -415,15 +415,15 @@
 
          IF (DEFINED_SOIL .GT. MAX_SOILTYP) THEN
             WRITE(0,*) 'Warning: DEFINED_SOIL too large in namelist'
-            STOP 222
+            call ccpp_external_abort(__FILE__)
          ENDIF
          IF (DEFINED_VEG .GT. MAX_VEGTYP) THEN
             WRITE(0,*) 'Warning: DEFINED_VEG too large in namelist'
-            STOP 222
+            call ccpp_external_abort(__FILE__)
          ENDIF
          IF (DEFINED_SLOPE .GT. MAX_SLOPETYP) THEN
             WRITE(0,*) 'Warning: DEFINED_SLOPE too large in namelist'
-            STOP 222
+            call ccpp_external_abort(__FILE__)
          ENDIF
          
 !       if (me == 0) write(6,soil_veg_ruc)

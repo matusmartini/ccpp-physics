@@ -361,6 +361,7 @@ module GFS_surface_composites_post
 
    real(kind=kind_phys), parameter :: zero = 0.0_kind_phys, one = 1.0_kind_phys, &
                                       half = 0.5_kind_phys, qmin = 1.0e-8_kind_phys
+   real(kind=kind_phys), parameter :: huge      = 9.9692099683868690E36 ! NetCDF float FillValue
 
 contains
 
@@ -383,6 +384,7 @@ contains
       ep1d_lnd, ep1d_ice, weasd, weasd_wat, weasd_lnd, weasd_ice, snowd, snowd_wat, snowd_lnd, snowd_ice, tprcp, tprcp_wat,       &
       tprcp_lnd, tprcp_ice, evap, evap_wat, evap_lnd, evap_ice, hflx, hflx_wat, hflx_lnd, hflx_ice, qss, qss_wat, qss_lnd,        &
       qss_ice, tsfc, tsfco, tsfcl, tsfc_wat, tsfc_lnd, tsfc_ice, tisfc, tice, hice, cice, min_seaice, tiice, stc,                 &
+      sigmaf, zvfun, &
       grav, prsik1, prslk1, prslki, z1, ztmax_wat, ztmax_lnd, ztmax_ice, errmsg, errflg)
 
       implicit none
@@ -404,6 +406,7 @@ contains
 
       real(kind=kind_phys), dimension(:),   intent(in   ) :: tice ! interstitial sea ice temperature
       real(kind=kind_phys), dimension(:),   intent(inout) :: hice, cice
+      real(kind=kind_phys), dimension(:),   intent(inout) :: sigmaf, zvfun
       real(kind=kind_phys),                 intent(in   ) :: min_seaice
       real(kind=kind_phys),                 intent(in   ) :: rd, rvrdm1
 
@@ -424,6 +427,9 @@ contains
       real(kind=kind_phys) :: txl, txi, txo, wfrac, q0, rho
       ! For calling "stability"
       real(kind=kind_phys) :: tsurf, virtfac, tv1, thv1, tvs, z0max, ztmax
+      real(kind=kind_phys) :: lnzorll, lnzorli, lnzorlo
+      real(kind=kind_phys) :: tem1, tem2, gdx
+      real(kind=kind_phys), parameter :: z0lo=0.1, z0up=1.0
 
       ! Initialize CCPP error handling variables
       errmsg = ''
@@ -524,6 +530,14 @@ contains
             stress(i) = stress_ice(i)
             uustar(i) = uustar_ice(i)
           else ! Mix of multiple surface types (land, water, and/or ice)
+!
+! re-compute zvfun with composite surface roughness & green vegetation fraction
+!
+            tem1 = (z0max - z0lo) / (z0up - z0lo)
+            tem1 = min(max(tem1, zero), one)
+            tem2 = max(sigmaf(i), 0.1)
+            zvfun(i) = sqrt(tem1 * tem2)
+
             call stability(z1(i), snowd(i), thv1, wind(i), z0max, ztmax, tvs, grav, & ! inputs
                            tv1, thsfc_loc,                                          & ! inputs
                            rb(i), ffmm(i), ffhh(i), fm10(i), fh2(i), cd(i), cdq(i), & ! outputs
@@ -661,23 +675,20 @@ contains
             tsfc(i)   = tsfc_ice(i)
             evap(i)   = evap_ice(i)
             hflx(i)   = hflx_ice(i)
-            qss(i)    = qss_ice(i)
             tisfc(i)  = tice(i)
+            txi = cice(i)
+            txo = one - txi
             if (.not. flag_cice(i)) then
 !             tisfc(i) = tice(i) ! over lake ice (and sea ice when uncoupled)
-              zorl(i)  = cice(i) * zorli(i)   + (one - cice(i)) * zorlo(i)
               tsfc(i)  = tsfc_ice(i) ! over lake (and ocean when uncoupled)
             elseif (wet(i)) then
               if (cice(i) >= min_seaice) then ! this was already done for lake ice in sfc_sice
-                txi = cice(i)
-                txo = one - txi
                 evap(i)   = txi * evap_ice(i)   + txo * evap_wat(i)
                 hflx(i)   = txi * hflx_ice(i)   + txo * hflx_wat(i)
                 tsfc(i)   = txi * tsfc_ice(i)   + txo * tsfc_wat(i)
                 stress(i) = txi * stress_ice(i) + txo * stress_wat(i)
                 qss(i)    = txi * qss_ice(i)    + txo * qss_wat(i)
                 ep1d(i)   = txi * ep1d_ice(i)   + txo * ep1d_wat(i)
-                zorl(i)   = txi * zorli(i)      + txo * zorlo(i)
               else
                 evap(i)   = evap_wat(i)
                 hflx(i)   = hflx_wat(i)
@@ -685,9 +696,16 @@ contains
                 stress(i) = stress_wat(i)
                 qss(i)    = qss_wat(i)
                 ep1d(i)   = ep1d_wat(i)
-                zorl(i)   = zorlo(i)
+              endif
+              lnzorli = zero ; lnzorlo = zero
+              if (zorli(i) /= huge) then
+                lnzorli = log(zorli(i))
+              endif
+              if (zorlo(i) /= huge) then
+                lnzorlo = log(zorlo(i))
               endif
             endif
+            zorl(i) = exp(txi*lnzorli + txo*lnzorlo)
             if (wet(i)) then
               tsfco(i) = tsfc_wat(i)
             else

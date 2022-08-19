@@ -2655,7 +2655,7 @@ END SUBROUTINE SFCLAY1D_mynn
               call znot_t_v7(wind10m, ztmax)   ! 10-m wind,m/s, ztmax(m)
             else if (sfc_z0_type > 0) then
               write(0,*)'no option for sfc_z0_type=',sfc_z0_type
-              stop
+              call ccpp_external_abort(__FILE__)
             endif
 
     END SUBROUTINE GFS_zt_wat

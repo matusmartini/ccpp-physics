@@ -9,11 +9,12 @@
 #ifndef SINGLE_PREC
       integer, parameter :: kind_io4  = 4, kind_io8  = 8 , kind_ior = 8 &
      &,                     kind_evod = 8, kind_dbl_prec = 8            &
-#ifdef __PGI
+     &,                     kind_sngl_prec = 4
+# ifdef __PGI
      &,                     kind_qdt_prec = 8                           &
-#else
+# else
      &,                     kind_qdt_prec = 16                          &
-#endif
+# endif
      &,                     kind_rad  = 8                               &
      &,                     kind_phys = 8     ,kind_taum=8              &
      &,                     kind_grid = 8                               &
@@ -24,11 +25,12 @@
 #else
       integer, parameter :: kind_io4  = 4, kind_io8  = 8 , kind_ior = 8 &
      &,                     kind_evod = 4, kind_dbl_prec = 8            &
-#ifdef __PGI
+     &,                     kind_sngl_prec = 4
+# ifdef __PGI
      &,                     kind_qdt_prec = 8                           &
-#else
+# else
      &,                     kind_qdt_prec = 16                          &
-#endif
+# endif
      &,                     kind_rad  = 4                               &
      &,                     kind_phys = 4     ,kind_taum=4              &
      &,                     kind_grid = 4                               &
@@ -49,3 +51,30 @@
       real(kind=kind_evod), parameter :: grib_undef = 9.99e20     ! grib undefine value
 !
       end module machine
+
+! maybe a better place to put this than machine.F
+! this is an external routine that can be called from anywhere
+! to end the run correctly, even if running on multiple MPI tasks
+! meant to replace bare start statements.  JM, NRL 20220503
+      subroutine ccpp_external_abort( str )
+#ifdef MPI
+      use mpi_f08
+#endif
+#ifdef __INTEL_COMPILER
+      use ifcore
+#endif
+      implicit none
+      integer          :: ierr
+      character(len=*) :: str
+      write(*,*)"call to ccpp_external_abort ",trim(str)
+      write(0,*)"call to ccpp_external_abort ",trim(str)
+#ifdef __INTEL_COMPILER
+      call tracebackqq("ccpp_external_abort",user_exit_code=-1)
+#endif
+#ifdef MPI
+      call mpi_abort(MPI_COMM_WORLD,ierr)
+#else
+      stop "ccpp_external_abort"
+#endif
+      end subroutine ccpp_external_abort
+

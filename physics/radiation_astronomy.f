@@ -430,7 +430,7 @@
           inquire (file=solar_fname, exist=file_exist)
           if ( .not. file_exist ) then
             print *,' !!! ERROR! Can not find solar constant file!!!'
-            stop
+            call ccpp_external_abort("radiation_astronomy.f:sol_update")
           else
             iyr = iyear
 
@@ -898,7 +898,9 @@
 
       do i = 1, IM
         coszdg(i) = coszen(i) * rstp
-        if (istsun(i) > 0) coszen(i) = coszen(i) / istsun(i)
+        if (istsun(i) > 0 .and. coszen(i).ne.0) then
+          coszen(i) = coszen(i) / istsun(i)
+        endif
       enddo
 !
       return

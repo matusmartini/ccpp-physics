@@ -286,7 +286,8 @@
      &                             random_stat
 !mz
       use machine,          only : kind_phys,                           &
-     &                             im => kind_io4, rb => kind_phys
+     &                             im => kind_io4, rb => kind_phys,     &
+     &                             kind_dbl_prec
 
       use module_radlw_parameters
 !
@@ -1566,7 +1567,7 @@
       if ( iovr<0 .or. iovr>4 ) then
         print *,'  *** Error in specification of cloud overlap flag',   &
      &          ' IOVR=',iovr,' in RLWINIT !!'
-        stop
+        call ccpp_external_abort(__FILE__)
       elseif ( (iovr==2 .or. iovr==3) .and. isubclw==0 ) then
         if (me == 0) then
           print *,'  *** IOVR=',iovr,' is not available for',           &
@@ -1600,7 +1601,7 @@
         else
           print *,'  *** Error in specification of sub-column cloud ',  &
      &            ' control flag isubclw =',isubclw,' !!'
-          stop
+          call ccpp_external_abort(__FILE__)
         endif
       endif
 
@@ -1610,7 +1611,7 @@
      &    (icldflg == 1 .and. ilwcliq == 0)) then
         print *,'  *** Model cloud scheme inconsistent with LW',        &
      &          ' radiation cloud radiative property setup !!'
-        stop
+        call ccpp_external_abort(__FILE__)
       endif
 
 !> -# Setup default surface emissivity for each band.
@@ -2071,9 +2072,10 @@
       logical, dimension(ngptlw,nlay), intent(out) :: lcloudy
 
 !  ---  locals:
-      real (kind=kind_phys) :: cdfunc(ngptlw,nlay), rand1d(ngptlw),     &
-     &       rand2d(nlay*ngptlw), tem1, fac_lcf(nlay),                  &
+      real (kind=kind_phys) :: cdfunc(ngptlw,nlay),                     &
+     &                            tem1, fac_lcf(nlay),                  &
      &       cdfun2(ngptlw,nlay)
+      real (kind=kind_dbl_prec) rand2d(nlay*ngptlw), rand1d(ngptlw)
 
       type (random_stat) :: stat          ! for thread safe random generator
 
@@ -7339,8 +7341,8 @@
 ! Must use pmid from bottom four layers.
          do i=1,ncol
             if (pmid(i,1).lt.pmid(i,2)) then
-               stop 'MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID &
-     &               FROM BOTTOM FOUR LAYERS.'
+               call ccpp_external_abort('MCICA_SUBCOL: KISSVEC SEED GENERATOR REQUIRES PMID &
+     &               FROM BOTTOM FOUR LAYERS.')
             endif
             seed1(i) = (pmid(i,1) - int(pmid(i,1)))  * 1000000000_im
             seed2(i) = (pmid(i,2) - int(pmid(i,2)))  * 1000000000_im
@@ -8840,7 +8842,7 @@
                return
 
             elseif(inflag .eq. 1) then
-                stop 'INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA'
+                call ccpp_external_abort('INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA')
 !               cwp = ciwpmc(ig,lay) + clwpmc(ig,lay)
 !               taucmc(ig,lay) = abscld1 * cwp
 
