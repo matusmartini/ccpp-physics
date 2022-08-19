@@ -1292,6 +1292,14 @@
   type = integer
   intent = in
   optional = F
+[ntoz]
+  standard_name = index_for_ozone
+  long_name = tracer index for ozone mixing ratio
+  units = index
+  dimensions = ()
+  type = integer
+  intent = in
+  optional = F
 [xlon]
   standard_name = longitude
   long_name = longitude
@@ -1717,6 +1725,14 @@
 [ntinc]
   standard_name = index_for_ice_cloud_number_concentration
   long_name = tracer index for ice    number concentration
+  units = index
+  dimensions = ()
+  type = integer
+  intent = in
+  optional = F
+[ntoz]
+  standard_name = index_for_ozone
+  long_name = tracer index for ozone mixing ratio
   units = index
   dimensions = ()
   type = integer
