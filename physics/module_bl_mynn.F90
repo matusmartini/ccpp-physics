@@ -1106,8 +1106,6 @@ CONTAINS
                   &  *( 1.0 + alp3*SQRT( vsc/( bv*elt ) ) )
               elb = MIN(alp5*qkw(k)/bv, zwk)
               elf = elb/(1. + (elb/600.))  !bound free-atmos mixing length to < 600 m.
-              elf = max(600.0,dz(k))
-              elf = elf*tanh(elb/elf)  !bound free-atmos mixing length to < 600 m.
               !IF (zwk > zi .AND. elf > 400.) THEN
               !   ! COMPUTE BouLac mixing length
               !   !CALL boulac_length0(k,kts,kte,zw,dz,qtke,thetaw,elBLmin0,elBLavg0)
@@ -1260,33 +1258,8 @@ CONTAINS
               tau_cloud = tau_cloud*(1.-wt) + 300.*wt
 
               elb = MIN(tau_cloud*SQRT(MIN(qtke(k),30.)), zwk)
-              elf = MIN(MAX(elb,dz(k)),zwk)
-              elb_mf = elb
+              elf = elb
          END IF
-
-         z_m = MAX(0.,zwk - 4.)
-
-         !   **  Length scale in the surface layer  **
-         IF ( rmo .GT. 0.0 ) THEN
-            els  = vk*zwk/(1.0+cns*MIN( zwk*rmo, zmax ))
-            els1 = vk*z_m/(1.0+cns*MIN( zwk*rmo, zmax ))
-         ELSE
-            els  =  vk*zwk*( 1.0 - alp4* zwk*rmo )**0.2
-            els1 =  vk*z_m*( 1.0 - alp4* zwk*rmo )**0.2
-         END IF
-
-         !   ** NOW BLEND THE MIXING LENGTH SCALES:
-         wt=.5*TANH((zwk - (zi2+h1))/h2) + .5
-
-         ! "el_unstab" = blended els-elt
-         el_unstab = els/(1. + (els1/elt))
-         el(k) = MIN(el_unstab, elb_mf)
-         !el(k) = el(k)*(1.-wt) + elf*wt
-         el(k) = el(k)*(1.-wt) + alp5*elBLmin(k)*wt
-
-         ! include scale-awareness. For now, use simple asymptotic kz -> 12 m.
-         el_les= MIN(els/(1. + (els1/12.)), elb_mf)
-         el(k) = el(k)*Psig_bl + (1.-Psig_bl)*el_les
 
        END DO
 
