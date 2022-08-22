@@ -1130,7 +1130,7 @@ CONTAINS
               tau_cloud = tau_cloud*(1.-wt) + 50.*wt
 
               elb = MIN(tau_cloud*SQRT(MIN(qtke(k),30.)), zwk)
-              elf = MIN(MAX(elb,dz(k)),zwk)
+              elf = elb
               elb_mf = elb
          END IF
 
@@ -1151,8 +1151,7 @@ CONTAINS
          ! "el_unstab" = blended els-elt
          el_unstab = els/(1. + (els1/elt))
          el(k) = MIN(el_unstab, elb_mf)
-         !el(k) = el(k)*(1.-wt) + elf*wt
-         el(k) = el(k)*(1.-wt) + alp5*elBLmin(k)*wt
+         el(k) = el(k)*(1.-wt) + elf*wt
 
          ! include scale-awareness. For now, use simple asymptotic kz -> 12 m.
          el_les= MIN(els/(1. + (els1/12.)), elb_mf)
