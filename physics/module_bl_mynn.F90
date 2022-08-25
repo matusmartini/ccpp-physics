@@ -1057,15 +1057,13 @@ CONTAINS
         h2=h1*0.5                ! 1/4 transition layer depth
 
         qtke(kts)=MAX(0.5*qke(kts),0.01) !tke at full sigma levels
-        thetaw(kts)=theta(kts)           !theta at full-sigma levels
         qkw(kts) = SQRT(MAX(qke(kts),1.0e-10))
 
         DO k = kts+1,kte
            afk = dz(k)/( dz(k)+dz(k-1) )
            abk = 1.0 -afk
            qkw(k) = SQRT(MAX(qke(k)*abk+qke(k-1)*afk,1.0e-3))
-           qtke(k) = 0.5*qkw(k)**2  ! qkw -> TKE
-           thetaw(k)= theta(k)*abk + theta(k-1)*afk
+           qtke(k) = 0.5*qkw(k)  ! qkw -> TKE
         END DO
 
         elt = 1.0e-5
