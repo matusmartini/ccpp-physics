@@ -1260,6 +1260,29 @@ CONTAINS
               elf = elb
          END IF
 
+         z_m = MAX(0.,zwk - 4.)
+
+         !   **  Length scale in the surface layer  **
+         IF ( rmo .GT. 0.0 ) THEN
+            els  = vk*zwk/(1.0+cns*MIN( zwk*rmo, zmax ))
+            els1 = vk*z_m/(1.0+cns*MIN( zwk*rmo, zmax ))
+         ELSE
+            els  =  vk*zwk*( 1.0 - alp4* zwk*rmo )**0.2
+            els1 =  vk*z_m*( 1.0 - alp4* zwk*rmo )**0.2
+         END IF
+
+         !   ** NOW BLEND THE MIXING LENGTH SCALES:
+         wt=.5*TANH((zwk - (zi2+h1))/h2) + .5
+
+         ! "el_unstab" = blended els-elt
+         el_unstab = els/(1. + (els1/elt))
+         el(k) = MIN(el_unstab, elb_mf)
+         el(k) = el(k)*(1.-wt) + elf*wt
+
+         ! include scale-awareness. For now, use simple asymptotic kz -> 12 m.
+         el_les= MIN(els/(1. + (els1/12.)), elb_mf)
+         el(k) = el(k)*Psig_bl + (1.-Psig_bl)*el_les
+
        END DO
 
     END SELECT
