@@ -951,7 +951,7 @@ CONTAINS
         alp2 = 0.65
         alp3 = 3.0
         alp4 = 20.
-        alp5 = 1.2
+        alp5 = 0.4
 
         ! Impose limits on the height integration for elt and the transition layer depth
         zi2=MAX(zi,minzi)
@@ -1038,6 +1038,126 @@ CONTAINS
          END DO
 
       CASE (2) !Experimental mixing length formulation
+
+        Uonset = 2.5 + dz(kts)*0.1
+        Ugrid  = sqrt(u1(kts)**2 + v1(kts)**2)
+        cns  = 3.5 * (1.0 - MIN(MAX(Ugrid - Uonset, 0.0)/10.0, 1.0))
+        alp1 = 0.23
+        alp2 = 0.30 + 0.3*MIN(MAX((dx - 3000.)/10000., 0.0), 1.0)
+        alp3 = 2.0
+        alp4 = 20.  !10.
+        alp5 = alp2 !like alp2, but for free atmosphere
+        alp6 = 50.0 !used for MF mixing length
+
+        ! Impose limits on the height integration for elt and the transition layer depth
+        !zi2=MAX(zi,minzi)
+        zi2=MAX(zi,    100.)
+        h1=MAX(0.3*zi2,mindz)
+        h1=MIN(h1,maxdz)         ! 1/2 transition layer depth
+        h2=h1*0.5                ! 1/4 transition layer depth
+
+        qtke(kts)=MAX(0.5*qke(kts),0.01) !tke at full sigma levels
+        qkw(kts) = SQRT(MAX(qke(kts),1.0e-10))
+
+        DO k = kts+1,kte
+           afk = dz(k)/( dz(k)+dz(k-1) )
+           abk = 1.0 -afk
+           qkw(k) = SQRT(MAX(qke(k)*abk+qke(k-1)*afk,1.0e-3))
+           qtke(k) = 0.5*qkw(k)  ! qkw -> TKE
+        END DO
+
+        elt = 1.0e-5
+        vsc = 1.0e-5
+
+        !   **  Strictly, zwk*h(i,j) -> ( zwk*h(i,j)+z0 )  **
+        PBLH_PLUS_ENT = MAX(zi+h1, 100.)
+        k = kts+1
+        zwk = zw(k)
+        DO WHILE (zwk .LE. PBLH_PLUS_ENT)
+           dzk = 0.5*( dz(k)+dz(k-1) )
+           qdz = MAX( qkw(k)-qmin, 0.03 )*dzk  !consider reducing 0.3
+           elt = elt +qdz*zwk
+           vsc = vsc +qdz
+           k   = k+1
+           zwk = zw(k)
+        END DO
+
+        elt =  MAX(alp1*elt/vsc, 10.)
+        vflx = ( vt(kts)+1.0 )*flt +( vq(kts)+tv0 )*flq
+        vsc = ( gtr*elt*MAX( vflx, 0.0 ) )**onethird
+
+        !   **  Strictly, el(i,j,1) is not zero.  **
+        el(kts) = 0.0
+        zwk1    = zw(kts+1)
+
+        DO k = kts+1,kte
+           zwk = zw(k)              !full-sigma levels
+           cldavg = 0.5*(cldfra_bl1D(k-1)+cldfra_bl1D(k))
+
+           !   **  Length scale limited by the buoyancy effect  **
+           IF ( dtv(k) .GT. 0.0 ) THEN
+              bv  = SQRT( gtr*dtv(k) )
+              !elb_mf = alp2*qkw(k) / bv  &
+              elb_mf = MAX(alp2*qkw(k),  &
+!                  &MAX(1.-0.5*cldavg,0.0)**0.5 * alp6*edmf_a1(k)*edmf_w1(k)) / bv  &
+                  & alp6*edmf_a1(k)*edmf_w1(k)) / bv  &
+                  &  *( 1.0 + alp3*SQRT( vsc/( bv*elt ) ) )
+              elb = MIN(alp5*qkw(k)/bv, zwk)
+              elf = elb/(1. + (elb/600.))  !bound free-atmos mixing length to < 600 m.
+              !IF (zwk > zi .AND. elf > 400.) THEN
+              !   ! COMPUTE BouLac mixing length
+              !   !CALL boulac_length0(k,kts,kte,zw,dz,qtke,thetaw,elBLmin0,elBLavg0)
+              !   !elf = alp5*elBLavg0
+              !   elf = MIN(MAX(50.*SQRT(qtke(k)), 400.), zwk)
+              !ENDIF
+
+           ELSE
+              ! use version in development for RAP/HRRR 2016
+              ! JAYMES-
+              ! tau_cloud is an eddy turnover timescale;
+              ! see Teixeira and Cheinet (2004), Eq. 1, and
+              ! Cheinet and Teixeira (2003), Eq. 7.  The
+              ! coefficient 0.5 is tuneable. Expression in
+              ! denominator is identical to vsc (a convective
+              ! velocity scale), except that elt is relpaced
+              ! by zi, and zero is replaced by 1.0e-4 to
+              ! prevent division by zero.
+              tau_cloud = MIN(MAX(0.5*zi/((gtr*zi*MAX(flt,1.0e-4))**onethird),50.),150.)
+              !minimize influence of surface heat flux on tau far away from the PBLH.
+              wt=.5*TANH((zwk - (zi2+h1))/h2) + .5
+              tau_cloud = tau_cloud*(1.-wt) + 50.*wt
+
+              elb = MIN(tau_cloud*SQRT(MIN(qtke(k),30.)), zwk)
+              elf = elb
+              elb_mf = elb
+         END IF
+
+         z_m = MAX(0.,zwk - 4.)
+
+         !   **  Length scale in the surface layer  **
+         IF ( rmo .GT. 0.0 ) THEN
+            els  = vk*zwk/(1.0+cns*MIN( zwk*rmo, zmax ))
+            els1 = vk*z_m/(1.0+cns*MIN( zwk*rmo, zmax ))
+         ELSE
+            els  =  vk*zwk*( 1.0 - alp4* zwk*rmo )**0.2
+            els1 =  vk*z_m*( 1.0 - alp4* zwk*rmo )**0.2
+         END IF
+
+         !   ** NOW BLEND THE MIXING LENGTH SCALES:
+         wt=.5*TANH((zwk - (zi2+h1))/h2) + .5
+
+         ! "el_unstab" = blended els-elt
+         el_unstab = els/(1. + (els1/elt))
+         el(k) = MIN(el_unstab, elb_mf)
+         el(k) = el(k)*(1.-wt) + elf*wt
+
+         ! include scale-awareness. For now, use simple asymptotic kz -> 12 m.
+         el_les= MIN(els/(1. + (els1/12.)), elb_mf)
+         el(k) = el(k)*Psig_bl + (1.-Psig_bl)*el_les
+
+       END DO
+
+      CASE (101) ! NRL version
 
         Uonset = 2.5 + dz(kts)*0.1
         Ugrid  = sqrt(u1(kts)**2 + v1(kts)**2)
