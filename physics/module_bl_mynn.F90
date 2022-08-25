@@ -1256,7 +1256,7 @@ CONTAINS
 
               elb = MIN(tau_cloud*SQRT(MIN(qtke(k),30.)), zwk)
               elf = MIN(MAX(elb,dz(k)),zwk)
-              elf_mf = elb
+              elb_mf = elb
          END IF
 
          z_m = MAX(0.,zwk - 4.)
