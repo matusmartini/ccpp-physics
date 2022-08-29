@@ -319,8 +319,10 @@ contains
           dudt_ngw, dvdt_ngw, dtdt_ngw, kdis_ngw, dudt_gw, dvdt_gw, dtdt_gw, kdis_gw,   &
           tau_ogw, tau_ngw,  tau_oss,                                                   &
           zogw,  zlwb,  zobl,  zngw,   dusfcg, dvsfcg,  dudt, dvdt, dtdt, rdxzb,        &
-          ldu3dt_ogw, ldv3dt_ogw, ldt3dt_ogw, ldu3dt_ngw, ldv3dt_ngw, ldt3dt_ngw,       &
-          lprnt, ipr, errmsg, errflg)
+          dtend, dtidx, index_of_x_wind, index_of_y_wind, index_of_temperature,         &
+          index_of_process_orographic_gwd, index_of_process_nonorographic_gwd,          &
+          lprnt, ipr, spp_wts_gwd, spp_gwd, errmsg, errflg)
+
 !
 !########################################################################
 !  Attention New Arrays and Names must be ADDED inside
@@ -428,17 +430,15 @@ contains
 !
     real(kind=kind_phys), intent(inout), dimension(:,:) :: dudt, dvdt, dtdt
 
-!
-! These arrays are only allocated if ldiag=.true.
-!
-! Version of COORDE updated by CCPP-dev for time-aver
-!
-    real(kind=kind_phys),    intent(inout), dimension(:,:)   :: ldu3dt_ogw, ldv3dt_ogw, ldt3dt_ogw
-    real(kind=kind_phys),    intent(inout), dimension(:,:)   :: ldu3dt_ngw, ldv3dt_ngw, ldt3dt_ngw
-
-
+    real(kind=kind_phys), intent(inout)                      :: dtend(:,:,:)
+    integer, intent(in)                                      :: dtidx(:,:),   &
+         index_of_x_wind, index_of_y_wind, index_of_temperature,              &
+         index_of_process_orographic_gwd, index_of_process_nonorographic_gwd
 
     real(kind=kind_phys),    intent(out), dimension(:)      :: rdxzb     ! for stoch phys. mtb-level
+
+    real(kind=kind_phys), intent(in) :: spp_wts_gwd(:,:)
+    integer, intent(in) :: spp_gwd
 
     character(len=*),        intent(out) :: errmsg
     integer,                 intent(out) :: errflg
@@ -467,7 +467,7 @@ contains
 
 ! ugwp_v1 local variables
 
-    integer :: y4, month, day,  ddd_ugwp, curdate, curday
+    integer :: y4, month, day,  ddd_ugwp, curdate, curday, idtend
 
 !  ugwp_v1 temporary (local) diagnostic variables from cires_ugwp_solv2_v1
 !  diagnostics for wind and temp rms to compare with space-borne data and metrics
@@ -551,16 +551,19 @@ contains
                  kpbl,prsi,del,prsl,prslk,phii,phil,dtp,             &
                  kdt,hprime,oc,oa4,clx,varss,oc1ss,oa4ss,            &
                  ol4ss,theta,sigma,gamma,elvmax,                     &
-                  dudt_ogw, dvdt_ogw, dudt_obl, dvdt_obl,            &
-                  dudt_oss, dvdt_oss, dudt_ofd, dvdt_ofd,            &
-                  dusfcg,  dvsfcg,                                   &
-                  du_ogwcol, dv_ogwcol, du_oblcol, dv_oblcol,        &
-                  du_osscol, dv_osscol, du_ofdcol, dv_ofdcol,        &
+                 dudt_ogw, dvdt_ogw, dudt_obl, dvdt_obl,             &
+                 dudt_oss, dvdt_oss, dudt_ofd, dvdt_ofd,             &
+                 dusfcg,  dvsfcg,                                    &
+                 du_ogwcol, dv_ogwcol, du_oblcol, dv_oblcol,         &
+                 du_osscol, dv_osscol, du_ofdcol, dv_ofdcol,         &
                  slmsk,br1,hpbl, con_g,con_cp,con_rd,con_rv,         &
                  con_fv, con_pi, lonr,                               &
                  cdmbgwd(1:2),me,master,lprnt,ipr,rdxzb,dx,gwd_opt,  &
                  do_gsl_drag_ls_bl,do_gsl_drag_ss,do_gsl_drag_tofd,  &
-                 errmsg,errflg)
+                 dtend, dtidx, index_of_process_orographic_gwd,      &
+                 index_of_temperature, index_of_x_wind,              &
+                 index_of_y_wind, ldiag3d, spp_wts_gwd, spp_gwd,     &
+                 errmsg, errflg)
 !
 ! dusfcg = du_ogwcol + du_oblcol + du_osscol + du_ofdcol
 !
@@ -583,9 +586,9 @@ contains
 !      endif
 !     endif
 
-    else
+    endif
 !
-! not gsldrag oro-scheme for example "do_ugwp_v1_orog_only"
+! not gsldrag large-scale oro-scheme for example "do_ugwp_v1_orog_only"
 !
 
     if ( do_ugwp_v1_orog_only ) then
@@ -629,16 +632,20 @@ contains
 !
 !  for  old-fashioned GFS-style diag-cs like dt3dt(:.:, 1:14) collections
 !
-     if(ldiag3d .and. lssav .and. .not. flag_for_gwd_generic_tend) then
-        do k=1,levs
-          do i=1,im
-             ldu3dt_ogw(i,k) = ldu3dt_ogw(i,k) + Pdudt(i,k)*dtp
-             ldv3dt_ogw(i,k) = ldv3dt_ogw(i,k) + Pdvdt(i,k)*dtp
-             ldt3dt_ogw(i,k) = ldt3dt_ogw(i,k) + Pdtdt(i,k)*dtp
-          enddo
-        enddo
+    if(ldiag3d .and. lssav .and. .not. flag_for_gwd_generic_tend) then
+      idtend = dtidx(index_of_x_wind,index_of_process_orographic_gwd)
+      if(idtend>=1) then
+         dtend(:,:,idtend) = dtend(:,:,idtend) + Pdudt*dtp
       endif
-   ENDIF
+      idtend = dtidx(index_of_y_wind,index_of_process_orographic_gwd)
+      if(idtend>=1) then
+         dtend(:,:,idtend) = dtend(:,:,idtend) + Pdvdt*dtp
+      endif
+      idtend = dtidx(index_of_temperature,index_of_process_orographic_gwd)
+      if(idtend>=1) then
+         dtend(:,:,idtend) = dtend(:,:,idtend) + Pdtdt*dtp
+      endif
+    endif
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 ! Begin non-stationary GW schemes
@@ -691,18 +698,20 @@ contains
 
     end if   ! do_ugwp_v1
 
-!
-!  GFS-style diag dt3dt(:.:, 1:14)  time-averaged
-!
-      if(ldiag3d .and. lssav .and. .not. flag_for_gwd_generic_tend) then
-        do k=1,levs
-          do i=1,im
-             ldu3dt_ngw(i,k) = ldu3dt_ngw(i,k) + dudt_ngw(i,k)*dtp
-             ldv3dt_ngw(i,k) = ldv3dt_ngw(i,k) + dvdt_ngw(i,k)*dtp
-             ldt3dt_ngw(i,k) = ldt3dt_ngw(i,k) + dtdt_ngw(i,k)*dtp
-          enddo
-        enddo
+    if(ldiag3d .and. lssav .and. .not. flag_for_gwd_generic_tend) then
+      idtend = dtidx(index_of_x_wind,index_of_process_nonorographic_gwd)
+      if(idtend>=1) then
+         dtend(:,:,idtend) = dtend(:,:,idtend) + dudt_ngw(i,k)*dtp
       endif
+      idtend = dtidx(index_of_y_wind,index_of_process_nonorographic_gwd)
+      if(idtend>=1) then
+         dtend(:,:,idtend) = dtend(:,:,idtend) + dvdt_ngw(i,k)*dtp
+      endif
+      idtend = dtidx(index_of_temperature,index_of_process_nonorographic_gwd)
+      if(idtend>=1) then
+         dtend(:,:,idtend) = dtend(:,:,idtend) + dtdt_ngw(i,k)*dtp
+      endif
+    endif
 
 !
 ! get total sso-OGW + NGW

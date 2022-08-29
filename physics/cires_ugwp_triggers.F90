@@ -1,6 +1,9 @@
       module mod_cires_ugwp_triggers
       contains
 !
+!>\file cires_ugwp_triggers.F90
+!!
+
       subroutine slat_geos5_tamp_v0(im, tau_amp, xlatdeg, tau_gw)
 !=================
 ! GEOS-5 & MERRA-2 lat-dependent GW-source function  tau(z=Zlaunch) =rho*<u'w'>

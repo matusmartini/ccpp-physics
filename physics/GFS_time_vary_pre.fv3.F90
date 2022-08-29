@@ -1,7 +1,6 @@
 !> \file GFS_time_vary_pre.fv3.F90
 !!  Contains code related to GFS physics suite setup (generic part of time_vary_step)
 
-!>\defgroup gfs_time_vary_pre_mod  GFS Time Vary Pre Module
    module GFS_time_vary_pre
 
       use funcphys, only: gfuncphys
@@ -16,6 +15,9 @@
 
       contains
 
+!>\defgroup gfs_time_vary_pre_mod  GFS Time Vary Pre Module
+!! This module contains code related to GFS physics suite setup.
+!> @{
 !> \section arg_table_GFS_time_vary_pre_init Argument Table
 !! \htmlinclude GFS_time_vary_pre_init.html
 !!
@@ -66,7 +68,7 @@
 !> \section arg_table_GFS_time_vary_pre_timestep_init Argument Table
 !! \htmlinclude GFS_time_vary_pre_timestep_init.html
 !!
-      subroutine GFS_time_vary_pre_timestep_init (jdat, idat, dtp, lkm, lsm, lsm_noahmp, nsswr,  &
+      subroutine GFS_time_vary_pre_timestep_init (jdat, idat, dtp, nsswr,                        &
                   nslwr, nhfrad, idate, debug, me, master, nscyc, sec, phour, zhour, fhour,      &
                   kdt, julian, yearlen, ipt, lprnt, lssav, lsswr, lslwr, solhr, errmsg, errflg)
 
@@ -76,8 +78,7 @@
 
         integer,                          intent(in)    :: idate(:)
         integer,                          intent(in)    :: jdat(:), idat(:)
-        integer,                          intent(in)    :: lkm, lsm, lsm_noahmp, &
-                                                           nsswr, nslwr, me,     &
+        integer,                          intent(in)    :: nsswr, nslwr, me,     &
                                                            master, nscyc, nhfrad
         logical,                          intent(in)    :: debug
         real(kind=kind_phys),             intent(in)    :: dtp
@@ -191,5 +192,5 @@
         endif
 
       end subroutine GFS_time_vary_pre_timestep_init
-
+!> @}
     end module GFS_time_vary_pre

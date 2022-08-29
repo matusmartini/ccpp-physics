@@ -1,67 +1,74 @@
-! ###########################################################################################
-! ###########################################################################################
+!> \file rrtmgp_lw_rte.F90
+!!
+!> \defgroup rrtmgp_lw_rte rrtmgp_lw_rte.F90
+!!
+!! \brief This module contains the main rte longwave driver.
+!!
 module rrtmgp_lw_rte
   use machine,                only: kind_phys
-  use mo_rte_kind,            only: wl
-  use mo_gas_optics_rrtmgp,   only: ty_gas_optics_rrtmgp
-  use mo_cloud_optics,        only: ty_cloud_optics
   use mo_optical_props,       only: ty_optical_props_1scl, ty_optical_props_2str
   use mo_rte_lw,              only: rte_lw
   use mo_fluxes_byband,       only: ty_fluxes_byband
   use mo_source_functions,    only: ty_source_func_lw
-  use radiation_tools,             only: check_error_msg
+  use radiation_tools,        only: check_error_msg
   use rrtmgp_lw_gas_optics,   only: lw_gas_props
   implicit none
 
-  public rrtmgp_lw_rte_init, rrtmgp_lw_rte_run, rrtmgp_lw_rte_finalize
+  public rrtmgp_lw_rte_run
 contains
 
-  ! #########################################################################################
-  ! SUBROUTINE rrtmgp_lw_rte_init
-  ! #########################################################################################
-  subroutine rrtmgp_lw_rte_init()
-  end subroutine rrtmgp_lw_rte_init
-
-  ! #########################################################################################
-  ! SUBROUTINE rrtmgp_lw_rte_run
-  ! #########################################################################################
-!! \section arg_table_rrtmgp_lw_rte_run
+!>\defgroup rrtmgp_lw_rte_mod GFS RRTMGP-LW RTE Module
+!> \section arg_table_rrtmgp_lw_rte_run
 !! \htmlinclude rrtmgp_lw_rte_run.html
 !!
+!> \ingroup rrtmgp_lw_rte 
+!!
+!! \brief This routine takes all of the longwave optical properties ,ty_optical_props_1scl,
+!! and computes the longwave radiative fluxes for cloudy and clear-sky conditions.  
+!!
+!! \section rrtmgp_lw_rte_run
   subroutine rrtmgp_lw_rte_run(doLWrad, doLWclrsky, use_LW_jacobian, doGP_lwscat, nCol,     &
-       nLev, p_lev, sfc_emiss_byband, sources, lw_optical_props_clrsky,                     &
-       lw_optical_props_clouds, lw_optical_props_aerosol, nGauss_angles, fluxlwUP_allsky,   &
-       fluxlwDOWN_allsky, fluxlwUP_clrsky, fluxlwDOWN_clrsky, fluxlwUP_jac, errmsg, errflg)
+       nLev, top_at_1, doGP_sgs_cnv, doGP_sgs_mynn, sfc_emiss_byband, sources,              &
+       lw_optical_props_clrsky, lw_optical_props_clouds, lw_optical_props_precipByBand,     &
+       lw_optical_props_cnvcloudsByBand, lw_optical_props_MYNNcloudsByBand,                 &
+       lw_optical_props_aerosol, nGauss_angles, fluxlwUP_allsky, fluxlwDOWN_allsky,         &
+       fluxlwUP_clrsky, fluxlwDOWN_clrsky, fluxlwUP_jac, fluxlwUP_radtime,                  &
+       fluxlwDOWN_radtime, errmsg, errflg)
 
     ! Inputs
     logical, intent(in) :: &
+         top_at_1,                & ! Vertical ordering flag
          doLWrad,                 & ! Logical flag for longwave radiation call
          doLWclrsky,              & ! Compute clear-sky fluxes for clear-sky heating-rate?
          use_LW_jacobian,         & ! Compute Jacobian of LW to update radiative fluxes between radiation calls?
+         doGP_sgs_mynn,           & ! Flag for sgs MYNN-EDMF PBL cloud scheme
+         doGP_sgs_cnv,            & ! Flagg for sgs convective cloud scheme
          doGP_lwscat                ! Include scattering in LW cloud-optics?
     integer, intent(in) :: &
          nCol,                    & ! Number of horizontal gridpoints
          nLev,                    & ! Number of vertical levels
          nGauss_angles              ! Number of angles used in Gaussian quadrature
-    real(kind_phys), dimension(ncol,nLev+1), intent(in) :: &
-         p_lev                      ! Pressure @ model layer-interfaces (hPa)
-    real(kind_phys), dimension(lw_gas_props%get_nband(),ncol), intent(in) :: &
-         sfc_emiss_byband           ! Surface emissivity in each band
+    real(kind_phys), dimension(:,:), intent(in) :: &
+         sfc_emiss_byband                    ! Surface emissivity in each band
     type(ty_source_func_lw),intent(in) :: &
-         sources                    ! RRTMGP DDT: longwave source functions
+         sources                             ! RRTMGP DDT: longwave source functions
     type(ty_optical_props_1scl),intent(inout) :: &
-         lw_optical_props_aerosol, &! RRTMGP DDT: longwave aerosol radiative properties
-         lw_optical_props_clrsky    ! RRTMGP DDT: longwave clear-sky radiative properties 
+         lw_optical_props_aerosol,          &! RRTMGP DDT: longwave aerosol optical properties
+         lw_optical_props_clrsky             ! RRTMGP DDT: longwave clear-sky optical properties 
     type(ty_optical_props_2str),intent(inout) :: &
-         lw_optical_props_clouds    ! RRTMGP DDT: longwave cloud radiative properties          
-         
+         lw_optical_props_clouds,          & ! RRTMGP DDT: longwave cloud optical properties
+         lw_optical_props_precipByBand,    & ! RRTMGP DDT: longwave precipitation optical properties
+         lw_optical_props_cnvcloudsByBand, & ! RRTMGP DDT: longwave convective cloud optical properties
+         lw_optical_props_MYNNcloudsByBand   ! RRTMGP DDT: longwave MYNN-EDMF PBL cloud optical properties
     ! Outputs
-    real(kind_phys), dimension(ncol,nLev+1), intent(inout) :: &
+    real(kind_phys), dimension(:,:), intent(inout) :: &
          fluxlwUP_jac,             & ! Jacobian of upwelling LW surface radiation (W/m2/K) 
          fluxlwUP_allsky,          & ! All-sky flux (W/m2)
          fluxlwDOWN_allsky,        & ! All-sky flux (W/m2)
          fluxlwUP_clrsky,          & ! Clear-sky flux (W/m2)
-         fluxlwDOWN_clrsky           ! All-sky flux (W/m2)
+         fluxlwDOWN_clrsky,        & ! All-sky flux (W/m2)
+         fluxlwUP_radtime,         & ! Copy of fluxes (Used for coupling)
+         fluxlwDOWN_radtime
     character(len=*), intent(out) :: & 
          errmsg                      ! CCPP error message
     integer, intent(out) :: & 
@@ -72,9 +79,6 @@ contains
          flux_allsky, flux_clrsky
     real(kind_phys), dimension(ncol,nLev+1,lw_gas_props%get_nband()),target :: &
          fluxLW_up_allsky, fluxLW_up_clrsky, fluxLW_dn_allsky, fluxLW_dn_clrsky
-    logical :: &
-         top_at_1
-    integer :: iSFC, iTOA
     real(kind_phys), dimension(nCol,lw_gas_props%get_ngpt()) :: lw_Ds
 
     ! Initialize CCPP error handling variables
@@ -82,16 +86,6 @@ contains
     errflg = 0
 
     if (.not. doLWrad) return
-
-    ! Vertical ordering?
-    top_at_1 = (p_lev(1,1) .lt. p_lev(1, nLev))
-    if (top_at_1) then
-       iSFC = nLev+1
-       iTOA = 1
-    else
-       iSFC = 1
-       iTOA = nLev+1
-    endif
 
     ! Initialize RRTMGP DDT containing 2D(3D) fluxes
     flux_allsky%bnd_flux_up => fluxLW_up_allsky
@@ -135,8 +129,21 @@ contains
     endif
     
     !
-    ! All-sky fluxes
+    ! All-sky fluxes (clear-sky + clouds + precipitation)
     !
+
+    ! Include convective cloud?
+    if (doGP_sgs_cnv) then
+       call check_error_msg('rrtmgp_lw_rte_run',lw_optical_props_cnvcloudsByBand%increment(lw_optical_props_clrsky))
+    endif
+
+    ! Include MYNN-EDMF PBL clouds?
+    if (doGP_sgs_mynn) then
+        call check_error_msg('rrtmgp_lw_rte_run',lw_optical_props_MYNNcloudsByBand%increment(lw_optical_props_clrsky))
+    endif
+
+    ! Add in precipitation
+    call check_error_msg('rrtmgp_lw_rte_run',lw_optical_props_precipByBand%increment(lw_optical_props_clouds))
 
     ! Include LW cloud-scattering?
     if (doGP_lwscat) then 
@@ -192,13 +199,10 @@ contains
     fluxlwUP_allsky   = sum(flux_allsky%bnd_flux_up,dim=3)
     fluxlwDOWN_allsky = sum(flux_allsky%bnd_flux_dn,dim=3) 
 
-  end subroutine rrtmgp_lw_rte_run
-  
-  ! #########################################################################################
-  ! SUBROUTINE rrtmgp_lw_rte_finalize
-  ! #########################################################################################
-  subroutine rrtmgp_lw_rte_finalize()
-  end subroutine rrtmgp_lw_rte_finalize
+    ! Save fluxes for coupling
+    fluxlwUP_radtime   = fluxlwUP_allsky
+    fluxlwDOWN_radtime = fluxlwDOWN_allsky
 
+  end subroutine rrtmgp_lw_rte_run
 
 end module rrtmgp_lw_rte

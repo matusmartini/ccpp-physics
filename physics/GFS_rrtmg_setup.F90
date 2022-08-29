@@ -1,7 +1,9 @@
-!> \file GFS_rrtmg_setup.f90
+!> \file GFS_rrtmg_setup.F90
 !! This file contains
 
 !> \defgroup GFS_rrtmg_setup_mod GFS RRTMG Scheme Setup
+!! This subroutine initializes RRTMG. 
+!> @{
 module GFS_rrtmg_setup
 
    use physparam, only : isolar , ictmflg, ico2flg, ioznflg, iaerflg, &
@@ -46,8 +48,7 @@ module GFS_rrtmg_setup
           icliq_sw, crick_proof, ccnorm,                      &
           imp_physics, ltp,                                   &
           norad_precip, idate, iflip,                         &
-          do_RRTMGP, im, faerlw, faersw, aerodp,              & ! for consistency checks
-          me, errmsg, errflg)
+          do_RRTMGP, me, errmsg, errflg)
 ! =================   subprogram documentation block   ================ !
 !                                                                       !
 ! subprogram:   GFS_rrtmg_setup_init - a subprogram to initialize radiation !
@@ -143,10 +144,6 @@ module GFS_rrtmg_setup
 !                                                                       !
 !  ===================================================================  !
 !
-      use module_radsw_parameters,  only: NBDSW
-      use module_radlw_parameters,  only: NBDLW
-      use module_radiation_aerosols,only: NF_AELW, NF_AESW, NSPC1
-
       implicit none
 
       ! interface variables
@@ -171,23 +168,10 @@ module GFS_rrtmg_setup
       logical, intent(in) :: norad_precip
       integer, intent(in) :: idate(:)
       integer, intent(in) :: iflip
-      ! For consistency checks
-      
-      logical, intent(in)         :: do_RRTMGP
-      integer, intent(in)         :: im
-      real(kind_phys), intent(in) :: faerlw(:,:,:,:)
-      real(kind_phys), intent(in) :: faersw(:,:,:,:)
-      real(kind_phys), intent(in) :: aerodp(:,:)
-      ! End for consistency checks
-      integer, intent(in)           :: me
+      logical, intent(in) :: do_RRTMGP
+      integer, intent(in) :: me
       character(len=*), intent(out) :: errmsg
       integer,          intent(out) :: errflg
-
-      ! For consistency checks
-      real(kind_phys), dimension(im,levr+ltp,NBDLW,NF_AELW) :: faerlw_check
-      real(kind_phys), dimension(im,levr+ltp,NBDSW,NF_AESW) :: faersw_check
-      real(kind_phys), dimension(im,NSPC1)                  :: aerodp_check
-      ! End for consistency checks
 
       ! Initialize the CCPP error handling variables
       errmsg = ''
@@ -201,41 +185,7 @@ module GFS_rrtmg_setup
         return
       end if
 
-      ! Consistency checks for dimensions of arrays, this is required
-      ! to detect differences in FV3's parameters that are used to
-      ! dimension certain arrays and the values in ccpp-physics
-      if (size(faerlw(1,:,:,:)).ne.size(faerlw_check(1,:,:,:))) then
-         write(errmsg,"(3a,4i4,a,4i4)") &
-               "Runtime error: dimension mismatch for faerlw,",        &
-               " check definitions of levr, ltp, nbdlw, nf_aelw:",     &
-               " expected shape ", shape(faerlw_check(:,:,:,:)),       &
-               " but got ", shape(faerlw(:,:,:,:))
-         errflg = 1
-         return
-      end if
-      if (size(faersw(1,:,:,:)).ne.size(faersw_check(1,:,:,:))) then
-         write(errmsg,"(3a,4i4,a,4i4)") &
-               "Runtime error: dimension mismatch for faersw,",        &
-               " check definitions of levr, ltp, nbdsw, nf_aesw:",     &
-               " expected shape ", shape(faersw_check(:,:,:,:)),       &
-               " but got ", shape(faersw(:,:,:,:))
-         errflg = 1
-         return
-      end if
-      if (size(aerodp(1,:)).ne.size(aerodp_check(1,:))) then
-         write(errmsg,"(3a,2i4,a,2i4)") &
-               "Runtime error: dimension mismatch for aerodp,",        &
-               " check definitions of nspc1:",                         &
-               " expected shape ", shape(aerodp_check(:,:)),           &
-               " but got ", shape(aerodp(:,:))
-         errflg = 1
-         return
-      end if
-      
-      ! End of consistency checks
-
       isolar = isol                     ! solar constant control flag
-
       ictmflg= ictm                     ! data ic time/date control flag
       ico2flg= ico2                     ! co2 data source control flag
       ioznflg= ntoz                     ! ozone data source control flag
@@ -281,7 +231,7 @@ module GFS_rrtmg_setup
         print *,'  In rad_initialize (GFS_rrtmg_setup_init), before calling radinit'
         print *,' si =',si
         print *,' levr=',levr,' ictm=',ictm,' isol=',isol,' ico2=',ico2,&
-     &          ' iaer=',iaer,' ntcw=',ntcw
+     &          ' iaermdl=',iaermdl,' iaerflg=',iaerflg
         print *,' np3d=',num_p3d,' ntoz=',ntoz,                         &
      &          ' iovr=',iovr,' isubc_sw=',isubc_sw,                    &
      &          ' isubc_lw=',isubc_lw,' icliq_sw=',icliq_sw,            &
@@ -610,7 +560,6 @@ module GFS_rrtmg_setup
 !! \param sdec,cdec      sine and cosine of the solar declination angle
 !! \param solcon         solar constant adjusted by sun-earth distance \f$(W/m^2)\f$
 !> \section gen_radupdate General Algorithm
-!> @{
 !-----------------------------------
       subroutine radupdate( idate,jdate,deltsw,deltim,lsswr, me,        &
      &                      slag,sdec,cdec,solcon)
@@ -780,5 +729,6 @@ module GFS_rrtmg_setup
 !...................................
       end subroutine radupdate
 !-----------------------------------
+!> @}
 
 end module GFS_rrtmg_setup

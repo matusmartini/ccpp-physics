@@ -1,5 +1,9 @@
       module mod_cires_ugwpv1_sporo
       contains
+!>\file cires_ugwpv1_sporo.F90 
+!!
+
+!>
       subroutine oro_spectral_solver(im, levs,npt,ipt, kref,kdt,me,master, &
         dtp,dxres, taub, u1, v1, t1, xn, yn, bn2, rho, prsi, prsL,         &
         del, sigma, hprime, gamma, theta,                                  &
@@ -283,6 +287,7 @@
 ! define mean flow  and dissipation for OGW-kx spectrum
 !
 !-------------------------------------------------------------      
+!>
       subroutine oro_meanflow(nz, nzi, u1, v1, t1, pint, pmid,       &
      &      delp, rho, bn2, uzi, rhoi, ktur, kalp, dzi, xn, yn)
       use machine ,      only : kind_phys

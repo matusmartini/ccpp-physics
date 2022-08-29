@@ -1,3 +1,8 @@
+!>\file radiation_cloud_overlap.F90
+!!
+
+!>\defgroup rad_cld_ovr_mod Radiation Cloud Overlap Module
+!! This module contains the calculation of cloud overlap parameters for both RRTMG and RRTMGP. 
 module module_radiation_cloud_overlap
   use physparam,        only : kind_phys
   implicit none
@@ -9,22 +14,27 @@ module module_radiation_cloud_overlap
   end interface
   
 contains
+
+!>\defgroup rad_cld_ovr_mod Radiation Cloud Overlap Module
+!! This module contains the calculation of cloud overlap parameters for both RRTMG and RRTMGP.
+!>@{
   ! ######################################################################################
   ! Hogan et al. (2010)
   ! "Effect of improving representation of horizontal and vertical cloud structure on the 
   ! Earth's global radiation budget. Part I: Review and parametrization"
   ! https://rmets.onlinelibrary.wiley.com/doi/full/10.1002/qj.647
   ! ######################################################################################
+!> see Shonk et al.(2010) \cite shonk_et_al_2010
   subroutine cmp_dcorr_lgth_hogan(nCol, lat, con_pi, dcorr_lgth)
     ! Inputs
     integer, intent(in) :: &
          nCol       ! Number of horizontal grid-points
     real(kind_phys), intent(in) :: &
          con_pi     ! Physical constant: Pi
-    real(kind_phys), dimension(nCol), intent(in) :: &
+    real(kind_phys), dimension(:), intent(in) :: &
          lat        ! Latitude  
     ! Outputs
-    real(kind_phys), dimension(nCol),intent(out) :: &
+    real(kind_phys), dimension(:),intent(out) :: &
          dcorr_lgth ! Decorrelation length  
     
     ! Local variables
@@ -44,6 +54,7 @@ contains
   ! atmospheric General Circulation Model"
   ! 10.5194/acp-12-9097-2012
   ! ######################################################################################
+!>\see Oreopoulos et al.(2012) \cite Oreopoulos_2012
   subroutine cmp_dcorr_lgth_oreopoulos(nCol, lat, juldat, yearlength, dcorr_lgth)
     ! Inputs
     integer, intent(in) :: &
@@ -52,11 +63,11 @@ contains
 
     real(kind_phys), intent(in) :: &
          juldat         ! Julian date
-    real(kind_phys), dimension(nCol), intent(in) :: &
+    real(kind_phys), dimension(:), intent(in) :: &
          lat            ! Latitude  
     
     ! Outputs
-    real(kind_phys), dimension(nCol),intent(out) :: &
+    real(kind_phys), dimension(:),intent(out) :: &
          dcorr_lgth    ! Decorrelation length (km)
     
     ! Parameters for the Gaussian fits per Eqs. (10) and (11) (See Table 1)
@@ -84,19 +95,26 @@ contains
   ! ######################################################################################
   !
   ! ######################################################################################
-  subroutine get_alpha_exp(nCol, nLay, dzlay, dcorr_lgth, alpha)
+!>This subroutine provides the alpha cloud overlap parameter for both RRTMG and RRTMGP
+  subroutine get_alpha_exper(nCol, nLay, iovr, iovr_exprand, dzlay,    &
+                             dcorr_lgth, cld_frac, alpha)
     
     ! Inputs
     integer, intent(in) :: &
          nCol,     & ! Number of horizontal grid points
          nLay        ! Number of vertical grid points
-    real(kind_phys), dimension(nCol), intent(in) :: &
+    integer, intent(in) :: &
+         iovr,     &
+         iovr_exprand
+    real(kind_phys), dimension(:), intent(in) :: &
          dcorr_lgth  ! Decorrelation length (km)
-    real(kind_phys), dimension(nCol,nLay), intent(in) :: &
+    real(kind_phys), dimension(:,:), intent(in) :: &
          dzlay       !
+    real(kind_phys), dimension(:,:), intent(in) ::  &
+         cld_frac
     
     ! Outputs
-    real(kind_phys), dimension(nCol,nLay) :: &
+    real(kind_phys), dimension(:,:) :: &
          alpha       ! Cloud overlap parameter
     
     ! Local variables
@@ -108,9 +126,22 @@ contains
           alpha(iCol,iLay) = exp( -(dzlay(iCol,iLay)) / dcorr_lgth(iCol))
        enddo
     enddo
-    
+   
+    ! Revise alpha for exponential-random cloud overlap
+    ! Decorrelate layers when a clear layer follows a cloudy layer to enforce
+    ! random correlation between non-adjacent blocks of cloudy layers
+    if (iovr == iovr_exprand) then
+      do iLay = 2, nLay
+        do iCol = 1, nCol
+          if (cld_frac(iCol,iLay) == 0.0 .and. cld_frac(iCol,iLay-1) > 0.0) then
+            alpha(iCol,iLay) = 0.0
+          endif
+        enddo
+      enddo
+    endif
+ 
     return
     
-  end subroutine get_alpha_exp
-  
+  end subroutine get_alpha_exper
+!>@}  
 end module module_radiation_cloud_overlap

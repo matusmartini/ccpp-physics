@@ -112,7 +112,6 @@
 !!\param[out] smcref      real, soil moisture threshold (volumetric)
 !!\param[out] smcmax      real, porosity (sat val of soil mois)
 !>\section general_sflx GFS Noah LSM General Algorithm
-!! @{
       subroutine gfssflx                                                &!  ---  inputs:
      &     ( nsoil, couple, icein, ffrozp, dt, zlvl, sldpth,            &
      &       swdn, swnet, lwdn, sfcems, sfcprs, sfctmp,                 &
@@ -1441,9 +1440,9 @@
      &       zsoil, slope, frzx, bexp, dksat, dwsat, shdfac,            &
      &       edir1, ec1, et1,                                           &
 !  ---  input/outputs:
-     &       cmc, sh2o,                                                 &
+     &       cmc, sh2o, smc,                                            &
 !  ---  outputs:
-     &       smc, runoff1, runoff2, runoff3, drip                       &
+     &       runoff1, runoff2, runoff3, drip                            &
      &     )
 
       else
@@ -1464,9 +1463,9 @@
      &       zsoil, slope, frzx, bexp, dksat, dwsat, shdfac,            &
      &       edir1, ec1, et1,                                           &
 !  ---  input/outputs:
-     &       cmc, sh2o,                                                 &
+     &       cmc, sh2o, smc,                                            &
 !  ---  outputs:
-     &       smc, runoff1, runoff2, runoff3, drip                       &
+     &       runoff1, runoff2, runoff3, drip                            &
      &     )
 
       endif   ! end if_etp_block
@@ -2731,9 +2730,9 @@
      &       zsoil, slope, frzx, bexp, dksat, dwsat, shdfac,              &
      &       edir1, ec1, et1,                                             &
 !  ---  input/outputs:
-     &       cmc, sh2o,                                                   &
+     &       cmc, sh2o, smc,                                              &
 !  ---  outputs:
-     &       smc, runoff1, runoff2, runoff3, drip                         &
+     &       runoff1, runoff2, runoff3, drip                              &
      &     )
 
       endif
@@ -3456,9 +3455,9 @@
      &       zsoil, slope, frzx, bexp, dksat, dwsat, shdfac,              &
      &       edir1, ec1, et1,                                             &
 !  ---  input/outputs:
-     &       cmc, sh2o,                                                   &
+     &       cmc, sh2o, smc,                                              &
 !  ---  outputs:
-     &       smc, runoff1, runoff2, runoff3, drip                         &
+     &       runoff1, runoff2, runoff3, drip                              &
      &     )
 
 ! ===================================================================== !
@@ -3497,9 +3496,9 @@
 !  input/outputs:                                                       !
 !     cmc      - real, canopy moisture content                     1    !
 !     sh2o     - real, unfrozen soil moisture                    nsoil  !
+!     smc      - real, total soil moisture                       nsoil  !
 !                                                                       !
 !  outputs:                                                             !
-!     smc      - real, total soil moisture                       nsoil  !
 !     runoff1  - real, surface runoff not infiltrating sfc         1    !
 !     runoff2  - real, sub surface runoff (baseflow)               1    !
 !     runoff3  - real, excess of porosity                          1    !
@@ -3515,11 +3514,12 @@
      &       edir1, ec1, et1(nsoil), zsoil(nsoil)
 
 !  ---  input/outputs:
-      real (kind=kind_phys),  intent(inout) :: cmc, sh2o(nsoil)
+      real (kind=kind_phys),  intent(inout) :: cmc, sh2o(nsoil),        &
+     &       smc(nsoil)
 
 !  ---  outputs:
-      real (kind=kind_phys),  intent(out) :: smc(nsoil), runoff1,       &
-     &       runoff2, runoff3, drip
+      real (kind=kind_phys),  intent(out) :: runoff1, runoff2,          &
+     &       runoff3, drip
 
 !  ---  locals:
       real (kind=kind_phys) :: dummy, excess, pcpdrp, rhsct, trhsct,    &
@@ -5807,6 +5807,5 @@ c ----------------------------------------------------------------------
 
 !...................................
       end subroutine gfssflx
-!! @}
 !-----------------------------------
       end module mod_sflx

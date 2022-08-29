@@ -221,5 +221,5 @@
 !-----------------------------------------------------------------------
       return
       end subroutine tridit
-!> @}
+
       end module mod_tridi
