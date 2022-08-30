@@ -3529,9 +3529,12 @@
 
 
 !print *, SIZE(n_grid_dust(:))
-      if(ijstop_dust .ne. SIZE(n_grid_dust)) stop 6366
-      if(ijstop_soot .ne. SIZE(n_grid_soot)) stop 6366
-      if(ijstop_bio .ne. SIZE(n_grid_bio)) stop 6366
+      if(ijstop_dust .ne. SIZE(n_grid_dust)) 
+     & call ccpp_external_abort('6366')
+      if(ijstop_soot .ne. SIZE(n_grid_soot))
+     & call ccpp_external_abort('6366')
+      if(ijstop_bio .ne. SIZE(n_grid_bio))
+     & call ccpp_external_abort('6366')
 !     ijstop_dust = SIZE(n_grid_dust)
 !     ijstop_soot = SIZE(n_grid_soot)
 !     ijstop_bio = SIZE(n_grid_bio)
@@ -3964,7 +3967,8 @@
       if(X <= X_1) H_1 = Hlo
       if(X > X_1 .and. X < X_2) H_1 = (X - X_1)/(X_2 - X_1)
 
-      if( X_2 <= X_1) stop 91919
+      if( X_2 <= X_1)
+     & call ccpp_external_abort('91919')
 
       return
       end function
@@ -3996,7 +4000,8 @@
 !H1smooth =min(dH1smooth , 1000000.0)
 !H1smooth =max(dH1smooth , 0.0)
 
-      if( X_2 <= X_1) stop 91919
+      if( X_2 <= X_1)
+     & call ccpp_external_abort('91919')
 
       return
       end function
