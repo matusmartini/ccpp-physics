@@ -175,7 +175,8 @@
      &                     al(im,km-1),  ad(im,km),   au(im,km-1),
      &                     f1(im,km),    f2(im,km*(ntrac-1))
 !
-      real(kind=kind_phys) elm(im,km),   ele(im,km),
+      !real(kind=kind_phys) elm(im,km),   ele(im,km),
+      real(kind=kind_phys) ele(im,km),
      &                     ckz(im,km),   chz(im,km),
      &                     diss(im,km-1),prod(im,km-1), 
      &                     bf(im,km-1),  shr2(im,km-1),

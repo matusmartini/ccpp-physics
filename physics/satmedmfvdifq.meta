@@ -495,6 +495,14 @@
   type = real
   kind = kind_phys
   intent = out
+[elm]
+  standard_name = turbulent_mixing_length
+  long_name = mixing length in meters
+  units = m
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  intent = out
 [kinver]
   standard_name = index_of_highest_temperature_inversion
   long_name = index of highest temperature inversion
