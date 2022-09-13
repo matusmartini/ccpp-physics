@@ -128,13 +128,6 @@
   dimensions = ()
   type = integer
   intent = in
-[ltp]
-  standard_name = extra_top_layer
-  long_name = extra top layer for radiation calculations
-  units = count
-  dimensions = ()
-  type = integer
-  intent = in
 [norad_precip]
   standard_name = flag_for_turning_off_precipitation_radiative_effect
   long_name = radiation precip flag for Ferrier/Moorthi
@@ -169,6 +162,20 @@
   units = index
   dimensions = ()
   type = integer
+  intent = in
+[ltp]
+  standard_name = extra_top_layer
+  long_name = extra top layer for radiation
+  units = count
+  dimensions = ()
+  type = integer
+  intent = in
+[lextop]
+  standard_name = do_extra_top_layer_for_radiation
+  long_name = use an extra top layer for radiation
+  units = flag
+  dimensions = ()
+  type = logical
   intent = in
 [errmsg]
   standard_name = ccpp_error_message

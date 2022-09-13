@@ -7,7 +7,7 @@
       use machine,          only: kind_phys
       use set_soilveg_mod,  only: set_soilveg
       use namelist_soilveg
-      use mod_sflx
+      use sflx
 
       implicit none
 
@@ -69,7 +69,7 @@
       end subroutine lsm_noah_init
 
 
-!! \section arg_table_lsm_noah_finalize Argument Table
+!> \section arg_table_lsm_noah_finalize Argument Table
 !! \htmlinclude lsm_noah_finalize.html
 !!
       subroutine lsm_noah_finalize(errmsg, errflg)

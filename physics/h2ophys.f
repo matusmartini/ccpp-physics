@@ -8,7 +8,7 @@
 
       private
 
-      public :: h2ophys_init, h2ophys_run, h2ophys_finalize
+      public :: h2ophys_init, h2ophys_run
 
       contains
 
@@ -122,7 +122,7 @@
           enddo
         endif
         do i=1,im
-          if (prsl(i,l) < prsmax .and. pltc(i,2).ne.0.) then    ! TODO JM  20211104
+          if (prsl(i,l) < prsmax .and. pltc(i,2) /= 0.0) then
             h2oib(i)  = h2o(i,l)            ! no filling
             tem       = 1.0 / pltc(i,2)     ! 1/teff
             h2o(i,l)  = (h2oib(i) + (pltc(i,1)+pltc(i,3)*tem)*dt)
@@ -145,8 +145,5 @@
       return
       end subroutine h2ophys_run
 !> @}
-
-      subroutine h2ophys_finalize()
-      end subroutine h2ophys_finalize
 
       end module h2ophys

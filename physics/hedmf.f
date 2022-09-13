@@ -6,8 +6,8 @@
 !! scheme.
       module hedmf
 
-      use mod_mfpbl
-      use mod_tridi
+      use tridi_mod
+      use mfpbl_mod
 
       contains
 
@@ -40,10 +40,6 @@
      &                              ' is incompatible with hedmf'
          end if
       end subroutine hedmf_init
-
-      subroutine hedmf_finalize ()
-      end subroutine hedmf_finalize
-
 
 !> \defgroup HEDMF GFS Hybrid Eddy-Diffusivity Mass-Flux (HEDMF) Scheme Module
 !! @{

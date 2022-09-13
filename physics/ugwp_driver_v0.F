@@ -1,9 +1,7 @@
-      module mod_ugwp_driver_v0
-      use mod_cires_orowam2017
-      contains
 !>\file ugwp_driver_v0.F
-!! This file contains CIRES UGWP v0 driver
-
+      module ugwp_driver_v0
+      use cires_orowam2017
+      contains
 !
 !=====================================================================
 !
@@ -23,7 +21,7 @@
 !! C768 resolutions and work in progress to introduce the optimal choice for the scale-aware
 !! representations of the efficiency factors that will reflect the better simulations of GW
 !! activity by FV3 dynamical core at higher horizontal resolutions. With the MERRA-2 VMF
-!! function for NGWs (\ref slat_geos5_tamp_v0) and operational OGW drag scheme (\ref GFS_GWDPS),
+!! function for NGWs (slat_geos5_tamp_v0()) and operational OGW drag scheme (\ref GFS_GWDPS),
 !! FV3GFS simulations can successfully forecast the recent major mid-winter sudden stratospheric
 !! warming (SSW) events of 2018-02-12 and 2018-12-31 (10-14 days before the SSW onset;
 !! Yudin et al. 2019 \cite yudin_et_al_2019). The first multi-year (2015-2018) FV3GFS simulations
@@ -1345,7 +1343,7 @@
               else
                 kzw2 = zero
               endif
-              if ( kzw2 > zero .and. cdf2 > zero ) then  ! JM, should always be case but ...  20211020
+              if ( kzw2 > zero .and. cdf2 > zero) then
                 v_kzw = sqrt(kzw2)
 !	       
 !linsatdis:  kzw2, kzw3, kdsat, c2f2,  cdf2, cdf1
@@ -1492,5 +1490,5 @@
 !--------------------------------------------------------------------------- 
        return
        end subroutine fv3_ugwp_solv2_v0
-
-       end module mod_ugwp_driver_v0
+      
+      end module ugwp_driver_v0

@@ -887,9 +887,9 @@
 
       do i = 1, IM
         coszdg(i) = coszen(i) * rstp
-        if (istsun(i) > 0 .and. coszen(i).ne.0) then
+        if (istsun(i) > 0 .and. coszen(i) /= 0.0_kind_phys) then
           coszen(i) = coszen(i) / istsun(i)
-        endif
+        endif 
       enddo
 !
       return
