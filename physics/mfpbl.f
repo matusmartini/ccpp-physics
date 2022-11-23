@@ -1,8 +1,7 @@
-      module mod_mfpbl
-      contains
 !>  \file mfpbl.f
 !!  This file contains the subroutine that calculates the updraft properties and mass flux for use in the Hybrid EDMF PBL scheme.
-
+      module mfpbl_mod
+      contains
 !>  \ingroup HEDMF
 !!  \brief This subroutine is used for calculating the mass flux and updraft properties.
 !!
@@ -398,4 +397,4 @@ c
       return
       end
 !> @}
-      end module mod_mfpbl
+      end module mfpbl_mod

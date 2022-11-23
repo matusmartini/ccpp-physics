@@ -1,13 +1,14 @@
 !>\file cires_orowam2017.f
 
-      module mod_cires_orowam2017
+
+      module cires_orowam2017
       contains
 
 !>\defgroup cires_orowam2017_mod CIRES UGWP orowam2017 Module
 !>This is the OROGW-solver of WAM2017.
 !>@{
 
-!> This is the OROGW-solver os WAM2017.
+!>
       subroutine oro_wam_2017(im, levs,npt,ipt, kref,kdt,me,master,
      &   dtp,dxres, taub, u1, v1, t1, xn, yn, bn2, rho, prsi, prsL, 
      &   del, sigma, hprime, gamma, theta,
@@ -392,5 +393,5 @@
       enddo
 !                
       end subroutine ugwpv0_tofd1d
-
-      end module mod_cires_orowam2017
+      end module cires_orowam2017
+!>@}

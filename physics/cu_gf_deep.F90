@@ -44,6 +44,10 @@ module cu_gf_deep
 
 contains
 
+!>\defgroup cu_gf_deep_group Grell-Freitas Deep Convection Module
+!>\ingroup cu_gf_group
+!! This is Grell-Freitas deep convection scheme module
+!> @{
    integer function my_maxloc1d(A,N)
 !$acc routine vector
       implicit none
@@ -65,10 +69,9 @@ contains
       return
    end function my_maxloc1d
 
-!>\ingroup cu_gf_deep_group
-!> \section general_gf_deep GF Deep Convection General Algorithm
-!> @{
-   subroutine cu_gf_deep_run(        &
+!>Driver for the deep or congestus GF routine.
+!! \section general_gf_deep Grell-Freitas Deep Convection General Algorithm
+   subroutine cu_gf_deep_run(        &          
                itf,ktf,its,ite, kts,kte  &
               ,dicycle       &  ! diurnal cycle flag
               ,ichoice       &  ! choice of closure, use "0" for ensemble average
@@ -2905,12 +2908,12 @@ contains
 !$acc declare copyin(p,t,q)
      real(kind=kind_phys),    dimension (its:ite,kts:kte)                &
         ,intent (out  )                   ::             &
-        he,hes,qes
-!$acc declare copyout(he,hes,qes)
+        hes,qes
+!$acc declare copyout(hes,qes)
      real(kind=kind_phys),    dimension (its:ite,kts:kte)                &
         ,intent (inout)                   ::             &
-        z
-!$acc declare copy(z)
+        he,z
+!$acc declare copy(he,z)
      real(kind=kind_phys),    dimension (its:ite)                        &
         ,intent (in   )                   ::             &
         psur,z1

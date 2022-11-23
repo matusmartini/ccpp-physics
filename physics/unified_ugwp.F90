@@ -38,12 +38,9 @@ module unified_ugwp
 !    use cires_ugwp_module,   only: knob_ugwp_version, cires_ugwp_mod_init,   cires_ugwp_mod_finalize
     use cires_ugwpv0_module, only: knob_ugwp_version, cires_ugwpv0_mod_init, cires_ugwpv0_mod_finalize
     use gwdps, only: gwdps_run
-
+    use cires_ugwp_triggers
+    use ugwp_driver_v0
     use drag_suite, only: drag_suite_run
-
-    use mod_cires_ugwp_triggers
-    
-    use mod_ugwp_driver_v0
 
     implicit none
 
@@ -65,8 +62,6 @@ contains
 !> \section arg_table_unified_ugwp_init Argument Table
 !! \htmlinclude unified_ugwp_init.html
 !!
-! -----------------------------------------------------------------------
-!
     subroutine unified_ugwp_init (me, master, nlunit, input_nml_file, logunit, &
                 fn_nml2, jdat, lonr, latr, levs, ak, bk, dtp, cdmbgwd, cgwf,   &
                 con_pi, con_rerth, pa_rf_in, tau_rf_in, con_p0, do_ugwp,       &
@@ -167,7 +162,6 @@ contains
 !> \section arg_table_unified_ugwp_finalize Argument Table
 !! \htmlinclude unified_ugwp_finalize.html
 !!
-
     subroutine unified_ugwp_finalize(do_ugwp_v0,do_ugwp_v0_nst_only,  &
                                      errmsg, errflg)
 
@@ -201,8 +195,8 @@ contains
 !> This subroutine executes the CIRES UGWP Version 0.
 !!
 !> \section gen_unified_ugwp GFS Unified GWP Scheme General Algorithm
-!! The physics of NGWs in the UGWP framework (Yudin et al. 2018 \cite 
-!! yudin_et_al_2018) is represented by four GW-solvers, which is introduced 
+!! The physics of NGWs in the UGWP framework (Yudin et al. 2018 
+!! \cite yudin_et_al_2018) is represented by four GW-solvers, which is introduced 
 !! in Lindzen (1981) \cite lindzen_1981, Hines (1997) \cite hines_1997, 
 !! Alexander and Dunkerton (1999) \cite alexander_and_dunkerton_1999, 
 !! and Scinocca (2003) \cite scinocca_2003. The major modification of 
@@ -216,7 +210,7 @@ contains
 !! the modification of Scinocca (2003) \cite scinocca_2003 scheme for 
 !! NGWs with non-hydrostatic and rotational effects for GW propagations
 !! and backgroufnd dissipation is represented by the subroutine 
-!! \ref fv3_ugwp_solv2_v0. In the next release of UGWP, additional 
+!! fv3_ugwp_solv2_v0. In the next release of UGWP, additional 
 !! GW-solvers will be implemented along with physics-based triggering 
 !! of waves and stochastic approaches for selection of GW modes 
 !! characterized by horizontal phase velocities, azimuthal directions 
