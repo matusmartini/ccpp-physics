@@ -19,36 +19,28 @@ MODULE module_sf_ruclsm
    public :: lsmruc, ruclsminit, rslf
 
 !> CONSTANT PARAMETERS
-!! @{
       real (kind=kind_phys), parameter :: P1000mb = 100000.
       real (kind=kind_phys), parameter :: xls     = 2.85E6
       real (kind=kind_phys), parameter :: rhowater= 1000.
       real (kind=kind_phys), parameter :: piconst = 3.1415926535897931
       real (kind=kind_phys), parameter :: r_v     = 4.6150e+2
-!! @}
 
 !> VEGETATION PARAMETERS
-!! @{
         INTEGER :: LUCATS
         integer, PARAMETER :: NLUS=50
         CHARACTER*8 LUTYPE
-!! @}
 
 !> SOIL PARAMETERS
-!! @{
         INTEGER :: SLCATS
         INTEGER, PARAMETER :: NSLTYPE=30
         CHARACTER*8 SLTYPE
-!! @}
 
 !> LSM GENERAL PARAMETERS
-!! @{
         INTEGER :: SLPCATS
         INTEGER, PARAMETER :: NSLOPE=30
         REAL ::  SBETA_DATA,FXEXP_DATA,CSOIL_DATA,SALP_DATA,REFDK_DATA,    &
                  REFKDT_DATA,FRZK_DATA,ZBOT_DATA,  SMLOW_DATA,SMHIGH_DATA, &
                         CZIL_DATA
-!! @}
 
 
 CONTAINS
@@ -57,10 +49,9 @@ CONTAINS
 !>\ingroup lsm_ruc_group
 !> The RUN LSM model is described in Smirnova et al.(1997) 
 !! \cite Smirnova_1997 and Smirnova et al.(2000) \cite Smirnova_2000 
-!>\section gen_lsmruc GSD RUC LSM General Algorithm
-!! @{
+!>\section gen_lsmruc_ga RUC LSM General Algorithm
     SUBROUTINE LSMRUC(                                           &
-                   DT,init,restart,KTAU,iter,NSL,                &
+                   DT,init,lsm_cold_start,KTAU,iter,NSL,         &
                    graupelncv,snowncv,rainncv,raincv,            &
                    ZS,RAINBL,SNOW,SNOWH,SNOWC,FRZFRAC,frpcpn,    &
                    rhosnf,precipfr,                              &
@@ -97,7 +88,7 @@ CONTAINS
 !-----------------------------------------------------------------
 !-- DT            time step (second)
 !        init - flag for initialization
-!     restart - flag for restart run
+!lsm_cold_start - flag for cold start run
 !        ktau - number of time step
 !        NSL  - number of soil layers
 !        NZS  - number of levels in soil
@@ -166,7 +157,7 @@ CONTAINS
 !   INTEGER,     PARAMETER            ::     nddzs=2*(nzss-2)
 
    REAL,       INTENT(IN   )    ::     DT
-   LOGICAL,    INTENT(IN   )    ::     myj,frpcpn,init,restart
+   LOGICAL,    INTENT(IN   )    ::     myj,frpcpn,init,lsm_cold_start
    INTEGER,    INTENT(IN   )    ::     NLCAT, NSCAT ! , mosaic_lu, mosaic_soil
    INTEGER,    INTENT(IN   )    ::     ktau, iter, nsl, isice, iswater, &
                                        ims,ime, jms,jme, kms,kme, &
@@ -423,7 +414,7 @@ CONTAINS
 !> - Initialize soil/vegetation parameters
 !--- This is temporary until SI is added to mass coordinate ---!!!!!
 
-     if(init .and. (.not. restart) .and. iter == 1) then
+     if(init .and. (lsm_cold_start) .and. iter == 1) then
      DO J=jts,jte
          DO i=its,ite
 !            do k=1,nsl
@@ -708,8 +699,7 @@ CONTAINS
     ENDIF
  
 !> - Call soilvegin() to initialize soil and surface properties
-     IF((XLAND(I,J)-1.5).LT.0..and. xice(i,j).lt.xice_threshold)THEN
-     !-- land
+     !-- land or ice
        CALL SOILVEGIN  ( debug_print, &
                        soilfrac,nscat,shdmin(i,j),shdmax(i,j),mosaic_lu, mosaic_soil,&
                        NLCAT,ILAND,ISOIL,iswater,MYJ,IFOREST,lufrac,VEGFRA(I,J),     &
@@ -724,16 +714,10 @@ CONTAINS
          print *,'after SOILVEGIN - z0,znt(1,26),lai(1,26)',z0(i,j),znt(i,j),lai(i,j)
 
       if(init)then
-!         print *,'NLCAT,iland,lufrac,EMISSL(I,J),PC(I,J),ZNT(I,J),LAI(I,J)', &
-!                  NLCAT,iland,lufrac,EMISSL(I,J),PC(I,J),ZNT(I,J),LAI(I,J),i,j
          print *,'NLCAT,iland,EMISSL(I,J),PC(I,J),ZNT(I,J),LAI(I,J)', &
                   NLCAT,iland,EMISSL(I,J),PC(I,J),ZNT(I,J),LAI(I,J),i,j
-
-!         print *,'NSCAT,soilfrac,QWRTZ,RHOCS,BCLH,DQM,KSAT,PSIS,QMIN,REF,WILT',&
-!                 NSCAT,soilfrac,QWRTZ,RHOCS,BCLH,DQM,KSAT,PSIS,QMIN,REF,WILT,i,j
          print *,'NSCAT,QWRTZ,RHOCS,BCLH,DQM,KSAT,PSIS,QMIN,REF,WILT',&
                  NSCAT,QWRTZ,RHOCS,BCLH,DQM,KSAT,PSIS,QMIN,REF,WILT,i,j
-
       endif
     ENDIF
 
@@ -784,7 +768,6 @@ CONTAINS
          print *,'NROOT, meltfactor, iforest, ivgtyp, i,j ', nroot,meltfactor,iforest,ivgtyp(I,J),I,J
     ENDIF
 
-     ENDIF ! land
 !!*** SET ZERO-VALUE FOR SOME OUTPUT DIAGNOSTIC ARRAYS
 !    if(i.eq.397.and.j.eq.562) then
 !        print *,'RUC LSM - xland(i,j),xice(i,j),snow(i,j)',i,j,xland(i,j),xice(i,j),snow(i,j)
@@ -1164,7 +1147,6 @@ endif
 
 !-----------------------------------------------------------------
    END SUBROUTINE LSMRUC
-!! @}
 !-----------------------------------------------------------------
 
 !>\ingroup lsm_ruc_group
@@ -2589,21 +2571,7 @@ endif
      ! print *,'alfa=',alfa, exp(G0_P*psit/r_v/SOILT)
 !      endif
         alfa=1.
-! field capacity
-! 20jun18 - beta in Eq. (5) is called soilres in the code - it limits soil evaporation
-! when soil moisture is below field capacity.  [Lee and Pielke, 1992]
-! This formulation agrees with obsevations when top layer is < 2 cm thick.
-! Soilres = 1 for snow, glaciers and wetland.
-!        fc=ref  - suggested in the paper
-!        fc=max(qmin,ref*0.5) ! used prior to 20jun18 change
-! Switch from ref*0.5 to ref*0.25 will reduce soil resistance, increase direct
-! evaporation, effects sparsely vegetated areas--> cooler during the day
-!        fc=max(qmin,ref*0.25)  ! 
-! For now we'll go back to ref*0.5
-! 3feb21 - in RRFS testing (fv3-based), ref*0.5 gives too much direct
-!          evaporation. Therefore , it is replaced with ref*0.7.
-        !fc=max(qmin,ref*0.5)
-        fc=max(qmin,ref*0.7)
+        fc=ref
         fex_fc=1.
       if((soilmois(1)+qmin) > fc .or. (qvatm-qvg) > 0.) then
         soilres = 1.
@@ -6286,10 +6254,10 @@ print *,'INFMAX,INFMAX1,HYDRO(1)*SOILIQW(1),-TOTLIQ', &
         if((ws-a).lt.0.12)then
            diffu(K)=0.
         else
-           H=max(0.,(soilmoism(K)+qmin-a)/(max(1.e-8,(dqm-a))))
+           H=max(0.,(soilmoism(K)+qmin-a)/(max(1.e-8,(ws-a)))) 
            facd=1.
         if(a.ne.0.)facd=1.-a/max(1.e-8,soilmoism(K))
-          ame=max(1.e-8,dqm-riw*soilicem(K))
+          ame=max(1.e-8,ws-riw*soilicem(K))
 !--- DIFFU is diffusional conductivity of soil water
           diffu(K)=-BCLH*KSAT*PSIS/ame*                             &
                   (ws/ame)**3.                                     &
@@ -7052,7 +7020,7 @@ print *,'INFMAX,INFMAX1,HYDRO(1)*SOILIQW(1),-TOTLIQ', &
 !> This subroutine computes liquid and forezen soil moisture from the
 !! total soil moisture, and also computes soil moisture availability in
 !! the top soil layer.
-  SUBROUTINE RUCLSMINIT( debug_print, slmsk,                       &
+  SUBROUTINE RUCLSMINIT( debug_print, landfrac, fice, min_seaice,  &
                      nzs, isltyp, ivgtyp, mavail,                  &
                      sh2o, smfr3d, tslb, smois,                    &
                      ims,ime, jms,jme, kms,kme,                    &
@@ -7065,7 +7033,8 @@ print *,'INFMAX,INFMAX1,HYDRO(1)*SOILIQW(1),-TOTLIQ', &
 #endif
    IMPLICIT NONE
    LOGICAL,  INTENT(IN   )   ::  debug_print
-   REAL, DIMENSION( ims:ime),  INTENT(IN   )   :: slmsk
+   REAL, DIMENSION( ims:ime),  INTENT(IN   )   :: landfrac, fice
+   REAL,                       INTENT(IN   )   :: min_seaice
 
    INTEGER,  INTENT(IN   )   ::     &
                                     ims,ime, jms,jme, kms,kme,  &
@@ -7125,7 +7094,7 @@ print *,'INFMAX,INFMAX1,HYDRO(1)*SOILIQW(1),-TOTLIQ', &
        ! has isltyp=14 for water
        if (isltyp(i,j) == 0) isltyp(i,j)=14
      
-       if(slmsk(i) == 1. ) then
+       if(landfrac(i) > 0. ) then
        !-- land
        !-- Computate volumetric content of ice in soil
        !-- and initialize MAVAIL
@@ -7158,7 +7127,7 @@ print *,'INFMAX,INFMAX1,HYDRO(1)*SOILIQW(1),-TOTLIQ', &
            endif
          ENDDO
 
-       elseif( slmsk(i) == 2.) then
+       elseif( fice(i) > min_seaice) then
        !-- ice
          mavail(i,j) = 1.
          DO L=1,NZS

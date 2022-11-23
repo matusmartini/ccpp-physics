@@ -1,5 +1,5 @@
 !>\file GFS_rad_time_vary.fv3.F90
-!!  Contains code related to GFS physics suite setup (radiation part of time_vary_step)
+!!  Contains code related to GFS radiation suite setup (radiation part of time_vary_step)
    module GFS_rad_time_vary
 
       implicit none
@@ -19,12 +19,12 @@
       end subroutine GFS_rad_time_vary_init
 
 !>\defgroup mod_GFS_rad_time_vary GFS Radiation Time Update
+!! This module contains code related to GFS radiation setup.
 !> @{
 !> \section arg_table_GFS_rad_time_vary_timestep_init Argument Table
 !! \htmlinclude GFS_rad_time_vary_timestep_init.html
 !!
-      subroutine GFS_rad_time_vary_timestep_init (nthrds, blksz, lrseeds, &
-               rseeds,      &
+      subroutine GFS_rad_time_vary_timestep_init (lrseeds, rseeds,                     &
               lslwr, lsswr, isubc_lw, isubc_sw, icsdsw, icsdlw, cnx, cny, isc, jsc,    &
               imap, jmap, sec, kdt, imp_physics, imp_physics_zhao_carr, ps_2delt,      &
               ps_1delt, t_2delt, t_1delt, qv_2delt, qv_1delt, t, qv, ps, errmsg, errflg)
@@ -37,8 +37,6 @@
          implicit none
 
          ! Interface variables
-         integer,                intent(in)    :: nthrds
-         integer,                intent(in)    :: blksz(:)
          logical,                intent(in)    :: lrseeds
          integer,                intent(in)    :: rseeds(:,:)
          integer,                intent(in)    :: isubc_lw, isubc_sw, cnx, cny, isc, jsc, kdt
@@ -59,7 +57,7 @@
 
          ! Local variables
          type (random_stat) :: stat
-         integer :: ix, nb, j, i, nblks, ipseed
+         integer :: ix, j, i, ipseed
          integer :: numrdm(cnx*cny*2)
 
          ! Initialize CCPP error handling variables
@@ -68,52 +66,35 @@
 
          if (lsswr .or. lslwr) then
 
-           nblks = size(blksz)
-
            !--- call to GFS_radupdate_run is now in GFS_rrtmg_setup_run
 
 !$OMP parallel num_threads(nthrds) default(none)        &
 !$OMP          private (nb,ix,i,j)                      &
 !$OMP          shared (lrseeds,isubc_lw,isubc_sw,ipsdlim,ipsd0,ipseed) &
-!$OMP          shared (cnx,cny,sec,numrdm,stat,nblks,isc,jsc)  &
-!$OMP          shared (blksz,icsdsw,icsdlw,jmap,imap,rseeds)
+!$OMP          shared (cnx,cny,sec,numrdm,stat,isc,jsc)  &
+!$OMP          shared (icsdsw,icsdlw,jmap,imap,rseeds)
 
            !--- set up random seed index in a reproducible way for entire cubed-sphere face (lat-lon grid)
            if ((isubc_lw==2) .or. (isubc_sw==2)) then
-!NRL If random seeds supplied by NEPTUNE
+             !NRL If random seeds supplied by NEPTUNE
              if(lrseeds) then
-!$OMP single
-          ! jm 20211207, these are all globally dimensioned over blocks
-          ! so it's sufficient to copy them wholesale, as long as this is
-          ! a single threaded region (which it is)
-               icsdsw(:) = rseeds(:,1)
-               icsdlw(:) = rseeds(:,2)
-          !     do nb=1,nblks
-          !       do ix=1,blksz(nb)
-          !         icsdsw(ix) = rseeds(ix,1)
-          !         icsdlw(ix) = rseeds(ix,2)
-          !       end do
-          !     enddo
-!$OMP end single
+               do ix=1,size(jmap)
+                 icsdsw(ix) = rseeds(ix,1)
+                 icsdlw(ix) = rseeds(ix,2)
+               enddo
              else
-!$OMP single
                ipseed = mod(nint(con_100*sqrt(sec)), ipsdlim) + 1 + ipsd0
                call random_setseed (ipseed, stat)
                call random_index (ipsdlim, numrdm, stat)
-!$OMP end single
 
-!$OMP do schedule (dynamic,1)
-               do nb=1,nblks
-                 do ix=1,blksz(nb)
-                   j = jmap(ix)
-                   i = imap(ix)
-                   !--- for testing purposes, replace numrdm with '100'
-                   icsdsw(ix) = numrdm(i+isc-1 + (j+jsc-2)*cnx)
-                   icsdlw(ix) = numrdm(i+isc-1 + (j+jsc-2)*cnx + cnx*cny)
-                 enddo
+               do ix=1,size(jmap)
+                 j = jmap(ix)
+                 i = imap(ix)
+                 !--- for testing purposes, replace numrdm with '100'
+                 icsdsw(ix) = numrdm(i+isc-1 + (j+jsc-2)*cnx)
+                 icsdlw(ix) = numrdm(i+isc-1 + (j+jsc-2)*cnx + cnx*cny)
                enddo
-!$OMP end do
-             end if
+             end if !lrseeds
            endif  ! isubc_lw and isubc_sw
 
 !$OMP end parallel

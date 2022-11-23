@@ -4,27 +4,27 @@
 !! eddy-diffusion mass-flux (TKE-EDMF) parameterization (by Jongil Han).
 
       module satmedmfvdifq
-
-      use mod_mfpbltq, only: mfpbltq
-      use mod_mfscuq,  only: mfscuq
-      use mod_tridi,   only: tridit, tridin, tridi2
-
+      use mfpbltq_mod
+      use tridi_mod
+      use mfscuq_mod
       contains
 
-!> \defgroup satmedmfvdifq GFS Scale-aware TKE-based Moist Eddy-Diffusivity Mass-flux (TKE-EDMF, updated version) Scheme Module
-!! @{
+!> \defgroup module_satmedmfvdifq GFS TKE-EDMF PBL Module
+!! This file contains the CCPP-compliant SATMEDMF scheme (updated version) which
+!! computes subgrid vertical turbulence mixing using scale-aware TKE-based moist
+!! eddy-diffusion mass-flux (TKE-EDMF) parameterization (by Jongil Han).
+!> @{
 !! \brief This subroutine contains all of the logic for the
 !! scale-aware TKE-based moist eddy-diffusion mass-flux (TKE-EDMF, updated version) scheme.
 !! For local turbulence mixing, a TKE closure model is used.
 !! Updated version of satmedmfvdif.f (May 2019) to have better low level
 !! inversion, to reduce the cold bias in lower troposphere,
 !! and to reduce the negative wind speed bias in upper troposphere
-
 !> \section arg_table_satmedmfvdifq_init Argument Table
 !! \htmlinclude satmedmfvdifq_init.html
 !!
-      subroutine satmedmfvdifq_init (satmedmf,
-     &                               isatmedmf,isatmedmf_vdifq,
+      subroutine satmedmfvdifq_init (satmedmf,                          &
+     &                               isatmedmf,isatmedmf_vdifq,         &
      &                               errmsg,errflg)
 
       logical, intent(in   ) :: satmedmf
@@ -53,9 +53,6 @@
 
       end subroutine satmedmfvdifq_init
 
-      subroutine satmedmfvdifq_finalize ()
-      end subroutine satmedmfvdifq_finalize
-
 !> \section arg_table_satmedmfvdifq_run Argument Table
 !! \htmlinclude satmedmfvdifq_run.html
 !!
@@ -70,18 +67,17 @@
 !! -# A mass-flux approach is also used to represent the stratocumulus-top-induced turbulence
 !! (mfscuq.f).
 !! \section detail_satmedmfvidfq GFS satmedmfvdifq Detailed Algorithm 
-!! @{
-      subroutine satmedmfvdifq_run(im,km,ntrac,ntcw,ntrw,ntiw,ntke,     &
-     &     grav,rd,cp,rv,hvap,hfus,fv,eps,epsm1,                        &
-     &     dv,du,tdt,rtg,u1,v1,t1,q1,swh,hlw,xmu,garea,zvfun,           &
+      subroutine satmedmfvdifq_run(im,km,progsigma,ntrac,ntcw,ntrw,     &
+     &     ntiw,ntke,grav,rd,cp,rv,hvap,hfus,fv,eps,epsm1,              &
+     &     dv,du,tdt,rtg,tmf,u1,v1,t1,q1,swh,hlw,xmu,garea,zvfun,       &
      &     psk,rbsoil,zorl,u10m,v10m,fm,fh,                             &
      &     tsea,heat,evap,stress,spd1,kpbl,                             &
      &     prsi,del,prsl,prslk,phii,phil,delt,                          &
      &     dspheat,dusfc,dvsfc,dtsfc,dqsfc,hpbl,dkt,dku,elm,            &
      &     kinver,xkzm_m,xkzm_h,xkzm_s,dspfac,bl_upfr,bl_dnfr,          &
-     &     sfc_rlm,                                                     &
-     &     ntoz,du3dt,dv3dt,dt3dt,dq3dt,do3dt,gen_tend,ldiag3d,qdiag3d, &
-     &     ntqv,                                                        &
+     &     rlmx,elmx,sfc_rlm,                                           &
+     &     ntqv,dtend,dtidx,index_of_temperature,index_of_x_wind,       &
+     &     index_of_y_wind,index_of_process_pbl,gen_tend,ldiag3d,       &
      &     errmsg,errflg)
 !
       use machine  , only : kind_phys
@@ -91,18 +87,19 @@
 !
 !----------------------------------------------------------------------
       integer, intent(in)  :: im, km, ntrac, ntcw, ntrw, ntiw,          &
-     &                        ntke, ntqv, ntoz
+     &                        ntke, ntqv
       integer, intent(in)  :: sfc_rlm
       integer, intent(in)  :: kinver(:)
       integer, intent(out) :: kpbl(:)
-      logical, intent(in)  :: gen_tend,ldiag3d,qdiag3d
+      logical, intent(in)  :: gen_tend,ldiag3d,progsigma
 !
       real(kind=kind_phys), intent(in) :: grav,rd,cp,rv,hvap,hfus,fv,   &
      &                                    eps,epsm1
       real(kind=kind_phys), intent(in) :: delt, xkzm_m, xkzm_h, xkzm_s
       real(kind=kind_phys), intent(in) :: dspfac, bl_upfr, bl_dnfr
+      real(kind=kind_phys), intent(in) :: rlmx, elmx
       real(kind=kind_phys), intent(inout) :: dv(:,:),     du(:,:),      &
-     &                     tdt(:,:),    rtg(:,:,:)
+     &                     tdt(:,:),    rtg(:,:,:), tmf(:,:)
       real(kind=kind_phys), intent(in) ::                               &
      &                     u1(:,:),     v1(:,:),                        &
      &                     t1(:,:),     q1(:,:,:),                      &
@@ -118,10 +115,9 @@
      &                     prsi(:,:), del(:,:),                         &
      &                     prsl(:,:),   prslk(:,:),                     &
      &                     phii(:,:), phil(:,:)
-      real(kind=kind_phys), intent(inout), dimension(:,:) ::            &
-     &                     du3dt(:,:),    dv3dt(:,:),                   &
-     &                     dt3dt(:,:),    dq3dt(:,:),                   &
-     &                     do3dt(:,:)
+      real(kind=kind_phys), intent(inout), dimension(:,:,:) :: dtend
+      integer, intent(in) :: dtidx(:,:), index_of_temperature,          &
+     &       index_of_x_wind, index_of_y_wind, index_of_process_pbl
       real(kind=kind_phys), intent(out) ::                              &
      &                     dusfc(:),     dvsfc(:),                      &
      &                     dtsfc(:),     dqsfc(:),                      &
@@ -141,10 +137,10 @@
 !***
 !***  local variables
 !***
-      integer i,is,k,n,ndt,km1,kmpbl,kmscu,ntrac1
+      integer i,is,k,n,ndt,km1,kmpbl,kmscu,ntrac1,idtend
       integer kps,kbx,kmx
       integer lcld(im),kcld(im),krad(im),mrad(im)
-      integer kx1(im), kpblx(im)
+      integer kx1(im), kb1(im), kpblx(im)
 !
       real(kind=kind_phys) tke(im,km),  tkeh(im,km-1)
 !
@@ -205,6 +201,7 @@
      &                     q_diff(im,0:km-1,ntrac-1)
       real(kind=kind_phys) rrkp, phkp
       real(kind=kind_phys) tsumn(im), tsump(im), rtnp(im)
+      real(kind=kind_phys) sfcpbl(im)
 !
       logical  pblflg(im), sfcflg(im), flg(im)
       logical  scuflg(im), pcnvflg(im)
@@ -233,7 +230,6 @@
      &                     rdt,     rdz,    qmin,   qlmin,
      &                     rimin,   rbcr,   rbint,  tdzmin,
      &                     rlmn,    rlmn0,  rlmn1,  rlmn2,
-     &                     rlmx,    elmx,
      &                     ttend,   utend,  vtend,  qtend,
      &                     zfac,    zfmin,  vk,     spdk2,
      &                     tkmin,   tkbmx,  xkgdx,
@@ -241,6 +237,8 @@
      &                     zlup,    zldn,   bsum,   cs0,
      &                     tem,     tem1,   tem2,   tem3,
      &                     ptem,    ptem0,  ptem1,  ptem2
+!
+      real(kind=kind_phys) slfac
 !
       real(kind=kind_phys) ck0, ck1, ch0, ch1, ce0, rchck
 !
@@ -252,10 +250,9 @@
 !!
       parameter(wfac=7.0,cfac=4.5)
       parameter(gamcrt=3.,gamcrq=0.,sfcfrac=0.1)
-      parameter(vk=0.4,rimin=-100.)
+      parameter(vk=0.4,rimin=-100.,slfac=0.1)
       parameter(rbcr=0.25,zolcru=-0.02,tdzmin=1.e-3)
       parameter(rlmn=30.,rlmn0=5.,rlmn1=5.,rlmn2=10.)
-      parameter(rlmx=300.,elmx=300.)
       parameter(prmin=0.25,prmax=4.0)
       parameter(pr0=1.0,prtke=1.0,prscu=0.67)
       parameter(f0=1.e-4,crbmin=0.15,crbmax=0.35)
@@ -320,6 +317,14 @@
           zm(i,k) = zi(i,k+1)
         enddo
       enddo
+!>  - Initialize variables needed for prognostic cumulus closure
+      if(progsigma)then
+         do k=1,km
+            do i=1,im
+               tmf(i,k) = 0.
+            enddo
+         enddo
+      endif
 !>  - Compute horizontal grid size (\p gdx)
       do i=1,im
         gdx(i) = sqrt(garea(i))
@@ -384,7 +389,8 @@
             tem2      = tem1 * tem1 * 10.0
             tem2      = min(1.0, exp(-tem2))
             xkzo(i,k) = xkzm_hx(i) * tem2
-!                               vertical background diffusivity for momentum
+!                               vertical background diffusivity for
+!                               momentum
             if (ptem >= xkzm_s) then
               xkzmo(i,k) = xkzm_mx(i)
               kx1(i)     = k + 1
@@ -397,7 +403,7 @@
           endif
         enddo
       enddo
-
+!
 !>  - Some output variables and logical flags are initialized
       do i = 1,im
          z0(i)    = 0.01 * zorl(i)
@@ -587,7 +593,7 @@
       enddo
       enddo
 !
-! Find pbl height based on bulk richardson number (mrf pbl scheme)
+! Find first quess pbl height based on bulk richardson number (mrf pbl scheme)
 !   and also for diagnostic purpose
 !
       do i=1,im
@@ -635,6 +641,73 @@
         hpbl(i) = hpblx(i)
         kpbl(i) = kpblx(i)
         if(kpbl(i) <= 1) pblflg(i)=.false.
+      enddo
+!
+! update thermal at a level of slfac*hpbl for unstable pbl
+!
+      do i=1,im
+        sfcpbl(i) = slfac * hpbl(i)
+        kb1(i) = 1
+        flg(i)  = .false.
+        if(pblflg(i)) then
+          flg(i)  = .true.
+        endif
+      enddo
+      do k = 2, kmpbl
+        do i=1,im
+          if (flg(i) .and. zl(i,k) <= sfcpbl(i)) then
+            kb1(i) = k
+          else
+            flg(i) = .false.
+          endif
+        enddo
+      enddo
+      do i=1,im
+        if(pblflg(i)) kb1(i)=min(kb1(i),kpbl(i))
+      enddo
+!
+! re-compute pbl height with the updated thermal
+!
+      do i=1,im
+        flg(i)  = .true.
+        if(pblflg(i) .and. kb1(i) > 1) then
+          flg(i)  = .false.
+          rbup(i) = rbsoil(i)
+!         thermal(i) = thvx(i,kb1(i))
+          thermal(i) = thlvx(i,kb1(i))
+          kpblx(i) = kb1(i)
+          hpblx(i) = zl(i,kb1(i))
+        endif
+      enddo
+      do k = 2, kmpbl
+      do i = 1, im
+        if(.not.flg(i) .and. k > kb1(i)) then
+          rbdn(i) = rbup(i)
+          spdk2   = max((u1(i,k)**2+v1(i,k)**2),1.)
+!         rbup(i) = (thvx(i,k)-thermal(i))*
+!    &              (g*zl(i,k)/thvx(i,1))/spdk2
+          rbup(i) = (thlvx(i,k)-thermal(i))*
+     &              (g*zl(i,k)/thlvx(i,1))/spdk2
+          kpblx(i) = k
+          flg(i)  = rbup(i) > crb(i)
+        endif
+      enddo
+      enddo
+      do i = 1,im
+        if(pblflg(i) .and. kb1(i) > 1) then
+          k = kpblx(i)
+          if(rbdn(i) >= crb(i)) then
+            rbint = 0.
+          elseif(rbup(i) <= crb(i)) then
+            rbint = 1.
+          else
+            rbint = (crb(i)-rbdn(i))/(rbup(i)-rbdn(i))
+          endif
+          hpblx(i) = zl(i,k-1) + rbint*(zl(i,k)-zl(i,k-1))
+          if(hpblx(i) < zi(i,kpblx(i))) kpblx(i)=kpblx(i)-1
+          hpbl(i) = hpblx(i)
+          kpbl(i) = kpblx(i)
+        endif
       enddo
 !
 !> ## Compute Monin-Obukhov similarity parameters
@@ -717,6 +790,38 @@
            thermal(i)= thermal(i) + tem
          endif
       enddo
+      do k = 2, kmpbl
+      do i = 1, im
+        if(.not.flg(i)) then
+          rbdn(i) = rbup(i)
+          spdk2   = max((u1(i,k)**2+v1(i,k)**2),1.)
+          rbup(i) = (thlvx(i,k)-thermal(i))*
+     &              (g*zl(i,k)/thlvx(i,1))/spdk2
+          kpbl(i) = k
+          flg(i)  = rbup(i) > crb(i)
+        endif
+      enddo
+      enddo
+      do i = 1,im
+        if(pcnvflg(i)) then
+           k = kpbl(i)
+           if(rbdn(i) >= crb(i)) then
+             rbint = 0.
+           elseif(rbup(i) <= crb(i)) then
+             rbint = 1.
+           else
+             rbint = (crb(i)-rbdn(i))/(rbup(i)-rbdn(i))
+           endif
+           hpbl(i) = zl(i,k-1) + rbint*(zl(i,k)-zl(i,k-1))
+           if(hpbl(i) < zi(i,kpbl(i))) then
+             kpbl(i) = kpbl(i) - 1
+           endif
+           if(kpbl(i) <= 1) then
+              pcnvflg(i) = .false.
+              pblflg(i) = .false.
+           endif
+        endif
+      enddo
 !
 !  enhance the pbl height by considering the thermal excess
 !     (overshoot pbl top)
@@ -730,7 +835,7 @@
       enddo
       do k = 2, kmpbl
       do i = 1, im
-        if(.not.flg(i)) then
+        if(.not.flg(i) .and. k > kb1(i)) then
           rbdn(i) = rbup(i)
           spdk2   = max((u1(i,k)**2+v1(i,k)**2),1.)
           rbup(i) = (thlvx(i,k)-thermal(i))*
@@ -949,12 +1054,15 @@
           do n = k, km1
             if(mlenflg) then
               dz = zl(i,n+1) - zl(i,n)
-              tem1 = 0.5*(thvx(i,n+1) + thvx(i,n))
+!             tem1 = 0.5 * (thvx(i,n) + thvx(i,n+1))
+!!            tem1 = 0.5 * (thlvx(i,n) + thlvx(i,n+1))
               tem3=((u1(i,n+1)-u1(i,n))/dz)**2
-     &            +((v1(i,n+1)-v1(i,n))/dz)**2
+              tem3=tem3+((v1(i,n+1)-v1(i,n))/dz)**2
               tem3=cs0*sqrt(tem3)*sqrt(tke(i,k))
-              ptem = ( gothvx(i,k)*(tem1 - thvx(i,k)) + tem3)*dz
-
+              ptem = (gotvx(i,n)*(thvx(i,n+1)-thvx(i,k))+tem3)*dz
+!             ptem = (gotvx(i,n)*(thlvx(i,n+1)-thlvx(i,k)+tem3)*dz
+!             ptem = (gotvx(i,n)*(tem1-thvx(i,k))+tem3)*dz
+!!            ptem = (gotvx(i,n)*(tem1-thlvx(i,k)+tem3)*dz
               bsum = bsum + ptem
               zlup = zlup + dz
               if(bsum >= tke(i,k)) then
@@ -978,16 +1086,23 @@
               if(n == 1) then
                 dz = zl(i,1)
                 tem1 = tsea(i)*(1.+fv*max(q1(i,1,1),qmin))
-                tem3 = (u1(i,1)/dz)**2 + (v1(i,1)/dz)**2
+!               tem1 = 0.5 * (tem1 + thvx(i,n))
+!!              tem1 = 0.5 * (tem1 + thlvx(i,n))
+                tem3 = (u1(i,1)/dz)**2
+                tem3 = tem3+(v1(i,1)/dz)**2
                 tem3 = cs0*sqrt(tem3)*sqrt(tke(i,1))
               else
                 dz = zl(i,n) - zl(i,n-1)
-                tem1 = 0.5*(thvx(i,n-1) + thvx(i,n))
-                tem3=((u1(i,n+1)-u1(i,n))/dz)**2
-     &              +((v1(i,n+1)-v1(i,n))/dz)**2
+                tem1 = thvx(i,n-1)
+!               tem1 = thlvx(i,n-1)
+!               tem1 = 0.5 * (thvx(i,n-1) + thvx(i,n))
+!!              tem1 = 0.5 * (thlvx(i,n-1) + thlvx(i,n))
+                tem3 = ((u1(i,n)-u1(i,n-1))/dz)**2
+                tem3 = tem3+((v1(i,n)-v1(i,n-1))/dz)**2
                 tem3 = cs0*sqrt(tem3)*sqrt(tke(i,k))
               endif
-              ptem = (-gothvx(i,k)*(tem1 - thvx(i,k)) + tem3)*dz
+              ptem = (gotvx(i,n)*(thvx(i,k)-tem1)+tem3)*dz
+!             ptem = (gotvx(i,n)*(thlvx(i,k)-tem1)+tem3)*dz
               bsum = bsum + ptem
               zldn = zldn + dz
               if(bsum >= tke(i,k)) then
@@ -1618,6 +1733,13 @@ c
             rtg(i,k,ntke) = rtg(i,k,ntke)+qtend
          enddo
       enddo
+      if(ldiag3d) then
+         idtend = dtidx(ntke+100,index_of_process_pbl)
+         if(idtend>0) then
+            dtend(1:im,1:km,idtend) = dtend(1:im,1:km,idtend) +         &
+     &        (f1(1:im,1:km)-q1(1:im,1:km,ntke))*rdt
+         endif
+      endif
 c
 !> ## Compute tridiagonal matrix elements for heat and moisture
 c
@@ -2050,23 +2172,37 @@ c
 !           dqsfc(i)   = dqsfc(i)+conq*del(i,k)*qtend
          enddo
       enddo
+
+      if(progsigma)then
+         do  k = 1,km
+            do i = 1,im
+               tmf(i,k)=(f2(i,k)-q1(i,k,1))*rdt
+            enddo
+         enddo
+      endif
+
       do i = 1,im
         dtsfc(i) = rho_a(i) * cp * heat(i)
         dqsfc(i) = rho_a(i) * hvap * evap(i)
       enddo
 !
       if(ldiag3d .and. .not. gen_tend) then
-        do  k = 1,km
-          do i = 1,im
-            ttend      = (f1(i,k)-t1(i,k))*rdt
-            dt3dt(i,k) = dt3dt(i,k)+ttend*delt
+        idtend = dtidx(index_of_temperature,index_of_process_pbl)
+        if(idtend>=1) then
+          do  k = 1,km
+            do i = 1,im
+              ttend      = (f1(i,k)-t1(i,k))*rdt
+              dtend(i,k,idtend) = dtend(i,k,idtend)+ttend*delt
+            enddo
           enddo
-        enddo
-        if(qdiag3d) then
+        endif
+        ! Send tendencies just for QV; other tracers are below.
+        idtend = dtidx(100+ntqv,index_of_process_pbl)
+        if(idtend>=1) then
           do  k = 1,km
             do i = 1,im
               qtend      = (f2(i,k)-q1(i,k,1))*rdt
-              dq3dt(i,k) = dq3dt(i,k)+qtend*delt
+              dtend(i,k,idtend) = dtend(i,k,idtend)+qtend*delt
             enddo
           enddo
         endif
@@ -2082,14 +2218,21 @@ c
             enddo
           enddo
         enddo
-        if(ldiag3d .and. .not. gen_tend .and. qdiag3d .and. ntoz>0) then
-          n=ntoz
-          is = (n-1) * km
-          do k = 1, km
-            do i = 1, im
-              qtend = (f2(i,k+is)-q1(i,k,n))*rdt
-              do3dt(i,k) = do3dt(i,k)+qtend*delt
-            enddo
+        if(ldiag3d .and. .not. gen_tend) then
+          ! Send tendencies for all tracers that were selected.
+          do n = 2, ntrac1
+            is = (n-1) * km
+            idtend = dtidx(n+100,index_of_process_pbl)
+            if(idtend>=1) then
+              if(n/=ntke) then
+                do k = 1, km
+                  do i = 1, im
+                    qtend = (f2(i,k+is)-q1(i,k,n))*rdt
+                    dtend(i,k,idtend) = dtend(i,k,idtend)+qtend*delt
+                  enddo
+                enddo
+              endif
+            endif
           enddo
         endif
       endif
@@ -2106,12 +2249,15 @@ c
           enddo
         enddo
         if(ldiag3d .and. .not. gen_tend) then
-          do k = 1,km1
-            do i = 1,im
-              ttend = diss(i,k) / cp
-              dt3dt(i,k) = dt3dt(i,k)+dspfac * ttend*delt
+          idtend = dtidx(index_of_temperature,index_of_process_pbl)
+          if(idtend>=1) then
+            do k = 1,km1
+              do i = 1,im
+                ttend = diss(i,k) / cp
+                dtend(i,k,idtend) = dtend(i,k,idtend)+dspfac*ttend*delt
+              enddo
             enddo
-          enddo
+          endif
         endif
       endif
 c
@@ -2195,14 +2341,25 @@ c
       enddo
 !
       if(ldiag3d .and. .not. gen_tend) then
-        do k = 1,km
-          do i = 1,im
-            utend = (f1(i,k)-u1(i,k))*rdt
-            vtend = (f2(i,k)-v1(i,k))*rdt
-            du3dt(i,k) = du3dt(i,k) + utend*delt
-            dv3dt(i,k) = dv3dt(i,k) + vtend*delt
+        idtend = dtidx(index_of_x_wind,index_of_process_pbl)
+        if(idtend>=1) then
+          do k = 1,km
+            do i = 1,im
+              utend = (f1(i,k)-u1(i,k))*rdt
+              dtend(i,k,idtend) = dtend(i,k,idtend) + utend*delt
+            enddo
           enddo
-        enddo
+        endif
+
+        idtend = dtidx(index_of_y_wind,index_of_process_pbl)
+        if(idtend>=1) then
+          do k = 1,km
+            do i = 1,im
+              vtend = (f2(i,k)-v1(i,k))*rdt
+              dtend(i,k,idtend) = dtend(i,k,idtend) + vtend*delt
+            enddo
+          enddo
+        endif
       endif
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -2217,5 +2374,4 @@ c
       return
       end subroutine satmedmfvdifq_run
 !> @}
-!! @}
       end module satmedmfvdifq

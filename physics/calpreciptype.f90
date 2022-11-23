@@ -1,14 +1,13 @@
-      module mod_calpreciptype
-      contains
 !>\file calpreciptype.f90
 !! This file contains the subroutines that calculates dominant precipitation type.
 
+module calpreciptype_mod
+contains
 !>\ingroup gfs_calpreciptype
 !! Foure algorithms are called to calculate dominant precipitation type, and the 
 !!tallies are sumed in calwxt_dominant().
 !!
 !>\section gen_calp GFS calpreciptype General Algorithm
-!! @{
       subroutine calpreciptype(kdt,nrcm,im,ix,lm,lp1,randomno,      &
                                xlat,xlon,                           &
                                gt0,gq0,prsl,prsi,prec,              & !input
@@ -28,6 +27,7 @@
 !  --------------------------------------------------------------------
       use funcphys, only : fpvs,ftdp,fpkap,ftlcl,stma,fthe
       use physcons
+      use machine , only : kind_phys
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
       implicit none
 !
@@ -214,7 +214,6 @@
       deallocate (twet,rh,td)        
       return
       end
-!! @}
 !
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 !>\ingroup gfs_calpreciptype
@@ -223,7 +222,7 @@
 !! temperature (Baldwin et al. 1994 \cite baldwin_et_al_1994)
       subroutine calwxt(lm,lp1,t,q,pmid,pint,              &
                         d608,rog,epsq,zint,iwx,twet)
-      use physcons
+      use machine , only : kind_phys
 ! 
 !     file: calwxt.f
 !     written: 11 november 1993, michael baldwin
@@ -488,7 +487,7 @@
 !      use params_mod
 !      use ctlblk_mod 
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      use physcons
+      use machine , only : kind_phys
       implicit none
 !
       real(kind=kind_phys),parameter :: twice=266.55,rhprcp=0.80,deltag=1.02,             &
@@ -509,7 +508,7 @@
       real(kind=kind_phys)    rhmax,twmax,ptop,dpdrh,twtop,rhtop,wgt1,wgt2,    &
               rhavg,dtavg,dpk,ptw,pbot
 !     real(kind=kind_phys) b,qtmp,rate,qc
-!     real(kind=kind_phys),external :: xmytw  (now inside the module)
+!
 !
 !  initialize.
       icefrac = -9999.
@@ -756,7 +755,7 @@
 !--------------------------------------------------------------------------
       function xmytw(t,td,p)
 !
-      use physcons
+      use machine , only : kind_phys
       implicit none
 !
       integer*4 cflag, l
@@ -881,7 +880,7 @@
 !! \cite bourgouin_2000.
 !of aes (canada) 1992
       subroutine calwxt_bourg(lm,lp1,rn,g,t,q,pmid,pint,zint,ptype)
-      use physcons
+      use machine , only : kind_phys
       implicit none
 !
 !    input:
@@ -1081,7 +1080,7 @@
 !     use params_mod
 !     use ctlblk_mod
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      use physcons
+      use machine , only : kind_phys
       implicit none
 !
 !  list of variables needed
@@ -1312,7 +1311,6 @@
 !! different algorithms and sums them up to give a dominant type.
 !!
 !>\section gen_calwxt_dominant GFS calwxt_dominant General Algorithm
-!! @{
        subroutine calwxt_dominant(nalg,rain,freezr,sleet,snow, &
      &                            domr,domzr,domip,doms)
 !
@@ -1322,7 +1320,7 @@
 !       algorithms and sums them up to give a dominant type
 !
 !- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-      use physcons
+      use machine , only : kind_phys
       implicit none
 !
 !    input:
@@ -1383,5 +1381,4 @@
 !
       return
       end
-!! @}
-      end module mod_calpreciptype
+end module calpreciptype_mod

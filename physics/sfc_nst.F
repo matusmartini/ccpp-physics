@@ -1,4 +1,4 @@
-!>  \file sfc_nst.f
+!>\file sfc_nst.f
 !!  This file contains the GFS NSST model.
 
 !> This module contains the CCPP-compliant GFS near-surface sea temperature scheme.
@@ -6,28 +6,18 @@
 
       contains
 
-! \brief This subroutine is empty since there are no procedures that need to be done to initialize the GFS NSST code.
-!! This subroutine is empty since there are no procedures that need to be done to initialize the GFS NSST code.
-!!
-      subroutine sfc_nst_init
-      end subroutine sfc_nst_init
-
-! \brief This subroutine is empty since there are no procedures that need to be done to finalize the GFS NSST code.
-!! This subroutine is empty since there are no procedures that need to be done to finalize the GFS NSST code.
-!!
-      subroutine sfc_nst_finalize
-      end subroutine sfc_nst_finalize
-
-!>\defgroup gfs_nst_main GFS Near-Surface Sea Temperature Scheme Module
-!> \brief This subroutine calls the Thermal Skin-layer and Diurnal Thermocline models to update the NSST profile.
+!>\defgroup gfs_nst_main_mod GFS Near-Surface Sea Temperature Module
+!! This module contains the CCPP-compliant GFS near-surface sea temperature scheme.
+!> @{
+!! This subroutine calls the Thermal Skin-layer and Diurnal Thermocline models to update the NSST profile.
 !! \section arg_table_sfc_nst_run Argument Table
 !! \htmlinclude sfc_nst_run.html
 !!
-!! \section NSST_general_algorithm GFS Near-Surface Sea Temperature Scheme General Algorithm
-!> @{
+!> \section NSST_general_algorithm GFS Near-Surface Sea Temperature Scheme General Algorithm
       subroutine sfc_nst_run                                            &
      &     ( im, hvap, cp, hfus, jcal, eps, epsm1, rvrdm1, rd, rhw0,    &  ! --- inputs:
      &       pi, tgice, sbc, ps, u1, v1, t1, q1, tref, cm, ch,          &
+     &       lseaspray, fm, fm10,                                       &
      &       prsl1, prslki, prsik1, prslk1, wet, use_flake, xlon,       &
      &       sinlat, stress,                                            &
      &       sfcemis, dlwflx, sfcnsw, rain, timestep, kdt, solhr,xcosz, &
@@ -47,6 +37,7 @@
 !    call sfc_nst                                                       !
 !       inputs:                                                         !
 !          ( im, ps, u1, v1, t1, q1, tref, cm, ch,                      !
+!            lseaspray, fm, fm10,                                       !
 !            prsl1, prslki, wet, use_flake, xlon, sinlat, stress,       !
 !            sfcemis, dlwflx, sfcnsw, rain, timestep, kdt,solhr,xcosz,  !
 !            wind,  flag_iter, flag_guess, nstf_name1, nstf_name4,      !
@@ -89,12 +80,16 @@
 !     tref     - real, reference/foundation temperature ( k )      im   !
 !     cm       - real, surface exchange coeff for momentum (m/s)   im   !
 !     ch       - real, surface exchange coeff heat & moisture(m/s) im   !
+!     lseaspray- logical, .t. for parameterization for sea spray   1    !
+!     fm       - real, a stability profile function for momentum   im   !
+!     fm10     - real, a stability profile function for momentum   im   !
+!                       at 10m                                          !
 !     prsl1    - real, surface layer mean pressure (pa)            im   !
 !     prslki   - real,                                             im   !
 !     prsik1   - real,                                             im   !
 !     prslk1   - real,                                             im   !
 !     wet      - logical, =T if any ocn/lake water (F otherwise)   im   !
-!     use_flake     - logical, =T if any lake otherwise ocn
+!     use_flake- logical, =T if flake model is used for lake       im   !
 !     icy      - logical, =T if any ice                            im   !
 !     xlon     - real, longitude         (radians)                 im   !
 !     sinlat   - real, sin of latitude                             im   !
@@ -190,12 +185,15 @@
       real (kind=kind_phys), intent(in) :: hvap, cp, hfus, jcal, eps,   &
      &       epsm1, rvrdm1, rd, rhw0, sbc, pi, tgice
       real (kind=kind_phys), dimension(:), intent(in) :: ps, u1, v1,    &
-     &       t1, q1, tref, cm, ch, prsl1, prslki, prsik1, prslk1,       &
-     &       xlon,xcosz,                                                &
+     &       t1, q1, tref, cm, ch, fm, fm10,                            &
+     &       prsl1, prslki, prsik1, prslk1, xlon, xcosz,                &
      &       sinlat, stress, sfcemis, dlwflx, sfcnsw, rain, wind
       real (kind=kind_phys), intent(in) :: timestep
       real (kind=kind_phys), intent(in) :: solhr
 
+! For sea spray effect
+      logical, intent(in) :: lseaspray
+!
       logical, dimension(:), intent(in) :: flag_iter, flag_guess, wet,  &
      &                                     use_flake 
 !    &,      icy
@@ -244,14 +242,29 @@
       real(kind=kind_phys) fw,q_warm
       real(kind=kind_phys) t12,alon,tsea,sstc,dta,dtz
       real(kind=kind_phys) zsea1,zsea2,soltim
+      logical do_nst
 
 !  external functions called: iw3jdn
       integer :: iw3jdn
+!
+!  parameters for sea spray effect
+!
+      real (kind=kind_phys) :: f10m, u10m, v10m, ws10, ru10, qss1,
+     &                         bb1, hflxs, evaps, ptem
+!
+!     real (kind=kind_phys), parameter :: alps=0.5, bets=0.5, gams=0.1,
+!     real (kind=kind_phys), parameter :: alps=0.5, bets=0.5, gams=0.0,
+!     real (kind=kind_phys), parameter :: alps=1.0, bets=1.0, gams=0.2,
+      real (kind=kind_phys), parameter :: alps=0.75,bets=0.75,gams=0.15,
+     &                       ws10cr=30., conlf=7.2e-9, consf=6.4e-8
+!
 !======================================================================================================
 cc
       ! Initialize CCPP error handling variables
       errmsg = ''
       errflg = 0
+
+      if (nstf_name1 == 0) return ! No NSST model used
 
       cpinv = one/cp
       hvapi = one/hvap
@@ -261,10 +274,13 @@ cc
 !
 ! flag for open water and where the iteration is on
 !
+      do_nst = .false.
       do i = 1, im
 !       flag(i) = wet(i) .and. .not.icy(i) .and. flag_iter(i)
         flag(i) = wet(i) .and. flag_iter(i) .and. .not. use_flake(i)
+        do_nst  = do_nst .or. flag(i)
       enddo
+      if (.not. do_nst) return
 !
 !  save nst-related prognostic fields for guess run
 !
@@ -636,7 +652,33 @@ cc
           endif
         enddo
       endif                   ! if ( nstf_name1 > 1 ) then
-
+!
+!> - Include sea spray effects
+!
+      do i=1,im
+        if(lseaspray .and. flag(i)) then
+          f10m = fm10(i) / fm(i)
+          u10m = f10m * u1(i)
+          v10m = f10m * v1(i)
+          ws10 = sqrt(u10m*u10m + v10m*v10m)
+          ws10 = max(ws10,1.)
+          ws10 = min(ws10,ws10cr)
+          tem = .015 * ws10 * ws10
+          ru10 = 1. - .087 * log(10./tem)
+          qss1 = fpvs(t1(i))
+          qss1 = eps * qss1 / (prsl1(i) + epsm1 * qss1)
+          tem = rd * cp * t1(i) * t1(i)
+          tem = 1. + eps * hvap * hvap * qss1 / tem
+          bb1 = 1. / tem
+          evaps = conlf * (ws10**5.4) * ru10 * bb1
+          evaps = evaps * rho_a(i) * hvap * (qss1 - q0(i))
+          evap(i) = evap(i) + alps * evaps
+          hflxs = consf * (ws10**3.4) * ru10
+          hflxs = hflxs * rho_a(i) * cp * (tskin(i) - t1(i))
+          ptem = alps - gams
+          hflx(i) = hflx(i) + bets * hflxs - ptem * evaps
+        endif
+      enddo
 !
       do i=1,im
         if ( flag(i) ) then
@@ -652,212 +694,3 @@ cc
       end subroutine sfc_nst_run
 !> @}
       end module sfc_nst
-
-!> This module contains the CCPP-compliant GFS near-surface sea temperature pre
-!! interstitial codes.
-      module sfc_nst_pre
-
-      contains
-
-! \defgroup GFS_NSST_PRE GFS Near-Surface Sea Temperature Pre
-!!
-!! The NSST scheme is one of the three schemes used to represent the
-!! surface in the GFS physics suite. The other two are the Noah land
-!! surface model and the sice simplified ice model.
-!!
-      subroutine sfc_nst_pre_init
-      end subroutine sfc_nst_pre_init
-
-      subroutine sfc_nst_pre_finalize
-      end subroutine sfc_nst_pre_finalize
-
-!! \section arg_table_sfc_nst_pre_run Argument Table
-!! \htmlinclude sfc_nst_pre_run.html
-!!
-!> \section NSST_general_pre_algorithm General Algorithm
-!! @{
-      subroutine sfc_nst_pre_run
-     &    (im, wet, use_flake, tgice, tsfco, tsfc_wat, tsurf_wat,
-     &     tseal, xt, xz, dt_cool, z_c, tref, cplflx,
-     &     oceanfrac, nthreads, errmsg, errflg)
-
-      use machine , only : kind_phys
-      use module_nst_water_prop, only: get_dtzm_2d
-
-      implicit none
-
-      integer, parameter :: kp = kind_phys
-
-!  ---  inputs:
-      integer, intent(in) :: im, nthreads
-      logical, dimension(:), intent(in) :: wet, use_flake
-      real (kind=kind_phys), intent(in) :: tgice
-      real (kind=kind_phys), dimension(:), intent(in) ::
-     &      tsfc_wat, xt, xz, dt_cool, z_c, oceanfrac,
-     &      tsfco
-      logical, intent(in) :: cplflx
-
-!  ---  input/outputs:
-      real (kind=kind_phys), dimension(:), intent(inout) ::
-     &    tsurf_wat, tseal, tref
-
-!  ---  outputs:
-      character(len=*), intent(out) :: errmsg
-      integer,          intent(out) :: errflg
-
-!  ---  locals
-      integer :: i
-      real(kind=kind_phys), parameter :: zero = 0.0_kp,
-     &                                   one  = 1.0_kp,
-     &                                   half = 0.5_kp,
-     &                                   omz1 = 2.0_kp
-      real(kind=kind_phys) :: tem1, tem2, dnsst
-      real(kind=kind_phys), dimension(im) :: dtzm,z_c_0
-
-      ! Initialize CCPP error handling variables
-      errmsg = ''
-      errflg = 0
-
-      do i=1,im
-        if (wet(i) .and. .not. use_flake(i)) then
-!          tem         = (oro(i)-oro_uf(i)) * rlapse
-          ! DH* 20190927 simplyfing this code because tem is zero
-          !tem          = zero
-          !tseal(i)     = tsfc_wat(i)  + tem
-          tseal(i)      = tsfc_wat(i)
-          !tsurf_wat(i) = tsurf_wat(i) + tem
-          ! *DH
-        endif
-      enddo
-
-!
-!   update tsfc & tref with T1 from OGCM & NSST Profile if coupled
-!
-      if (cplflx) then
-        z_c_0 = 0.0
-        call get_dtzm_2d (xt,  xz, dt_cool,                             &
-     &                    z_c_0, wet, zero, omz1, im, 1, nthreads, dtzm)
-        do i=1,im
-         if (wet(i) .and. oceanfrac(i)>zero .and..not.use_flake(i)) then
-!           dnsst   = tsfc_wat(i) - tref(i)                 !  retrive/get difference of Ts and Tf
-            tref(i) = max(tgice, tsfco(i) - dtzm(i))        !  update Tf with T1 and NSST T-Profile
-!           tsfc_wat(i) = max(271.2,tref(i) + dnsst)        !  get Ts updated due to Tf update
-!           tseal(i)    = tsfc_wat(i)
-            if (abs(xz(i)) > zero) then
-              tem2 = one / xz(i)
-            else
-              tem2 = zero
-            endif
-            tseal(i)     = tref(i) + (xt(i)+xt(i)) * tem2 - dt_cool(i)
-            tsurf_wat(i) = tseal(i)
-          endif
-        enddo
-      endif
-
-      return
-      end subroutine sfc_nst_pre_run
-!! @}
-      end module sfc_nst_pre
-
-!> This module contains the CCPP-compliant GFS near-surface sea temperature post
-!! interstitial codes.
-      module sfc_nst_post
-
-      contains
-
-! \defgroup GFS_NSST_POST GFS Near-Surface Sea Temperature Post
-!! \brief Brief description of the parameterization
-!!
-      subroutine sfc_nst_post_init
-      end subroutine sfc_nst_post_init
-
-! \brief Brief description of the subroutine
-!!
-      subroutine sfc_nst_post_finalize
-      end subroutine sfc_nst_post_finalize
-
-!> \brief Brief description of the subroutine
-!!
-!! \section arg_table_sfc_nst_post_run Argument Table
-!! \htmlinclude sfc_nst_post_run.html
-!!
-! \section NSST_general_post_algorithm General Algorithm
-!
-! \section NSST_detailed_post_algorithm Detailed Algorithm
-! @{
-      subroutine sfc_nst_post_run                                       &
-     &     ( im, kdt, rlapse, tgice, wet, use_flake, icy, oro, oro_uf,  &
-     &       nstf_name1,                                                &
-     &       nstf_name4, nstf_name5, xt, xz, dt_cool, z_c, tref, xlon,  &
-     &       tsurf_wat, tsfc_wat, nthreads, dtzm, errmsg, errflg        &
-     &     )
-
-      use machine , only : kind_phys
-      use module_nst_water_prop, only: get_dtzm_2d
-
-      implicit none
-
-      integer, parameter :: kp = kind_phys
-
-!  ---  inputs:
-      integer, intent(in) :: im, kdt, nthreads
-      logical, dimension(:), intent(in) :: wet, icy, use_flake
-      real (kind=kind_phys), intent(in) :: rlapse, tgice
-      real (kind=kind_phys), dimension(:), intent(in) :: oro, oro_uf
-      integer, intent(in) :: nstf_name1, nstf_name4, nstf_name5
-      real (kind=kind_phys), dimension(:), intent(in) :: xt, xz,        &
-     &      dt_cool, z_c, tref, xlon
-
-!  ---  input/outputs:
-      real (kind=kind_phys), dimension(:), intent(inout) :: tsurf_wat,  &
-     &      tsfc_wat
-
-!  ---  outputs:
-      real (kind=kind_phys), dimension(:), intent(out) :: dtzm
-
-      character(len=*), intent(out) :: errmsg
-      integer,          intent(out) :: errflg
-
-!  ---  locals
-      integer :: i
-      real(kind=kind_phys) :: zsea1, zsea2
-
-      ! Initialize CCPP error handling variables
-      errmsg = ''
-      errflg = 0
-
-!     if (lprnt) print *,' tseaz2=',tseal(ipr),' tref=',tref(ipr),
-!    &     ' dt_cool=',dt_cool(ipr),' dt_warm=',2.0*xt(ipr)/xz(ipr),
-!    &     ' kdt=',kdt
-
-!      do i = 1, im
-!        if (wet(i) .and. .not. icy(i)) then
-!          tsurf_wat(i) = tsurf_wat(i) - (oro(i)-oro_uf(i)) * rlapse
-!        endif
-!      enddo
-
-!  --- ...  run nsst model  ... ---
-
-      if (nstf_name1 > 1) then
-        zsea1 = 0.001_kp*real(nstf_name4)
-        zsea2 = 0.001_kp*real(nstf_name5)
-        call get_dtzm_2d (xt, xz, dt_cool, z_c, wet, zsea1, zsea2,      &
-     &                    im, 1, nthreads, dtzm)
-        do i = 1, im
-!         if (wet(i) .and. .not.icy(i)) then
-!         if (wet(i) .and. (frac_grid .or. .not. icy(i))) then
-          if (wet(i) .and. .not. use_flake(i)) then
-            tsfc_wat(i) = max(tgice, tref(i) + dtzm(i))
-!           tsfc_wat(i) = max(271.2, tref(i) + dtzm(i)) -  &
-!                           (oro(i)-oro_uf(i))*rlapse
-          endif
-        enddo
-      endif
-
-!     if (lprnt) print *,' tseaz2=',tsea(ipr),' tref=',tref(ipr),   &
-!    &    ' dt_cool=',dt_cool(ipr),' dt_warm=',dt_warm(ipr),' kdt=',kdt
-
-      return
-      end subroutine sfc_nst_post_run
-
-      end module sfc_nst_post

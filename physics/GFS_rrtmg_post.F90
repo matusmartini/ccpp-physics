@@ -1,15 +1,20 @@
-!>\file GFS_rrtmg_post.f90
-!! This file contains
+!>\file GFS_rrtmg_post.F90
+!! This file contains the calculation of time averaged output quantities (including total-sky and
+!! clear-sky SW and LW fluxes at TOA and surface; conventional
+!! 3-domain cloud amount, cloud top and base pressure, and cloud top
+!! temperature; aerosols AOD, etc.), store computed results in
+!! corresponding slots of array fluxr with appropriate time weights. 
 
-!>\defgroup GFS_rrtmg_post_mod GFS RRTMG Scheme Post
        module GFS_rrtmg_post
        contains
 
-!> \section arg_table_GFS_rrtmg_post_init Argument Table
-!!
-       subroutine GFS_rrtmg_post_init ()
-       end subroutine GFS_rrtmg_post_init
-
+!>\defgroup GFS_rrtmg_post_mod GFS RRTMG Scheme Post
+!! This module calculate time averaged output quantities (including total-sky and
+!! clear-sky SW and LW fluxes at TOA and surface; conventional
+!! 3-domain cloud amount, cloud top and base pressure, and cloud top
+!! temperature; aerosols AOD, etc.), store computed results in
+!! corresponding slots of array fluxr with appropriate time weights.
+!> @{
 !> \section arg_table_GFS_rrtmg_post_run Argument Table
 !! \htmlinclude GFS_rrtmg_post_run.html
 !!
@@ -17,7 +22,7 @@
               nfxr, nday, lsswr, lslwr, lssav, fhlwr, fhswr, raddt, coszen,    &
               coszdg, prsi, tgrs, aerodp, cldsa, mtopa, mbota, clouds1,        &
               cldtaulw, cldtausw, sfcflw, sfcfsw, topflw, topfsw, scmpsw,      &
-              fluxr, errmsg, errflg)
+              fluxr, total_albedo, errmsg, errflg)
 
       use machine,                             only: kind_phys
       use module_radsw_parameters,             only: topfsw_type, sfcfsw_type, &
@@ -43,6 +48,7 @@
       real(kind=kind_phys), dimension(im,lm+LTP), intent(in) :: clouds1
       real(kind=kind_phys), dimension(im,lm+LTP), intent(in) :: cldtausw
       real(kind=kind_phys), dimension(im,lm+LTP), intent(in) :: cldtaulw
+      real(kind=kind_phys), dimension(im),        intent(inout) :: total_albedo
       
       type(sfcflw_type), dimension(im), intent(in) :: sfcflw
       type(sfcfsw_type), dimension(im), intent(in) :: sfcfsw
@@ -65,11 +71,11 @@
 
       if (.not. (lsswr .or. lslwr)) return
 
-!>  - For time averaged output quantities (including total-sky and
-!!    clear-sky SW and LW fluxes at TOA and surface; conventional
-!!    3-domain cloud amount, cloud top and base pressure, and cloud top
-!!    temperature; aerosols AOD, etc.), store computed results in
-!!    corresponding slots of array fluxr with appropriate time weights.
+!  - For time averaged output quantities (including total-sky and
+!    clear-sky SW and LW fluxes at TOA and surface; conventional
+!    3-domain cloud amount, cloud top and base pressure, and cloud top
+!    temperature; aerosols AOD, etc.), store computed results in
+!    corresponding slots of array fluxr with appropriate time weights.
 
 !  --- ...  collect the fluxr data for wrtsfc
 
@@ -196,10 +202,13 @@
         endif
 
       endif                                ! end_if_lssav
+
+!  ---  The total sky (with clouds) shortwave albedo
+      total_albedo = 0.0
+      if (lsswr) then
+        where(topfsw(:)%dnfxc>0) total_albedo(:) = topfsw(:)%upfxc/topfsw(:)%dnfxc
+      endif
 !
       end subroutine GFS_rrtmg_post_run
-
-      subroutine GFS_rrtmg_post_finalize ()
-      end subroutine GFS_rrtmg_post_finalize
-
+!> @}
       end module GFS_rrtmg_post

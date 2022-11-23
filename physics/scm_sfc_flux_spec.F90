@@ -10,7 +10,7 @@ module scm_sfc_flux_spec
 !----------------
 ! Public entities
 !----------------
-  public  scm_sfc_flux_spec_init, scm_sfc_flux_spec_run, scm_sfc_flux_spec_finalize
+  public  scm_sfc_flux_spec_init, scm_sfc_flux_spec_run
 
   CONTAINS
 !*******************************************************************************************
@@ -33,9 +33,6 @@ module scm_sfc_flux_spec
     end if
   end subroutine scm_sfc_flux_spec_init
 
-  subroutine scm_sfc_flux_spec_finalize()
-  end subroutine scm_sfc_flux_spec_finalize
-
 !> \brief This routine calculates surface-related parameters given specified sensible and latent heat fluxes and a roughness length. Most of the calculation
 !! is "backing out" parameters that are calculated in sfc_dff.f from the known surface heat fluxes and roughness length.
 !!
@@ -52,18 +49,25 @@ module scm_sfc_flux_spec
 !!  -# Calculate the Monin-Obukhov similarity function for heat and moisture from the bulk Richardson number and diagnosed similarity function for momentum.
 !!  -# Calculate the surface drag coefficient for heat and moisture.
 !!  -# Calculate the u and v wind at 10m.
-  subroutine scm_sfc_flux_spec_run (u1, v1, z1, t1, q1, p1, roughness_length, spec_sh_flux, spec_lh_flux, &
-    exner_inverse, T_surf, cp, grav, hvap, rd, fvirt, vonKarman, sh_flux, lh_flux, sh_flux_chs, lh_flux_chs, u_star, sfc_stress, cm, ch, &
+  subroutine scm_sfc_flux_spec_run (im, u1, v1, z1, t1, q1, p1, roughness_length, spec_sh_flux, spec_lh_flux, &
+    exner_inverse, T_surf, cp, grav, hvap, rd, fvirt, vonKarman, tgice, islmsk, dry, frland, cice, icy, tisfc,&
+    oceanfrac, min_seaice, cplflx, cplice, flag_cice, wet, min_lakeice, tsfcl, tsfc_wat, slmsk, lakefrac, lkm,&
+    lakedepth, use_flake, sh_flux, lh_flux, sh_flux_chs, u_star, sfc_stress, cm, ch, &
     fm, fh, rb, u10m, v10m, wind1, qss, t2m, q2m, errmsg, errflg)
 
     use machine,             only: kind_phys
     
-    real(kind=kind_phys), intent(in) :: u1(:), v1(:), z1(:), t1(:), q1(:), p1(:), roughness_length(:), &
-      spec_sh_flux(:), spec_lh_flux(:), exner_inverse(:), T_surf(:)
-    real(kind=kind_phys), intent(in) :: cp, grav, hvap, rd, fvirt, vonKarman
-    real(kind=kind_phys), intent(out) :: sh_flux(:), lh_flux(:), u_star(:), sfc_stress(:), &
+    integer, intent(in)    :: im, lkm
+    integer, intent(inout) :: islmsk(:)
+    logical, intent(in)    :: cplflx, cplice
+    logical, intent(inout) :: dry(:), icy(:), flag_cice(:), wet(:), use_flake(:)
+    real(kind=kind_phys), intent(in)    :: cp, grav, hvap, rd, fvirt, vonKarman, min_seaice, tgice, min_lakeice
+    real(kind=kind_phys), intent(in)    :: u1(:), v1(:), z1(:), t1(:), q1(:), p1(:), roughness_length(:), &
+      spec_sh_flux(:), spec_lh_flux(:), exner_inverse(:), T_surf(:), oceanfrac(:), lakefrac(:), lakedepth(:)
+    real(kind=kind_phys), intent(inout) :: cice(:), tisfc(:), tsfcl(:), tsfc_wat(:), slmsk(:)
+    real(kind=kind_phys), intent(out)   :: sh_flux(:), lh_flux(:), u_star(:), sfc_stress(:), &
       cm(:), ch(:), fm(:), fh(:), rb(:), u10m(:), v10m(:), wind1(:), qss(:), t2m(:), q2m(:), &
-      sh_flux_chs(:), lh_flux_chs(:)
+      sh_flux_chs(:), frland(:)
 
     character(len=*), intent(out) :: errmsg
     integer,          intent(out) :: errflg
@@ -72,6 +76,8 @@ module scm_sfc_flux_spec
 
     real(kind=kind_phys) :: rho, q1_non_neg, w_thv1, rho_cp_inverse, rho_hvap_inverse, Obukhov_length, thv1, tvs, &
       dtv, adtv, wind10m, u_fraction, roughness_length_m
+    
+    real(kind=kind_phys), parameter :: timin = 173.0_kind_phys  ! minimum temperature allowed for snow/ice
 
     ! Initialize CCPP error handling variables
     errmsg = ''
@@ -79,12 +85,11 @@ module scm_sfc_flux_spec
   
 !     !--- set control properties (including namelist read)
   !calculate u_star from wind profiles (need roughness length, and wind and height at lowest model level)
-  do i=1, size(z1)
+  do i=1, im
     sh_flux(i) = spec_sh_flux(i)
     lh_flux(i) = spec_lh_flux(i)
     sh_flux_chs(i) = sh_flux(i)
-    lh_flux_chs(i) = lh_flux(i)
-
+    
     roughness_length_m = 0.01*roughness_length(i)
 
     wind1(i) = sqrt(u1(i)*u1(i) + v1(i)*v1(i))
@@ -136,7 +141,87 @@ module scm_sfc_flux_spec
     t2m(i) = 0.0
     q2m(i) = 0.0
   end do
+  
+  !GJF: The following code is from GFS_surface_composites.F90; only statements that are used in physics schemes outside of surface schemes are kept
+  !GJF: Adding this code means that this scheme should be called before dcyc2t3
+  do i = 1, im
+    if (islmsk(i) == 1) then
+      dry(i)    = .true.
+      frland(i) = 1.0_kind_phys
+      cice(i)   = 0.0_kind_phys
+      icy(i)    = .false.
+    else
+      frland(i) = 0.0_kind_phys
+      if (oceanfrac(i) > 0.0_kind_phys) then
+        if (cice(i) >= min_seaice) then
+          icy(i)   = .true.
+          ! This cplice namelist option was added to deal with the
+          ! situation of the FV3ATM-HYCOM coupling without an active sea
+          ! ice (e.g., CICE6) component. By default, the cplice is true
+          ! when cplflx is .true. (e.g., for the S2S application).
+          ! Whereas, for the HAFS FV3ATM-HYCOM coupling, cplice is set as
+          ! .false.. In the future HAFS FV3ATM-MOM6 coupling, the cplflx
+          ! could be .true., while cplice being .false..
+          if (cplice .and. cplflx)  then
+            flag_cice(i)   = .true.
+          else
+            flag_cice(i)   = .false.
+          endif
+          islmsk(i) = 2
+        else
+          cice(i)        = 0.0_kind_phys
+          flag_cice(i)   = .false.
+          islmsk(i)      = 0
+          icy(i)         = .false.
+        endif
+        if (cice(i) < 1.0_kind_phys) then
+          wet(i) = .true. ! some open ocean
+        endif
+      else
+        if (cice(i) >= min_lakeice) then
+          icy(i) = .true.
+          islmsk(i) = 2
+        else
+          cice(i)   = 0.0_kind_phys
+          islmsk(i) = 0
+          icy(i)    = .false.
+        endif
+        flag_cice(i)   = .false.
+        if (cice(i) < 1.0_kind_phys) then
+          wet(i) = .true. ! some open lake
+        endif
+      endif
+    endif
+    if (nint(slmsk(i)) /= 1) slmsk(i)  = islmsk(i)
+  enddo
+  
+  do i = 1, im
+    if (wet(i)) then
+      tsfc_wat(i) = T_surf(i)
+    end if
+    if (dry(i)) then
+      tsfcl(i)  = T_surf(i)
+    end if
+    if (icy(i)) then
+      tisfc(i) = T_surf(i)
+      tisfc(i) = max(timin, min(tisfc(i), tgice))
+    end if
+  end do
 
+! to prepare to separate lake from ocean under water category
+  do i = 1, im
+    if ((wet(i) .or. icy(i)) .and. lakefrac(i) > 0.0_kind_phys) then
+      if (lkm == 1 .and. lakefrac(i) >= 0.15 .and. lakedepth(i) > 1.0_kind_phys) then
+        use_flake(i) = .true.
+      else
+        use_flake(i) = .false.
+      endif
+    else
+      use_flake(i) = .false.
+    endif
+  enddo
+!
+  
   end subroutine scm_sfc_flux_spec_run
 
 end module scm_sfc_flux_spec

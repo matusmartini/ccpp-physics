@@ -4,7 +4,9 @@
 !! eddy-diffusion mass-flux (TKE-EDMF) parameterization (by Jongil Han).
 
       module satmedmfvdif
-
+      use tridi_mod
+      use mfscu_mod
+      use mfpblt_mod
       contains
 
 !> \section arg_table_satmedmfvdif_init Argument Table
@@ -39,9 +41,6 @@
 
       end subroutine satmedmfvdif_init
 
-      subroutine satmedmfvdif_finalize ()
-      end subroutine satmedmfvdif_finalize
-
 !> \defgroup satmedmf GFS Scale-aware TKE-based Moist Eddy-Diffusivity Mass-flux (TKE-EDMF) Scheme Module 
 !! @{
 !! \brief This subroutine contains all of the logic for the
@@ -70,8 +69,9 @@
      &     prsi,del,prsl,prslk,phii,phil,delt,                          &
      &     dspheat,dusfc,dvsfc,dtsfc,dqsfc,hpbl,                        &
      &     kinver,xkzm_m,xkzm_h,xkzm_s,                                 &
-     &     dt3dt_PBL,du3dt_PBL,dv3dt_PBL,dq3dt_PBL,do3dt_PBL,           &
-     &     gen_tend,ldiag3d,qdiag3d,errmsg,errflg)
+     &     index_of_temperature,index_of_x_wind,index_of_y_wind,        &
+     &     index_of_process_pbl,ntqv,ntoz,dtend,dtidx,                  &
+     &     gen_tend,ldiag3d,errmsg,errflg)
 !
       use machine  , only : kind_phys
       use funcphys , only : fpvs
@@ -83,9 +83,10 @@
       integer, intent(in)  :: kinver(:)
       integer, intent(out) :: kpbl(:)
 !
-      logical, intent(in)  :: gen_tend, ldiag3d, qdiag3d
-      real(kind=kind_phys), intent(inout), dimension(:,:) ::            &
-     &  dt3dt_PBL,du3dt_PBL,dv3dt_PBL,dq3dt_PBL,do3dt_PBL
+      logical, intent(in)  :: gen_tend, ldiag3d
+      real(kind=kind_phys), intent(inout), dimension(:,:,:) :: dtend
+      integer, intent(in) :: index_of_temperature,index_of_x_wind,      &
+     &  index_of_y_wind, ntqv, ntoz, dtidx(:,:), index_of_process_pbl
 !
       real(kind=kind_phys), intent(in) :: grav,rd,cp,rv,hvap,hfus,fv,   &
      &                                    eps,epsm1
@@ -215,6 +216,7 @@
       real(kind=kind_phys) qlcr, zstblmax
 !
       real(kind=kind_phys) h1 
+      integer :: idtend
 !!
       parameter(wfac=7.0,cfac=4.5)
       parameter(gamcrt=3.,gamcrq=0.,sfcfrac=0.1)
@@ -1409,19 +1411,13 @@
          enddo
       enddo
       if (ldiag3d .and. .not. gen_tend) then
-        do  k = 1,km
-           do i = 1,im
-             ttend      = (f1(i,k)-t1(i,k))*rdt
-             dt3dt_PBL(i,k) = dt3dt_PBL(i,k) + ttend*delt
-           enddo
-        enddo
-        if (qdiag3d) then
-          do  k = 1,km
-             do i = 1,im
-               qtend      = (f2(i,k)-q1(i,k,1))*rdt
-               dq3dt_PBL(i,k) = dq3dt_PBL(i,k) + qtend*delt
-             enddo
-          enddo
+        idtend = dtidx(index_of_temperature,index_of_process_pbl)
+        if(idtend>=1) then
+          dtend(:,:,idtend) = dtend(:,:,idtend) + delt*rdt*(f1-t1)
+        endif
+        idtend = dtidx(100+ntqv,index_of_process_pbl)
+        if(idtend>=1) then
+          dtend(:,:,idtend) = dtend(:,:,idtend) +delt*rdt*(f2-q1(:,:,1))
         endif
       endif
 !
@@ -1525,14 +1521,14 @@
          enddo
       enddo
       if (ldiag3d .and. .not. gen_tend) then
-        do k = 1,km
-           do i = 1,im
-             utend = (f1(i,k)-u1(i,k))*rdt
-             vtend = (f2(i,k)-v1(i,k))*rdt
-             du3dt_PBL(i,k) = du3dt_PBL(i,k) + utend*delt
-             dv3dt_PBL(i,k) = dv3dt_PBL(i,k) + vtend*delt
-           enddo
-        enddo
+        idtend=dtidx(index_of_x_wind,index_of_process_pbl)
+        if(idtend>=1) then
+          dtend(:,:,idtend) = dtend(:,:,idtend) + delt*rdt*(f1-u1)
+        endif
+        idtend=dtidx(index_of_y_wind,index_of_process_pbl)
+        if(idtend>=1) then
+          dtend(:,:,idtend) = dtend(:,:,idtend) + delt*rdt*(f2-v1)
+        endif
       endif
 !
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!

@@ -50,7 +50,7 @@ contains
 	   if (ntau_d2t .le. 0 .or. ntau_d1y .le. 0) then 
 	       print *, 'ugwp-v1 tau-file=',    trim(ugwp_taufile)	   
 	       print *, '  ugwp-v1: ', 'ntau_d2t=',ntau_d2t, 'ntau_d2t=',ntau_d1y
-	       stop
+	       call ccpp_external_abort('')
 	   endif
 	   	   
         if (.not.allocated(ugwp_taulat))  allocate (ugwp_taulat(ntau_d1y ))
@@ -147,7 +147,7 @@ contains
 	  print *, ' Error in time-interpolation for tau_amf_interp '	 
 	  print *, ' it1, it2, ntau_d2t ', it1, it2, ntau_d2t
 	  print *, ' Error in time-interpolation see cires_tauamf_data.F90 '	  
-	  stop
+	  call ccpp_external_abort('')
 	 endif
 	 
 	 w2 = (fddd-days_limb(it1))/(days_limb(it2)-days_limb(it1))
@@ -176,8 +176,9 @@ contains
 !
 !locals
 !
-      real(kind=kind_phys) :: rinc(5), rjday
+      real(kind=kind_phys) :: rjday
       integer              :: jdow, jdoy, jday
+      real(8)              :: rinc(5)
       real(4)              :: rinc4(5)
       integer              :: w3kindreal, w3kindint
       

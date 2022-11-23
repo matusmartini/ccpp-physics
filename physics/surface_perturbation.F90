@@ -155,7 +155,7 @@ module surface_perturbation
       data b7 / 0.641025641025641025641025641d-2 /
       data b8 / - 0.295506535947712418300653595d-1 /
 
-      if (x.le.0.0) stop '*** x<=0.0 in function dgamln ***'
+      if (x.le.0.0) call ccpp_external_abort('*** x<=0.0 in function dgamln ***')
       dx = x
       n = max(0,int(xmin - dx + 1.0d0) )
       xn = dx + n
@@ -409,7 +409,7 @@ module surface_perturbation
       data b7 / 0.641025641025641025641025641d-2 /
       data b8 / - 0.295506535947712418300653595d-1 /
 
-      if (x.le.0.0) stop '*** x<=0.0 in function gamln ***'
+      if (x.le.0.0) call ccpp_external_abort('*** x<=0.0 in function gamln ***')
       dx = x
       n = max(0,int(xmin - dx + 1.0d0) )
       xn = dx + n

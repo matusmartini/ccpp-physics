@@ -1,8 +1,7 @@
-      module mod_tridi
-      contains
 !>\file tridi.f
 !! These subroutines are originally internal subroutines in moninedmf.f
-
+      module tridi_mod
+      contains
 !>\ingroup HEDMF
 !!\brief Routine to solve the tridiagonal system to calculate
 !!temperature and moisture at \f$ t + \Delta t \f$; part of two-part
@@ -221,5 +220,4 @@
 !-----------------------------------------------------------------------
       return
       end subroutine tridit
-!> @}
-      end module mod_tridi
+      end module tridi_mod

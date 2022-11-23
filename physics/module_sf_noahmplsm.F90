@@ -8,11 +8,15 @@ module module_sf_noahmplsm
   use  module_wrf_utl
 #endif
 use machine ,   only : kind_phys
+use sfc_diff, only   : stability
 
   implicit none
 
   public  :: noahmp_options
   public  :: noahmp_sflx
+  public  :: sfcdif4
+  public  :: psi_init
+
 
   private :: atm
   private :: phenology
@@ -158,6 +162,11 @@ use machine ,   only : kind_phys
                       ! **0 -> no crop model, will run default dynamic vegetation
                       !   1 -> liu, et al. 2016
 
+  integer :: opt_trs  !< options for thermal roughness scheme
+                      ! **1 -> z0h=z0 
+                      !   2 -> czil 
+                      !   3 -> ec style 
+                      !   4 -> kb inversed
 !------------------------------------------------------------------------------------------!
 ! physical constants:                                                                      !
 !------------------------------------------------------------------------------------------!
@@ -367,6 +376,29 @@ use machine ,   only : kind_phys
 
   end type noahmp_parameters
 
+!
+! for sfcdif4 
+!
+   real(kind=kind_phys),   parameter     :: prt=1.     !prandtl number
+   real(kind=kind_phys),   parameter     :: p1000mb      = 100000.
+
+   real(kind=kind_phys),   parameter     :: svp1    = 0.6112
+   real(kind=kind_phys),   parameter     :: svp2    = 17.67
+   real(kind=kind_phys),   parameter     :: svp3    = 29.65
+   real(kind=kind_phys),   parameter     :: svpt0   = 273.15
+   real(kind=kind_phys),   parameter     :: onethird = 1./3.
+   real(kind=kind_phys),   parameter     :: sqrt3 = 1.7320508075688773
+   real(kind=kind_phys),   parameter     :: atan1 = 0.785398163397     !in radians
+
+   real(kind=kind_phys),   parameter     :: vconvc=1.25
+
+   real(kind=kind_phys),   parameter     :: snowz0 = 0.011
+   real(kind=kind_phys),   parameter     :: wmin   = 0.1
+
+   real(kind=kind_phys),   dimension(0:1000 ),save :: psim_stab,psim_unstab, &
+                                      psih_stab,psih_unstab
+
+
 contains
 !
 !== begin noahmp_sflx ==============================================================================
@@ -377,10 +409,12 @@ contains
                    dt      , dx      , dz8w    , nsoil   , zsoil   , nsnow   , & ! in : model configuration 
                    shdfac  , shdmax  , vegtyp  , ice     , ist     , croptype, & ! in : vegetation/soil characteristics
                    smceq   ,                                                   & ! in : vegetation/soil characteristics
-                   sfctmp  , sfcprs  , psfc    , uu      , vv      , q2      , & ! in : forcing
-                   qc      , soldn   , lwdn    ,                               & ! in : forcing
+                   sfctmp  , sfcprs  , psfc    , uu      , vv , q2, garea1   , & ! in : forcing
+                   qc      , soldn   , lwdn,thsfc_loc, prslkix,prsik1x,prslk1x,& ! in : forcing
+                   pblhx   , iz0tlnd , itime         ,psi_opt                 ,&
 	           prcpconv, prcpnonc, prcpshcv, prcpsnow, prcpgrpl, prcphail, & ! in : forcing
                    tbot    , co2air  , o2air   , foln    , ficeold , zlvl    , & ! in : forcing
+                   ep_1    , ep_2    , cp                                    , & ! in : constants
                    albold  , sneqvo  ,                                         & ! in/out : 
                    stc     , sh2o    , smc     , tah     , eah     , fwet    , & ! in/out : 
                    canliq  , canice  , tv      , tg      , qsfc, qsnow, qrain, & ! in/out : 
@@ -389,15 +423,15 @@ contains
                    stmass  , wood    , stblcp  , fastcp  , lai     , sai     , & ! in/out : 
                    cm      , ch      , tauss   ,                               & ! in/out : 
                    grain   , gdd     , pgs     ,                               & ! in/out 
-                   smcwtd  ,deeprech , rech    ,                               & ! in/out :
-		   z0wrf   , &
+                   smcwtd  ,deeprech , rech    , ustarx  ,                     & ! in/out :
+		   z0wrf   , z0hwrf  , ts      ,                               & ! out :
                    fsa     , fsr     , fira    , fsh     , ssoil   , fcev    , & ! out : 
                    fgev    , fctr    , ecan    , etran   , edir    , trad    , & ! out :
                    tgb     , tgv     , t2mv    , t2mb    , q2v     , q2b     , & ! out :
                    runsrf  , runsub  , apar    , psn     , sav     , sag     , & ! out :
                    fsno    , nee     , gpp     , npp     , fveg    , albedo  , & ! out :
                    qsnbot  , ponding , ponding1, ponding2, rssun   , rssha   , & ! out :
-                   albd    , albi    , albsnd  , albsni  ,                     & ! out :
+                   albd    , albi    , albsnd  , albsni                      , & ! out :
                    bgap    , wgap    , chv     , chb     , emissi  ,           & ! out :
 		   shg     , shc     , shb     , evg     , evb     , ghv     , & ! out :
 		   ghb     , irg     , irc     , irb     , tr      , evc     , & ! out :
@@ -426,6 +460,9 @@ contains
   integer                        , intent(in)    :: nsoil  !< no. of soil layers        
   integer                        , intent(in)    :: iloc   !< grid index
   integer                        , intent(in)    :: jloc   !< grid index
+  real (kind=kind_phys)                           , intent(in)    :: ep_1
+  real (kind=kind_phys)                           , intent(in)    :: ep_2
+  real (kind=kind_phys)                           , intent(in)    :: cp
   real (kind=kind_phys)                           , intent(in)    :: dt     !< time step [sec]
   real (kind=kind_phys), dimension(       1:nsoil), intent(in)    :: zsoil  !< layer-bottom depth from soil surf (m)
   real (kind=kind_phys)                           , intent(in)    :: q2     !< mixing ratio (kg/kg) lowest model layer
@@ -435,6 +472,18 @@ contains
   real (kind=kind_phys)                           , intent(in)    :: soldn  !< downward shortwave radiation (w/m2)
   real (kind=kind_phys)                           , intent(in)    :: lwdn   !< downward longwave radiation (w/m2)
   real (kind=kind_phys)                           , intent(in)    :: sfcprs !< pressure (pa)
+
+  logical                                         , intent(in)    :: thsfc_loc
+  real (kind=kind_phys)                           , intent(in)    :: prslkix !  in exner function
+  real (kind=kind_phys)                           , intent(in)    :: prsik1x !  in exner function
+  real (kind=kind_phys)                           , intent(in)    :: prslk1x !  in exner function
+  real (kind=kind_phys)                           , intent(in)    :: garea1  !  in exner function
+
+  real (kind=kind_phys)                           , intent(in)    :: pblhx   !  pbl height
+  integer                                         , intent(in)    :: iz0tlnd !< z0t option
+  integer                                         , intent(in)    :: itime   !<
+  integer                                         , intent(in)    :: psi_opt !<
+
   real (kind=kind_phys)                           , intent(inout) :: zlvl   !< reference height (m)
   real (kind=kind_phys)                           , intent(in)    :: cosz   !< cosine solar zenith angle [0-1]
   real (kind=kind_phys)                           , intent(in)    :: tbot   !< bottom condition for soil temp. [k]
@@ -473,6 +522,7 @@ contains
   real (kind=kind_phys)                           , intent(inout) :: cm     !< momentum drag coefficient
   real (kind=kind_phys)                           , intent(inout) :: ch     !< sensible heat exchange coefficient
   real (kind=kind_phys)                           , intent(inout) :: tauss  !< non-dimensional snow age
+  real (kind=kind_phys)                           , intent(inout) :: ustarx !< friction velocity
 
 ! prognostic variables
   integer                                         , intent(inout) :: isnow  !< actual no. of snow layers [-]
@@ -498,6 +548,7 @@ contains
 
 ! output
   real (kind=kind_phys)                           , intent(out)   :: z0wrf  !< combined z0 sent to coupled model
+  real (kind=kind_phys)                           , intent(out)   :: z0hwrf !< combined z0h sent to coupled model
   real (kind=kind_phys)                           , intent(out)   :: fsa    !< total absorbed solar radiation (w/m2)
   real (kind=kind_phys)                           , intent(out)   :: fsr    !< total reflected solar radiation (w/m2)
   real (kind=kind_phys)                           , intent(out)   :: fira   !< total net lw rad (w/m2)  [+ to atm]
@@ -507,7 +558,7 @@ contains
   real (kind=kind_phys)                           , intent(out)   :: fctr   !< transpiration heat (w/m2) [+ to atm]
   real (kind=kind_phys)                           , intent(out)   :: ssoil  !< ground heat flux (w/m2)   [+ to soil]
   real (kind=kind_phys)                           , intent(out)   :: trad   !< surface radiative temperature (k)
-  real (kind=kind_phys)                                           :: ts     !< surface temperature (k)
+  real (kind=kind_phys)                           , intent(out)   :: ts     !< surface combined aero temperature (k)
   real (kind=kind_phys)                           , intent(out)   :: ecan   !< evaporation of intercepted water (mm/s)
   real (kind=kind_phys)                           , intent(out)   :: etran  !< transpiration rate (mm/s)
   real (kind=kind_phys)                           , intent(out)   :: edir   !< soil surface evaporation rate (mm/s]
@@ -663,18 +714,21 @@ contains
   real (kind=kind_phys)                                 :: latheag !< latent heat vap./sublimation (j/kg)
   logical                             :: frozen_ground !< used to define latent heat pathway
   logical                             :: frozen_canopy !< used to define latent heat pathway
-  LOGICAL                             :: dveg_active !< flag to run dynamic vegetation
-  LOGICAL                             :: crop_active !< flag to run crop model
+  logical                             :: dveg_active !< flag to run dynamic vegetation
+  logical                             :: crop_active !< flag to run crop model
+! add canopy heat storage (C.He added based on GY Niu's communication)
+  real (kind=kind_phys)               :: canhs ! canopy heat storage change w/m2
   
   ! intent (out) variables need to be assigned a value.  these normally get assigned values
   ! only if dveg == 2.
   nee = 0.0
   npp = 0.0
   gpp = 0.0
-      pahv  = 0.
-      pahg  = 0.
-      pahb  = 0.
-      pah  = 0.
+  pahv  = 0.
+  pahg  = 0.
+  pahb  = 0.
+  pah  = 0.
+  canhs = 0.
 
 ! --------------------------------------------------------------------------------------------------
 ! re-process atmospheric forcing
@@ -714,7 +768,7 @@ contains
 ! vegetation phenology
 
      call phenology (parameters,vegtyp ,croptype, snowh  , tv     , lat   , yearlen , julian , & !in
-                     lai    , sai    , troot  , elai    , esai   ,igs, pgs)
+                     lai  , sai  , troot  , elai    , esai   ,igs, pgs)
 
 !input gvf should be consistent with lai
      if(dveg == 1 .or. dveg == 6 .or. dveg == 7) then
@@ -758,18 +812,21 @@ contains
                  sfctmp ,thair  ,lwdn   ,uu     ,vv     ,zlvl   , & !in
                  co2air ,o2air  ,solad  ,solai  ,cosz   ,igs    , & !in
                  eair   ,tbot   ,zsnso  ,zsoil  , & !in
-                 elai   ,esai   ,fwet   ,foln   ,         & !in
-                 fveg   ,pahv   ,pahg   ,pahb   ,                 & !in
+                 elai   ,esai   ,fwet   ,foln   ,     & !in
+                 fveg   ,shdfac, pahv   ,pahg   ,pahb   ,             & !in
                  qsnow  ,dzsnso ,lat    ,canliq ,canice ,iloc, jloc , & !in
-		 z0wrf  ,                                         &
+                 thsfc_loc, prslkix,prsik1x,prslk1x,garea1,       & !in
+                 pblhx  ,iz0tlnd, itime ,psi_opt, ep_1, ep_2, cp, &
+		 z0wrf  ,z0hwrf ,                                 & !out
                  imelt  ,snicev ,snliqv ,epore  ,t2m    ,fsno   , & !out
                  sav    ,sag    ,qmelt  ,fsa    ,fsr    ,taux   , & !out
                  tauy   ,fira   ,fsh    ,fcev   ,fgev   ,fctr   , & !out
                  trad   ,psn    ,apar   ,ssoil  ,btrani ,btran  , & !out
-                 ponding,ts     ,latheav , latheag , frozen_canopy,frozen_ground,                         & !out
+                 ponding,ts     ,latheav , latheag , frozen_canopy,frozen_ground,          & !out
                  tv     ,tg     ,stc    ,snowh  ,eah    ,tah    , & !inout
                  sneqvo ,sneqv  ,sh2o   ,smc    ,snice  ,snliq  , & !inout
                  albold ,cm     ,ch     ,dx     ,dz8w   ,q2     , & !inout
+                 ustarx ,                                         & !inout
 #ifdef CCPP
                  tauss  ,laisun ,laisha ,rb , errmsg ,errflg ,    & !inout
 #else
@@ -780,8 +837,10 @@ contains
                  t2mv   ,t2mb  ,fsrv   , &
                  fsrg   ,rssun   ,rssha ,albd  ,albi ,albsnd,albsni, bgap  ,wgap, tgv,tgb,&
                  q1     ,q2v    ,q2b    ,q2e    ,chv   ,chb     , & !out
-                 emissi ,pah    ,                                 &
+                 emissi ,pah    ,canhs,                           &
 		     shg,shc,shb,evg,evb,ghv,ghb,irg,irc,irb,tr,evc,chleaf,chuc,chv2,chb2 )                                            !out
+
+                 qsfc = q1                         !
 !jref:end
 #ifdef CCPP
     if (errflg /= 0) return
@@ -849,9 +908,9 @@ contains
                  nsnow  ,ist    ,errwat ,iloc   , jloc  ,fveg   , &
                  sav    ,sag    ,fsrv   ,fsrg   ,zwt    ,pah    , &
 #ifdef CCPP
-                 pahv   ,pahg   ,pahb   ,errmsg, errflg)   !in ( except errwat [out] and errmsg, errflg [inout] )
+                 pahv   ,pahg   ,pahb   ,canhs,errmsg, errflg)   !in ( except errwat [out] and errmsg, errflg [inout] )
 #else
-                 pahv   ,pahg   ,pahb   )   !in ( except errwat, which is out )
+                 pahv   ,pahg   ,pahb,   canhs )   !in ( except errwat, which is out )
 #endif
 
 #ifdef CCPP
@@ -1033,7 +1092,7 @@ contains
 !!vegetation phenology considering vegetation canopy being buried by snow and
 !!evolution in time.
   subroutine phenology (parameters,vegtyp ,croptype, snowh  , tv     , lat   , yearlen , julian , & !in
-                        lai    , sai    , troot  , elai    , esai   , igs, pgs)
+                        lai , sai , troot  , elai    , esai   , igs, pgs)
 
 ! --------------------------------------------------------------------------------------------------
 ! vegetation phenology considering vegeation canopy being buries by snow and evolution in time
@@ -1386,9 +1445,9 @@ endif   ! croptype == 0
                     nsnow  ,ist    ,errwat, iloc   ,jloc   ,fveg   , &
                     sav    ,sag    ,fsrv   ,fsrg   ,zwt    ,pah    , &
 #ifdef CCPP
-                    pahv   ,pahg   ,pahb   ,errmsg, errflg)
+                    pahv   ,pahg   ,pahb   ,canhs,errmsg, errflg)
 #else
-                    pahv   ,pahg   ,pahb   )
+                    pahv   ,pahg   ,pahb   ,canhs)
 #endif
 ! --------------------------------------------------------------------------------------------------
 ! check surface energy balance and water balance
@@ -1437,6 +1496,7 @@ endif   ! croptype == 0
   real (kind=kind_phys), intent(in)   :: pahv    !precipitation advected heat - total (w/m2)
   real (kind=kind_phys), intent(in)   :: pahg    !precipitation advected heat - total (w/m2)
   real (kind=kind_phys), intent(in)   :: pahb    !precipitation advected heat - total (w/m2)
+  real (kind=kind_phys), intent(in)   :: canhs   !canopy heat storage change (w/m2) C.He added based on GY Niu's communication
 
 #ifdef CCPP
   character(len=*)               , intent(inout) :: errmsg
@@ -1482,7 +1542,7 @@ endif   ! croptype == 0
 #endif
    end if
 
-   erreng = sav+sag-(fira+fsh+fcev+fgev+fctr+ssoil) +pah
+   erreng = sav+sag-(fira+fsh+fcev+fgev+fctr+ssoil+canhs) +pah
 !   erreng = fveg*sav+sag-(fira+fsh+fcev+fgev+fctr+ssoil)
    if(abs(erreng) > 0.01) then
       write(message,*) 'erreng =',erreng,' at i,j: ',iloc,jloc
@@ -1528,6 +1588,12 @@ endif   ! croptype == 0
       call wrf_message(trim(message))
 #endif
       write(message,'(a17,f10.4)') "total ground:    ",ssoil
+#ifdef CCPP
+      errmsg = trim(errmsg)//NEW_LINE('A')//trim(message)
+#else
+      call wrf_message(trim(message))
+#endif
+      write(message,'(a17,f10.4)') "canopy heat storage:  ",canhs
 #ifdef CCPP
       errmsg = trim(errmsg)//NEW_LINE('A')//trim(message)
 #else
@@ -1585,18 +1651,21 @@ endif   ! croptype == 0
                      sfctmp ,thair  ,lwdn   ,uu     ,vv     ,zref   , & !in
                      co2air ,o2air  ,solad  ,solai  ,cosz   ,igs    , & !in
                      eair   ,tbot   ,zsnso  ,zsoil  , & !in
-                     elai   ,esai   ,fwet   ,foln   ,         & !in
-                     fveg   ,pahv   ,pahg   ,pahb   ,                 & !in
+                     elai   ,esai   ,fwet   ,foln   ,       & !in
+                     fveg   ,shdfac, pahv   ,pahg   ,pahb   ,               & !in
                      qsnow  ,dzsnso ,lat    ,canliq ,canice ,iloc   , jloc, & !in
-		     z0wrf  ,                                         &
+                     thsfc_loc, prslkix,prsik1x,prslk1x,garea1,       & !in
+                     pblhx  , iz0tlnd, itime,psi_opt,ep_1, ep_2, cp,  &
+		     z0wrf  ,z0hwrf ,                                 & !out
                      imelt  ,snicev ,snliqv ,epore  ,t2m    ,fsno   , & !out
                      sav    ,sag    ,qmelt  ,fsa    ,fsr    ,taux   , & !out
                      tauy   ,fira   ,fsh    ,fcev   ,fgev   ,fctr   , & !out
                      trad   ,psn    ,apar   ,ssoil  ,btrani ,btran  , & !out
-                     ponding,ts     ,latheav , latheag , frozen_canopy,frozen_ground,                       & !out
+                     ponding,ts     ,latheav , latheag , frozen_canopy,frozen_ground,      & !out
                      tv     ,tg     ,stc    ,snowh  ,eah    ,tah    , & !inout
                      sneqvo ,sneqv  ,sh2o   ,smc    ,snice  ,snliq  , & !inout
                      albold ,cm     ,ch     ,dx     ,dz8w   ,q2     , &   !inout
+                     ustarx ,                                         &   !inout
 #ifdef CCPP
                      tauss  ,laisun ,laisha ,rb ,errmsg ,errflg,      & !inout
 #else
@@ -1606,7 +1675,7 @@ endif   ! croptype == 0
                      qc     ,qsfc   ,psfc   , & !in 
                      t2mv   ,t2mb   ,fsrv   , &
                      fsrg   ,rssun  ,rssha  ,albd  ,albi,albsnd  ,albsni,bgap   ,wgap,tgv,tgb,&
-                     q1     ,q2v    ,q2b    ,q2e    ,chv  ,chb, emissi,pah  ,&
+                     q1     ,q2v    ,q2b    ,q2e    ,chv  ,chb, emissi,pah,canhs,&
 		     shg,shc,shb,evg,evb,ghv,ghb,irg,irc,irb,tr,evc,chleaf,chuc,chv2,chb2 )   !out 
 !jref:end                            
 
@@ -1660,6 +1729,21 @@ endif   ! croptype == 0
   real (kind=kind_phys)                              , intent(in)    :: rhoair !density air (kg/m3)
   real (kind=kind_phys)                              , intent(in)    :: eair   !vapor pressure air (pa)
   real (kind=kind_phys)                              , intent(in)    :: sfcprs !pressure (pa)
+
+  logical                                            , intent(in)    :: thsfc_loc
+  real (kind=kind_phys)                              , intent(in)    :: prslkix ! in exner function
+  real (kind=kind_phys)                              , intent(in)    :: prsik1x ! in exner function
+  real (kind=kind_phys)                              , intent(in)    :: prslk1x ! in exner function
+  real (kind=kind_phys)                              , intent(in)    :: garea1 
+
+  real (kind=kind_phys)                              , intent(in)    :: pblhx  !  pbl height
+  real (kind=kind_phys)                              , intent(in)    :: ep_1
+  real (kind=kind_phys)                              , intent(in)    :: ep_2
+  real (kind=kind_phys)                              , intent(in)    :: cp
+  integer                                            , intent(in)    :: iz0tlnd
+  integer                                            , intent(in)    :: itime
+  integer                                            , intent(in)    :: psi_opt
+
   real (kind=kind_phys)                              , intent(in)    :: qair   !specific humidity (kg/kg)
   real (kind=kind_phys)                              , intent(in)    :: sfctmp !air temperature (k)
   real (kind=kind_phys)                              , intent(in)    :: thair  !potential temperature (k)
@@ -1673,6 +1757,7 @@ endif   ! croptype == 0
   real (kind=kind_phys)                              , intent(in)    :: esai   !lai adjusted for burying by snow
   real (kind=kind_phys)                              , intent(in)    :: fwet   !fraction of canopy that is wet [-]
   real (kind=kind_phys)                              , intent(in)    :: fveg   !greeness vegetation fraction (-)
+  real (kind=kind_phys)                              , intent(in)    :: shdfac !< green vegetation fraction [0.0-1.0]
   real (kind=kind_phys)                              , intent(in)    :: lat    !latitude (radians)
   real (kind=kind_phys)                              , intent(in)    :: canliq !canopy-intercepted liquid water (mm)
   real (kind=kind_phys)                              , intent(in)    :: canice !canopy-intercepted ice mass (mm)
@@ -1701,6 +1786,7 @@ endif   ! croptype == 0
 
 ! outputs
   real (kind=kind_phys)                              , intent(out)   :: z0wrf  !combined z0 sent to coupled model
+  real (kind=kind_phys)                              , intent(out)   :: z0hwrf !combined z0h sent to coupled model
   integer, dimension(-nsnow+1:nsoil), intent(out)   :: imelt  !phase change index [1-melt; 2-freeze]
   real (kind=kind_phys)   , dimension(-nsnow+1:    0), intent(out)   :: snicev !partial volume ice [m3/m3]
   real (kind=kind_phys)   , dimension(-nsnow+1:    0), intent(out)   :: snliqv !partial volume liq. water [m3/m3]
@@ -1729,6 +1815,7 @@ endif   ! croptype == 0
 !  real (kind=kind_phys)                              , intent(out)   :: lathea !latent heat vap./sublimation (j/kg)
   real (kind=kind_phys)                              , intent(out)   :: latheav !latent heat vap./sublimation (j/kg)
   real (kind=kind_phys)                              , intent(out)   :: latheag !latent heat vap./sublimation (j/kg)
+  real (kind=kind_phys)                              , intent(out)   :: ts     !surface temperature (k)
   logical                           , intent(out)   :: frozen_ground ! used to define latent heat pathway
   logical                           , intent(out)   :: frozen_canopy ! used to define latent heat pathway
 
@@ -1744,6 +1831,7 @@ endif   ! croptype == 0
   real (kind=kind_phys)                              , intent(out)   :: t2mb   !2-m air temperature over bare ground part [k]
   real (kind=kind_phys)                              , intent(out)   :: bgap
   real (kind=kind_phys)                              , intent(out)   :: wgap
+  real (kind=kind_phys)                              , intent(out)   :: canhs   !canopy heat storage change (w/m2) 
   real (kind=kind_phys), dimension(1:2)              , intent(out)   :: albd !albedo (direct)
   real (kind=kind_phys), dimension(1:2)              , intent(out)   :: albi !albedo (diffuse)
   real (kind=kind_phys), dimension(1:2)              , intent(out)   :: albsnd   !snow albedo (direct)
@@ -1751,7 +1839,6 @@ endif   ! croptype == 0
 !jref:end
 
 ! input & output
-  real (kind=kind_phys)                              , intent(inout) :: ts     !surface temperature (k)
   real (kind=kind_phys)                              , intent(inout) :: tv     !vegetation temperature (k)
   real (kind=kind_phys)                              , intent(inout) :: tg     !ground temperature (k)
   real (kind=kind_phys)   , dimension(-nsnow+1:nsoil), intent(inout) :: stc    !snow/soil temperature [k]
@@ -1769,9 +1856,10 @@ endif   ! croptype == 0
   real (kind=kind_phys)                              , intent(inout) :: cm     !momentum drag coefficient
   real (kind=kind_phys)                              , intent(inout) :: ch     !sensible heat exchange coefficient
   real (kind=kind_phys)                              , intent(inout) :: q1
-  real                              , intent(inout) :: rb     !leaf boundary layer resistance (s/m)
-  real                              , intent(inout) :: laisun !sunlit leaf area index (m2/m2)
-  real                              , intent(inout) :: laisha !shaded leaf area index (m2/m2)
+  real (kind=kind_phys)                              , intent(inout) :: ustarx !< friction velocity
+  real (kind=kind_phys)                              , intent(inout) :: rb     !leaf boundary layer resistance (s/m)
+  real (kind=kind_phys)                              , intent(inout) :: laisun !sunlit leaf area index (m2/m2)
+  real (kind=kind_phys)                              , intent(inout) :: laisha !shaded leaf area index (m2/m2)
 #ifdef CCPP
   character(len=*)                  , intent(inout) :: errmsg
   integer                           , intent(inout) :: errflg
@@ -1861,6 +1949,16 @@ endif   ! croptype == 0
   real (kind=kind_phys),intent(out)                                  :: chv2    !sensible heat conductance, canopy air to zlvl air (m/s)
   real (kind=kind_phys),intent(out)                                  :: chb2    !sensible heat conductance, canopy air to zlvl air (m/s)
   real (kind=kind_phys)                                  :: noahmpres
+! for new coupling
+  real (kind=kind_phys)                                  :: csigmaf0
+  real (kind=kind_phys)                                  :: csigmaf1
+
+  real (kind=kind_phys)                                  :: cdmnv
+  real (kind=kind_phys)                                  :: ezpdv
+  real (kind=kind_phys)                                  :: cdmng
+  real (kind=kind_phys)                                  :: ezpdg
+  real (kind=kind_phys)                                  :: ezpd
+  real (kind=kind_phys)                                  :: aone
 
 !jref:end  
 
@@ -1891,6 +1989,18 @@ endif   ! croptype == 0
     chv2      = 0.
     rb        = 0.
 
+    cdmnv     = 0.0
+    ezpdv     = 0.0
+    cdmng     = 0.0
+    ezpdg     = 0.0
+    ezpd      = 0.0
+    z0hwrf    = 0.0
+    csigmaf1  = 0.0
+    csigmaf0  = 0.0
+    aone      = 0.0
+
+!
+
 ! wind speed at reference height: ur >= 1
 
     ur = max( sqrt(uu**2.+vv**2.), 1. )
@@ -1904,6 +2014,10 @@ endif   ! croptype == 0
 ! ground snow cover fraction [niu and yang, 2007, jgr]
 
      fsno = 0.
+     if(snowh <= 1.e-6 .or. sneqv <= 1.e-3) then
+       snowh = 0.0
+       sneqv = 0.0
+     end if
      if(snowh.gt.0.)  then
          bdsno    = sneqv / snowh
          fmelt    = (bdsno/100.)**parameters%mfsno
@@ -1956,7 +2070,7 @@ endif   ! croptype == 0
   call thermoprop (parameters,nsoil   ,nsnow   ,isnow   ,ist     ,dzsnso  , & !in
                    dt      ,snowh   ,snice   ,snliq   , & !in
                    smc     ,sh2o    ,tg      ,stc     ,ur      , & !in
-                   lat     ,z0m     ,zlvl    ,vegtyp  , & !in
+                   lat     ,z0m     ,zlvl    ,vegtyp  ,  & !in
                    df      ,hcpct   ,snicev  ,snliqv  ,epore   , & !out
                    fact    )                              !out
 
@@ -2081,13 +2195,15 @@ endif   ! croptype == 0
                     uu      ,vv      ,sfctmp  ,thair   ,qair    , & !in
                     eair    ,rhoair  ,snowh   ,vai     ,gammav   ,gammag   , & !in
                     fwet    ,laisun  ,laisha  ,cwp     ,dzsnso  , & !in
-                    zlvl    ,zpd     ,z0m     ,fveg    , & !in
+                    zlvl    ,zpd     ,z0m     ,fveg    ,shdfac, & !in
                     z0mg    ,emv     ,emg     ,canliq  ,fsno, & !in
                     canice  ,stc     ,df      ,rssun   ,rssha   , & !in
                     rsurf   ,latheav ,latheag ,parsun  ,parsha  ,igs     , & !in
                     foln    ,co2air  ,o2air   ,btran   ,sfcprs  , & !in
                     rhsur   ,iloc    ,jloc    ,q2      ,pahv  ,pahg  , & !in
-                    eah     ,tah     ,tv      ,tgv     ,cmv     , & !inout
+                    thsfc_loc, prslkix,prsik1x,prslk1x, garea1,        & !in
+                    pblhx   ,iz0tlnd ,itime   ,psi_opt ,ep_1, ep_2, cp, &
+                    eah     ,tah     ,tv      ,tgv     ,cmv, ustarx , & !inout
 #ifdef CCPP
                     chv     ,dx      ,dz8w    ,errmsg  ,errflg  , & !inout
 #else
@@ -2095,10 +2211,18 @@ endif   ! croptype == 0
 #endif
                     tauxv   ,tauyv   ,irg     ,irc     ,shg     , & !out
                     shc     ,evg     ,evc     ,tr      ,ghv     , & !out
-                    t2mv    ,psnsun  ,psnsha  ,                   & !out
+                    t2mv    ,psnsun  ,psnsha  ,canhs   ,          & !out
+                    csigmaf1,                                     & !out
 !jref:start
                     qc      ,qsfc    ,psfc    , & !in
                     q2v     ,chv2, chleaf, chuc)               !inout 
+
+! new coupling code
+
+    cdmnv = 0.4*0.4/log((zlvl-zpd)/z0m)**2
+    aone = 2.6*(10.0*parameters%hvt/(zlvl-zpd))**0.355
+    ezpdv =  zpd*fveg                            !for the grid
+
 !jref:end
 #ifdef CCPP
         if (errflg /= 0) return 
@@ -2111,19 +2235,37 @@ endif   ! croptype == 0
     call bare_flux (parameters,nsnow   ,nsoil   ,isnow   ,dt      ,sag     , & !in
                     lwdn    ,ur      ,uu      ,vv      ,sfctmp  , & !in
                     thair   ,qair    ,eair    ,rhoair  ,snowh   , & !in
-                    dzsnso  ,zlvl    ,zpdg    ,z0mg    ,fsno,          & !in
+                    dzsnso  ,zlvl    ,zpdg    ,z0mg    ,fsno, & !in
                     emg     ,stc     ,df      ,rsurf   ,latheag  , & !in
                     gammag   ,rhsur   ,iloc    ,jloc    ,q2      ,pahb  , & !in
+                    thsfc_loc, prslkix,prsik1x,prslk1x,vegtyp,fveg,shdfac,garea1, & !in
+                    pblhx   ,iz0tlnd ,itime   ,psi_opt ,ep_1, ep_2, cp,      &
 #ifdef CCPP
-                    tgb     ,cmb     ,chb     ,errmsg  ,errflg   , & !inout
+                    tgb     ,cmb     ,chb, ustarx,errmsg  ,errflg   , & !inout
 #else
-                    tgb     ,cmb     ,chb     ,                   & !inout
+                    tgb     ,cmb     ,chb, ustarx,                   & !inout
 #endif
-                    tauxb   ,tauyb   ,irb     ,shb     ,evb     , & !out
-                    ghb     ,t2mb    ,dx      ,dz8w    ,vegtyp  , & !out
+                    tauxb   ,tauyb   ,irb     ,shb     ,evb,csigmaf0,& !out
+                    ghb     ,t2mb    ,dx      ,dz8w    , & !out
 !jref:start
                     qc      ,qsfc    ,psfc    , & !in
                     sfcprs  ,q2b,   chb2)                          !in 
+
+! new coupling code
+
+    cdmng = 0.4*0.4/log((zlvl-zpdg)/z0mg)**2
+    ezpdg  = zpdg
+!
+! vegetation is optional; use the larger one
+!
+    if (ezpdv .ge. ezpdg ) then
+      ezpd  = ezpdv
+    elseif (ezpdv .gt. 0.0 .and. ezpdv .lt. ezpdg) then
+      ezpd = (1.0 -fveg)*ezpdg
+    else
+      ezpd = ezpdg
+    endif
+
 !jref:end
 #ifdef CCPP
     if (errflg /= 0) return
@@ -2144,12 +2286,22 @@ endif   ! croptype == 0
 	pah   = fveg * pahg      + (1.0 - fveg) * pahb   + pahv
         tg    = fveg * tgv       + (1.0 - fveg) * tgb
         t2m   = fveg * t2mv      + (1.0 - fveg) * t2mb
-        ts    = fveg * tv        + (1.0 - fveg) * tgb
+        ts    = fveg * tah       + (1.0 - fveg) * tgb
         cm    = fveg * cmv       + (1.0 - fveg) * cmb      ! better way to average?
         ch    = fveg * chv       + (1.0 - fveg) * chb
         q1    = fveg * (eah*0.622/(sfcprs - 0.378*eah)) + (1.0 - fveg)*qsfc
         q2e   = fveg * q2v       + (1.0 - fveg) * q2b
-	z0wrf = z0m
+
+! effectibe skin temperature
+
+        ts    = (fveg*chv*tah + (1.0-fveg)*chb*tgb ) / ch
+
+
+! new coupling code
+
+      call thermalz0(parameters,fveg,z0m,z0mg,zlvl,zpd,ezpd,ustarx,          & !in
+                       vegtyp,vai,ur,csigmaf0,csigmaf1,aone,cdmnv,cdmng,2, & !in
+                       z0wrf,z0hwrf)
     else
         taux  = tauxb
         tauy  = tauyb
@@ -2171,7 +2323,11 @@ endif   ! croptype == 0
         rssha = 0.0
         tgv   = tgb
         chv   = chb
-	z0wrf = z0mg
+
+      call thermalz0(parameters,fveg,z0m,z0mg,zlvl,zpd,ezpd,ustarx,          & !in
+                       vegtyp,vai,ur,csigmaf0,csigmaf1,aone,cdmnv,cdmng,0, & !in
+                       z0wrf,z0hwrf)
+
     end if
 
     fire = lwdn + fira
@@ -2286,7 +2442,7 @@ endif   ! croptype == 0
   real (kind=kind_phys),                            intent(in)  :: lat     !latitude (radians)
   real (kind=kind_phys),                            intent(in)  :: z0m     !roughness length (m)
   real (kind=kind_phys),                            intent(in)  :: zlvl    !reference height (m)
-  integer                        , intent(in)  :: vegtyp  !vegtyp type
+  integer                                         , intent(in)  :: vegtyp  !vegtyp type
 
 ! outputs
   real (kind=kind_phys), dimension(-nsnow+1:nsoil), intent(out) :: df      !thermal conductivity [w/m/k]
@@ -2302,6 +2458,7 @@ endif   ! croptype == 0
   real (kind=kind_phys), dimension(-nsnow+1:    0)              :: cvsno   !volumetric specific heat (j/m3/k)
   real (kind=kind_phys), dimension(-nsnow+1:    0)              :: tksno   !snow thermal conductivity (j/m3/k)
   real (kind=kind_phys), dimension(       1:nsoil)              :: sice    !soil ice content
+  real (kind=kind_phys), parameter :: sbeta = -2.0
 ! --------------------------------------------------------------------------------------------------
 
 ! compute snow thermal conductivity and heat capacity
@@ -2419,10 +2576,10 @@ endif   ! croptype == 0
 ! thermal conductivity of snow
 
   do iz = isnow+1, 0
-     tksno(iz) = 3.2217e-6*bdsnoi(iz)**2.           ! stieglitz(yen,1965)
+!     tksno(iz) = 3.2217e-6*bdsnoi(iz)**2.           ! stieglitz(yen,1965)
 !    tksno(iz) = 2e-2+2.5e-6*bdsnoi(iz)*bdsnoi(iz)   ! anderson, 1976
 !    tksno(iz) = 0.35                                ! constant
-!    tksno(iz) = 2.576e-6*bdsnoi(iz)**2. + 0.074    ! verseghy (1991)
+    tksno(iz) = 2.576e-6*bdsnoi(iz)**2. + 0.074    ! verseghy (1991)
 !    tksno(iz) = 2.22*(bdsnoi(iz)/1000.)**1.88      ! douvill(yen, 1981)
   enddo
 
@@ -3480,13 +3637,15 @@ endif   ! croptype == 0
                        uu      ,vv      ,sfctmp  ,thair   ,qair    , & !in
                        eair    ,rhoair  ,snowh   ,vai     ,gammav   ,gammag,  & !in
                        fwet    ,laisun  ,laisha  ,cwp     ,dzsnso  , & !in
-                       zlvl    ,zpd     ,z0m     ,fveg    , & !in
+                       zlvl    ,zpd     ,z0m     ,fveg    ,shdfac,  & !in
                        z0mg    ,emv     ,emg     ,canliq  ,fsno,          & !in
                        canice  ,stc     ,df      ,rssun   ,rssha   , & !in
                        rsurf   ,latheav ,latheag  ,parsun  ,parsha  ,igs     , & !in
                        foln    ,co2air  ,o2air   ,btran   ,sfcprs  , & !in
                        rhsur   ,iloc    ,jloc    ,q2      ,pahv    ,pahg     , & !in
-                       eah     ,tah     ,tv      ,tg      ,cm      , & !inout
+                       thsfc_loc, prslkix,prsik1x,prslk1x, garea1,      & !in
+                       pblhx   ,iz0tlnd ,itime   ,psi_opt ,ep_1, ep_2, cp,   &
+                       eah     ,tah     ,tv      ,tg      ,cm,ustarx,& !inout
 #ifdef CCPP
                        ch      ,dx      ,dz8w    ,errmsg  ,errflg  , & !inout
 #else
@@ -3494,7 +3653,8 @@ endif   ! croptype == 0
 #endif
                        tauxv   ,tauyv   ,irg     ,irc     ,shg     , & !out
                        shc     ,evg     ,evc     ,tr      ,gh      , & !out
-                       t2mv    ,psnsun  ,psnsha  ,                   & !out
+                       t2mv    ,psnsun  ,psnsha  ,canhs   ,          & !out
+                       csigmaf1,                                     & !out
                        qc      ,qsfc    ,psfc    ,                   & !in
                        q2v     ,cah2    ,chleaf  ,chuc    )            !inout 
 
@@ -3503,7 +3663,7 @@ endif   ! croptype == 0
 ! ground (tg) temperatures that balance the surface energy budgets
 
 ! vegetated:
-! -sav + irc[tv] + shc[tv] + evc[tv] + tr[tv] = 0
+! -sav + irc[tv] + shc[tv] + evc[tv] + tr[tv] + canhs[tv] = 0
 ! -sag + irg[tg] + shg[tg] + evg[tg] + gh[tg] = 0
 ! --------------------------------------------------------------------------------------------------
   implicit none
@@ -3531,6 +3691,15 @@ endif   ! croptype == 0
   real (kind=kind_phys),                            intent(in) :: rhoair !density air (kg/m**3)
   real (kind=kind_phys),                            intent(in) :: dt     !time step (s)
   real (kind=kind_phys),                            intent(in) :: fsno     !snow fraction
+
+  real (kind=kind_phys)                           , intent(in)    :: pblhx  !  pbl height
+  real (kind=kind_phys)                           , intent(in)    :: ep_1
+  real (kind=kind_phys)                           , intent(in)    :: ep_2
+  real (kind=kind_phys)                           , intent(in)    :: cp
+  integer                                         , intent(in)    :: iz0tlnd
+  integer                                         , intent(in)    :: itime
+  integer                                         , intent(in)    :: psi_opt
+
 
   real (kind=kind_phys),                            intent(in) :: snowh  !actual snow depth [m]
   real (kind=kind_phys),                            intent(in) :: fwet   !wetted fraction of canopy
@@ -3591,7 +3760,7 @@ endif   ! croptype == 0
 #endif
 
 ! output
-! -fsa + fira + fsh + (fcev + fctr + fgev) + fcst + ssoil = 0
+! -fsa + fira + fsh + (fcev + fctr + fgev) + fcst + ssoil + canhs = 0
   real (kind=kind_phys),                           intent(out) :: tauxv  !wind stress: e-w (n/m2)
   real (kind=kind_phys),                           intent(out) :: tauyv  !wind stress: n-s (n/m2)
   real (kind=kind_phys),                           intent(out) :: irc    !net longwave radiation (w/m2) [+= to atm]
@@ -3607,7 +3776,7 @@ endif   ! croptype == 0
   real (kind=kind_phys),                           intent(out) :: psnsha !shaded leaf photosynthesis (umolco2/m2/s)
   real (kind=kind_phys),                           intent(out) :: chleaf !leaf exchange coefficient
   real (kind=kind_phys),                           intent(out) :: chuc   !under canopy exchange coefficient
-
+  real (kind=kind_phys),                           intent(out) :: canhs  !canopy heat storage change (w/m2)
   real (kind=kind_phys),                           intent(out) :: q2v
   real (kind=kind_phys) :: cah    !sensible heat conductance, canopy air to zlvl air (m/s)
   real (kind=kind_phys) :: u10v    !10 m wind speed in eastward dir (m/s) 
@@ -3615,9 +3784,14 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: wspd
 
 ! ------------------------ local variables ----------------------------------------------------
+  real (kind=kind_phys) ::  gdx         !grid dx
+  real (kind=kind_phys) ::  snwd        ! snowdepth in mm
+  integer               ::  mnice        ! MYNN ice flag
+
   real (kind=kind_phys) :: cw           !water vapor exchange coefficient
   real (kind=kind_phys) :: fv           !friction velocity (m/s)
   real (kind=kind_phys) :: wstar        !friction velocity n vertical direction (m/s) (only for sfcdif2)
+  real (kind=kind_phys) :: z0mo        !roughness length for intermediate output only (m)
   real (kind=kind_phys) :: z0h          !roughness length, sensible heat (m)
   real (kind=kind_phys) :: z0hg         !roughness length, sensible heat (m)
   real (kind=kind_phys) :: rb           !bulk leaf boundary layer resistance (s/m)
@@ -3655,6 +3829,7 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: fm           !momentum stability correction, weighted by prior iters
   real (kind=kind_phys) :: fh           !sen heat stability correction, weighted by prior iters
   real (kind=kind_phys) :: fhg          !sen heat stability correction, ground
+  real (kind=kind_phys) :: fhgh         !sen heat stability correction, canopy
   real (kind=kind_phys) :: hcan         !canopy height (m) [note: hcan >= z0mg]
 
   real (kind=kind_phys) :: a            !temporary calculation
@@ -3677,6 +3852,15 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: ch2          !surface exchange at 2m
   real (kind=kind_phys) :: thstar          !surface exchange at 2m
 
+  real (kind=kind_phys) :: fm10 
+  real (kind=kind_phys) :: rb1v 
+  real (kind=kind_phys) :: stress1v
+
+
+  real (kind=kind_phys) :: flhcv     ! for MYNN
+  real (kind=kind_phys) :: flqcv     ! for MYNN
+  real (kind=kind_phys) :: wspdv     ! for MYNN
+
   real (kind=kind_phys) :: thvair
   real (kind=kind_phys) :: thah 
   real (kind=kind_phys) :: rahc2        !aerodynamic resistance for sensible heat (s/m)
@@ -3685,9 +3869,9 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: ch2v         !exchange coefficient for 2m over vegetation. 
   real (kind=kind_phys) :: cq2v         !exchange coefficient for 2m over vegetation. 
   real (kind=kind_phys) :: eah2         !2m vapor pressure over canopy
-  real (kind=kind_phys) :: qfx        !moisture flux
+  real (kind=kind_phys) :: qfx          !moisture flux
   real (kind=kind_phys) :: e1           
-
+  real (kind=kind_phys) :: hcv          !canopy heat capacity j/m2/k, C.He added 
 
   real (kind=kind_phys) :: vaie         !total leaf area index + stem area index,effective
   real (kind=kind_phys) :: laisune      !sunlit leaf area index, one-sided (m2/m2),effective
@@ -3705,6 +3889,20 @@ endif   ! croptype == 0
 
   integer :: liter     !last iteration
 
+! New variables for sfcdif3
+
+  logical              , intent(in   ) :: thsfc_loc
+  real (kind=kind_phys), intent(in   ) :: prslkix     ! in exner function
+  real (kind=kind_phys), intent(in   ) :: prsik1x     ! in exner function
+  real (kind=kind_phys), intent(in   ) :: prslk1x     ! in exner function
+  real (kind=kind_phys), intent(in   ) :: garea1 
+  real (kind=kind_phys), intent(in   ) :: shdfac      ! greeness vegetation fraction (-)
+  real (kind=kind_phys), intent(inout) :: ustarx      ! friction velocity
+  real (kind=kind_phys), intent(  out) :: csigmaf1    !
+  real (kind=kind_phys)                :: csigmaf0    !
+! dummy for thermal roughness scheme
+  real (kind=kind_phys)                :: temptrs    
+
 
   real (kind=kind_phys) :: t, tdc       !kelvin to degree celsius with limit -50 to +50
 
@@ -3715,8 +3913,9 @@ endif   ! croptype == 0
 
         mpe = 1e-6
         liter = 0
-        fv = 0.1
+        temptrs = 1.
 
+        fv = ustarx
 ! ---------------------------------------------------------------------------------------------
 ! initialization variables that do not depend on stability iteration
 ! ---------------------------------------------------------------------------------------------
@@ -3751,7 +3950,6 @@ endif   ! croptype == 0
         qsfc = 0.622*eair/(psfc-0.378*eair)  
 
 ! canopy height
-
         hcan = parameters%hvt
         uc = ur*log(hcan/z0m)/log(zlvl/z0m)
         uc = ur*log((hcan-zpd+z0m)/z0m)/log(zlvl/z0m)   ! mb: add zpd v3.7
@@ -3796,17 +3994,39 @@ endif   ! croptype == 0
 
         air = -emv*(1.+(1.-emv)*(1.-emg))*lwdn - emv*emg*sb*tg**4  
         cir = (2.-emv*(1.-emg))*emv*sb
+!
+       if(opt_sfc == 4) then
+
+        gdx  = sqrt(garea1)
+        snwd = snowh * 1000.0
+        fv   = ustarx                 !inout in sfcdif4
+
+        if (snowh .gt. 0.1) then
+          mnice = 1
+        else
+          mnice = 0
+        endif
+
+       endif
+
 ! ---------------------------------------------------------------------------------------------
       loop1: do iter = 1, niterc    !  begin stability iteration
 
-       if(iter == 1) then
-            z0h  = z0m  
-            z0hg = z0mg
-       else
-            z0h  = z0m    !* exp(-czil*0.4*258.2*sqrt(fv*z0m))
-            z0hg = z0mg   !* exp(-czil*0.4*258.2*sqrt(fv*z0mg))
-       end if
+!      if(iter == 1) then
+!           z0hg = z0mg
+!      else
+!           z0hg = z0mg   !* exp(-czil*0.4*258.2*sqrt(fv*z0mg))
+!      end if
 
+
+      call thermalz0(parameters,fveg,z0m,z0mg,zlvl,zpd,zpd,ustarx,          & !in
+                       vegtyp,vaie,ur,csigmaf0,csigmaf1,temptrs,temptrs,temptrs,0, & !in
+                       z0mo,z0hg)
+
+      call thermalz0(parameters,fveg,z0m,z0mg,zlvl,zpd,zpd,ustarx,          & !in
+                       vegtyp,vaie,ur,csigmaf0,csigmaf1,temptrs,temptrs,temptrs,1, & !in
+                       z0mo,z0h)
+    
 ! aerodyn resistances between heights zlvl and d+z0v
 
        if(opt_sfc == 1) then
@@ -3835,8 +4055,45 @@ endif   ! croptype == 0
           cm = cm / ur
        endif
 
-       ramc = max(1.,1./(cm*ur))
-       rahc = max(1.,1./(ch*ur))
+       if(opt_sfc == 3) then
+         call sfcdif3(parameters,iloc    ,jloc    ,iter    ,sfctmp  ,qair    ,ur      , & !in 
+                        zlvl    ,tah     ,thsfc_loc,prslkix,prsik1x ,prslk1x ,z0m     , & !in 
+                        z0h, zpd ,snowh ,shdfac ,garea1 ,                               & !in 
+                        ustarx  ,fm      ,fh      ,fm2     ,fh2     ,                   & !inout 
+                        fv      ,cm      ,ch       )                                      !out 
+
+       endif
+
+        if(opt_sfc == 4) then
+
+          call sfcdif4(iloc  ,jloc  ,uu    ,vv    ,sfctmp , & 
+                      sfcprs ,psfc  ,pblhx  ,gdx  ,z0m    , &
+                      ep_1, ep_2, cp,                      &
+                      itime  ,snwd  ,mnice  ,psi_opt,      &
+                      tah   ,qair   ,zlvl  ,iz0tlnd,qsfc ,  &
+                      h     ,qfx    ,cm    ,ch     ,ch2v ,  &
+                      cq2v  ,moz    ,fv    ,rb1v, fm, fh,   &
+                     stress1v,fm10  ,fh2   ,wspdv ,flhcv ,flqcv)
+
+
+        ! Undo the multiplication by windspeed that SFCDIF4
+          ! applies to exchange coefficients CH and CM
+
+          ch   = ch / wspdv
+          cm   = cm / wspdv
+          ch2v = ch2v / wspdv
+
+       endif
+
+
+       if(opt_sfc == 1 .or.  opt_sfc == 2 .or.  opt_sfc == 3) then
+         ramc = max(1.,1./(cm*ur))
+         rahc = max(1.,1./(ch*ur))
+       elseif(opt_sfc == 4) then
+         ramc = max(1.,1./(cm*wspdv) )
+         rahc = max(1.,1./(ch*wspdv) )
+       endif
+
        rawc = rahc
 
 ! aerodyn resistance between heights z0g and d+z0v, rag, and leaf
@@ -3845,7 +4102,7 @@ endif   ! croptype == 0
        call ragrb(parameters,iter   ,vaie   ,rhoair ,hg     ,tah    , & !in
                   zpd    ,z0mg   ,z0hg   ,hcan   ,uc     , & !in
                   z0h    ,fv     ,cwp    ,vegtyp ,mpe    , & !in
-                  tv     ,mozg   ,fhg    ,iloc   ,jloc   , & !inout
+                  tv     ,mozg   ,fhg    ,fhgh   ,iloc   ,jloc   , & !inout
                   ramg   ,rahg   ,rawg   ,rb     )           !out
 
 ! es and d(es)/dt evaluated at tv
@@ -3921,14 +4178,19 @@ endif   ! croptype == 0
           evc = min(canice*latheav/dt,evc)
 	end if
 
+! canopy heat capacity
+        hcv = 0.02*vaie*cwat + canliq*cwat/denh2o + canice*cice/denice !j/m2/k
+
         b   = sav-irc-shc-evc-tr+pahv                          !additional w/m2
-        a   = fveg*(4.*cir*tv**3 + csh + (cev+ctr)*destv) !volumetric heat capacity
+!       a   = fveg*(4.*cir*tv**3 + csh + (cev+ctr)*destv) !volumetric heat capacity
+        a   = fveg*(4.*cir*tv**3 + csh + (cev+ctr)*destv) + hcv/dt !volumetric heat capacity
         dtv = b/a
 
         irc = irc + fveg*4.*cir*tv**3*dtv
         shc = shc + fveg*csh*dtv
         evc = evc + fveg*cev*destv*dtv
         tr  = tr  + fveg*ctr*destv*dtv                               
+        canhs = dtv*hcv/dt
 
 ! update vegetation surface temperature
         tv  = tv + dtv
@@ -3940,6 +4202,11 @@ endif   ! croptype == 0
 
 ! consistent specific humidity from canopy air vapor pressure
         qsfc = (0.622*eah)/(sfcprs-0.378*eah)
+
+        if ( opt_sfc == 4 ) then
+           qfx = (qsfc-qair)*rhoair*caw
+        endif
+
 
         if (liter == 1) then
            exit loop1 
@@ -4015,11 +4282,20 @@ endif   ! croptype == 0
 !     qfx = (qsfc-qair)*rhoair*caw !*cpair/gammag
 
 ! 2m temperature over vegetation ( corrected for low cq2v values )
-   if (opt_sfc == 1 .or. opt_sfc == 2) then
+   if (opt_sfc == 1 .or. opt_sfc == 2 .or. opt_sfc ==3 ) then
 !      cah2 = fv*1./vkc*log((2.+z0h)/z0h)
       cah2 = fv*vkc/log((2.+z0h)/z0h)
       cah2 = fv*vkc/(log((2.+z0h)/z0h)-fh2)
       cq2v = cah2
+   endif
+
+    if (opt_sfc == 4 ) then
+       rahc2 = max(1.,1./(ch2v*wspdv))
+       rawc2 = rahc2
+       cah2 = 1./rahc2
+       cq2v = 1./max(1.,1./(cq2v*wspdv))
+    endif
+
       if (cah2 .lt. 1.e-5 ) then
          t2mv = tah
 !         q2v  = (eah*0.622/(sfcprs - 0.378*eah))
@@ -4029,7 +4305,6 @@ endif   ! croptype == 0
 !         q2v = (eah*0.622/(sfcprs - 0.378*eah))- qfx/(rhoair*fv)* 1./vkc * log((2.+z0h)/z0h)
          q2v = qsfc - ((evc+tr)/fveg+evg)/(latheav*rhoair) * 1./cq2v
       endif
-   endif
 
 ! update ch for output
      ch = cah
@@ -4049,13 +4324,16 @@ endif   ! croptype == 0
                         dzsnso  ,zlvl    ,zpd     ,z0m     ,fsno    , & !in
                         emg     ,stc     ,df      ,rsurf   ,lathea  , & !in
                         gamma   ,rhsur   ,iloc    ,jloc    ,q2      ,pahb  , & !in
+                        thsfc_loc, prslkix,prsik1x,prslk1x,vegtyp,fveg,shdfac,garea1,  & !in
+                        pblhx  , iz0tlnd , itime  ,psi_opt,ep_1,ep_2,cp     ,&
 #ifdef CCPP
-                        tgb     ,cm      ,ch      ,errmsg  ,errflg  , & !inout
+                        tgb     ,cm      ,ch,ustarx,errmsg  ,errflg  , & !inout
 #else
-                        tgb     ,cm      ,ch      ,          & !inout
+                        tgb     ,cm      ,ch,ustarx,          & !inout
 #endif
                         tauxb   ,tauyb   ,irb     ,shb     ,evb     , & !out
-                        ghb     ,t2mb    ,dx      ,dz8w    ,ivgtyp  , & !out
+                        csigmaf0,                                     & !out
+                        ghb     ,t2mb    ,dx      ,dz8w    ,          & !out
                         qc      ,qsfc    ,psfc    ,                   & !in
                         sfcprs  ,q2b     ,ehb2    )                     !in 
 
@@ -4100,8 +4378,16 @@ endif   ! croptype == 0
   real (kind=kind_phys),                            intent(in) :: rhsur  !raltive humidity in surface soil/snow air space (-)
   real (kind=kind_phys),                            intent(in) :: fsno     !snow fraction
 
+  real (kind=kind_phys),                            intent(in) :: pblhx  !pbl height (m)
+  real (kind=kind_phys),                            intent(in) :: ep_1
+  real (kind=kind_phys),                            intent(in) :: ep_2
+  real (kind=kind_phys),                            intent(in) :: cp
+  integer,                                          intent(in) :: iz0tlnd
+  integer,                                          intent(in) :: itime 
+  integer,                                          intent(in) :: psi_opt
+
+
 !jref:start; in 
-  integer                        , intent(in) :: ivgtyp
   real (kind=kind_phys)                           , intent(in) :: qc     !cloud water mixing ratio
   real (kind=kind_phys)                           , intent(inout) :: qsfc   !mixing ratio at lowest model layer
   real (kind=kind_phys)                           , intent(in) :: psfc   !pressure at lowest model layer
@@ -4141,6 +4427,19 @@ endif   ! croptype == 0
 
 ! local variables 
 
+  real (kind=kind_phys) ::  gdx         !grid dx
+  real (kind=kind_phys) ::  snwd        ! snowdepth in mm
+  integer               ::  mnice       ! MYNN ice flag
+
+  real (kind=kind_phys) :: fm10
+  real (kind=kind_phys) :: rb1b
+  real (kind=kind_phys) :: stress1b 
+  
+  real (kind=kind_phys) :: wspdb
+  real (kind=kind_phys) :: flhcb
+  real (kind=kind_phys) :: flqcb
+!
+
   real (kind=kind_phys) :: taux       !wind stress: e-w (n/m2)
   real (kind=kind_phys) :: tauy       !wind stress: n-s (n/m2)
   real (kind=kind_phys) :: fira       !total net longwave rad (w/m2)      [+ to atm]
@@ -4154,6 +4453,7 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: cw         !water vapor exchange coefficient
   real (kind=kind_phys) :: fv         !friction velocity (m/s)
   real (kind=kind_phys) :: wstar      !friction velocity n vertical direction (m/s) (only for sfcdif2)
+  real (kind=kind_phys) :: z0mo       !roughness length for intermediate output only (m)
   real (kind=kind_phys) :: z0h        !roughness length, sensible heat, ground (m)
   real (kind=kind_phys) :: rb         !bulk leaf boundary layer resistance (s/m)
   real (kind=kind_phys) :: ramb       !aerodynamic resistance for momentum (s/m)
@@ -4167,6 +4467,10 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: cev        !coefficients for ev as function of esat[ts]
   real (kind=kind_phys) :: cgh        !coefficients for st as function of ts
 
+  real(kind=kind_phys)  :: kbsigmaf0
+  real(kind=kind_phys)  :: reynb
+
+
 !jref:start
   real (kind=kind_phys) :: rahb2      !aerodynamic resistance for sensible heat 2m (s/m)
   real (kind=kind_phys) :: rawb2      !aerodynamic resistance for water vapor 2m (s/m)
@@ -4178,7 +4482,6 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: emb        !momentum conductance
   real (kind=kind_phys) :: qfx        !moisture flux
   real (kind=kind_phys) :: estg2      !saturation vapor pressure at 2m (pa)
-  integer :: vegtyp     !vegetation type set to isbarren
   real (kind=kind_phys) :: e1
 !jref:end
 
@@ -4208,12 +4511,30 @@ endif   ! croptype == 0
 !  data niterb /3/
   data niterb /5/
   save niterb
+
+! New variables for sfcdif3
+
+  logical              , intent(in   ) :: thsfc_loc
+  real (kind=kind_phys), intent(in   ) :: prslkix ! in exner function
+  real (kind=kind_phys), intent(in   ) :: prsik1x ! in exner function
+  real (kind=kind_phys), intent(in   ) :: prslk1x ! in exner function
+  integer , intent(in   ) :: vegtyp 
+  real (kind=kind_phys), intent(in   ) :: fveg 
+  real (kind=kind_phys), intent(in   ) :: shdfac 
+  real (kind=kind_phys), intent(in   ) :: garea1 
+  real (kind=kind_phys), intent(inout) :: ustarx    !friction velocity
+  real (kind=kind_phys), intent(  out) :: csigmaf0  !
+  real (kind=kind_phys)                :: csigmaf1  !
+! dummy for thermal roughness scheme
+  real (kind=kind_phys)                :: temptrs
+
   real (kind=kind_phys) :: t, tdc     !kelvin to degree celsius with limit -50 to +50
   tdc(t)   = min( 50., max(-50.,(t-tfrz)) )
 
 ! -----------------------------------------------------------------
 ! initialization variables that do not depend on stability iteration
 ! -----------------------------------------------------------------
+        temptrs = 1.
         mpe = 1e-6
         dtg = 0.
         moz    = 0.
@@ -4222,19 +4543,43 @@ endif   ! croptype == 0
         fh2    = 0.
         h      = 0.
         qfx    = 0.
-        fv     = 0.1
 
         cir = emg*sb
         cgh = 2.*df(isnow+1)/dzsnso(isnow+1)
 
+        reynb = ustarx*z0m/(1.5e-05)
+
+        if (reynb .gt. 2.0) then
+           kbsigmaf0 = 2.46*reynb**0.25 - log(7.4)
+        else
+           kbsigmaf0 = - log(0.397)
+        endif
+
+        z0h = max(z0m/exp(kbsigmaf0),1.0e-6)
+
+     if (opt_sfc == 4) then
+         fv  = ustarx
+         gdx = sqrt(garea1)
+         snwd = snowh * 1000.0
+
+         if (snowh .gt. 0.1) then
+            mnice = 1
+         else
+            mnice = 0
+         endif
+      endif
+
 ! -----------------------------------------------------------------
       loop3: do iter = 1, niterb  ! begin stability iteration
 
-        if(iter == 1) then
-            z0h = z0m 
-        else
-            z0h = z0m !* exp(-czil*0.4*258.2*sqrt(fv*z0m))
-        end if
+!       if(iter == 1) then
+!           z0h = z0m 
+!       else
+!           z0h = z0m !* exp(-czil*0.4*258.2*sqrt(fv*z0m))
+!       end if
+      call thermalz0(parameters,fveg,z0m,z0m,zlvl,zpd,zpd,ustarx,          & !in
+                       vegtyp,0.,ur,csigmaf0,csigmaf1,temptrs,temptrs,temptrs,0, & !in
+                       z0mo,z0h)
 
         if(opt_sfc == 1) then
           call sfcdif1(parameters,iter   ,sfctmp ,rhoair ,h      ,qair   , & !in
@@ -4267,8 +4612,51 @@ endif   ! croptype == 0
 
         endif
 
-        ramb = max(1.,1./(cm*ur))
-        rahb = max(1.,1./(ch*ur))
+        if(opt_sfc == 3) then
+          call sfcdif3(parameters,iloc    ,jloc    ,iter    ,sfctmp  ,qair    ,ur      , & !in 
+                         zlvl    ,tgb     ,thsfc_loc,prslkix,prsik1x ,prslk1x ,z0m     , & !in 
+                         z0h, zpd,snowh   ,shdfac  ,garea1  ,                            & !in 
+                         ustarx  ,fm      ,fh      ,fm2     ,fh2     ,                   & !inout 
+                         fv      ,cm      ,ch       )                    !out 
+
+        endif
+
+        if(opt_sfc == 4) then
+
+          call sfcdif4(iloc  ,jloc  ,uu    ,vv    ,sfctmp , &
+                      sfcprs ,psfc  ,pblhx  ,gdx   ,z0m   , &
+                      ep_1, ep_2, cp,                      &
+                      itime  ,snwd  ,mnice     ,psi_opt   , &
+                      tgb   ,qair   ,zlvl  ,iz0tlnd,qsfc  , &
+                      h     ,qfx    ,cm    ,ch     ,ch2b ,  &
+                      cq2b  ,moz    ,fv    ,rb1b, fm, fh ,  &
+                     stress1b,fm10  ,fh2  , wspdb ,flhcb ,flqcb)
+
+        ! Undo the multiplication by windspeed that SFCDIF4
+          ! applies to exchange coefficients CH and CM:
+
+          ch   = ch / wspdb
+          cm   = cm / wspdb
+          ch2b = ch2b / wspdb
+          cq2b = cq2b / wspdb
+
+          if(snwd > 0.) then
+             cm = min(0.01,cm)
+             ch = min(0.01,ch)
+             ch2b = min(0.01,ch2b)
+             cq2b = min(0.01,cq2b)
+          end if
+
+         endif ! 4
+
+        if(opt_sfc == 1 .or.  opt_sfc == 2 .or.  opt_sfc == 3) then
+          ramb = max(1.,1./(cm*ur))
+          rahb = max(1.,1./(ch*ur))
+        elseif(opt_sfc == 4) then
+          ramb = max(1.,1./(cm*wspdb) )
+          rahb = max(1.,1./(ch*wspdb) )
+        endif
+
         rawb = rahb
 
 !jref - variables for diagnostics         
@@ -4346,7 +4734,8 @@ endif   ! croptype == 0
 
 !jref:start; errors in original equation corrected.
 ! 2m air temperature
-     if(opt_sfc == 1 .or. opt_sfc ==2) then
+
+     if(opt_sfc == 1 .or. opt_sfc ==2 .or. opt_sfc == 3) then
        ehb2  = fv*vkc/log((2.+z0h)/z0h)
        ehb2  = fv*vkc/(log((2.+z0h)/z0h)-fh2)
        cq2b  = ehb2
@@ -4359,6 +4748,24 @@ endif   ! croptype == 0
        endif
        if (parameters%urban_flag) q2b = qsfc
      end if
+
+    if(opt_sfc == 4) then ! consistent with veg
+
+         rahb2 = max(1.,1./(ch2b*wspdb))
+         ehb2 = 1./rahb2
+         cq2b = 1./max(1.,1./(cq2b*wspdb)) !
+
+      if (ehb2.lt.1.e-5 ) then
+         t2mb = tgb
+         q2b  = qsfc
+      else
+         t2mb = tgb - shb/(rhoair*cpair*ehb2)
+!       q2b  = qsfc - qfx/(rhoair*cq2b)
+        q2b   = qsfc - evb/(lathea*rhoair)*(1./cq2b + rsurf)
+     end if
+    endif ! 4
+
+       if (parameters%urban_flag) q2b = qsfc
 
 ! update ch 
      ch = ehb
@@ -4373,7 +4780,7 @@ endif   ! croptype == 0
   subroutine ragrb(parameters,iter   ,vai    ,rhoair ,hg     ,tah    , & !in
                    zpd    ,z0mg   ,z0hg   ,hcan   ,uc     , & !in
                    z0h    ,fv     ,cwp    ,vegtyp ,mpe    , & !in
-                   tv     ,mozg   ,fhg    ,iloc   ,jloc   , & !inout
+                   tv     ,mozg   ,fhg    ,fhgh   ,iloc   ,jloc   , & !inout
                    ramg   ,rahg   ,rawg   ,rb     )           !out
 ! --------------------------------------------------------------------------------------------------
 ! compute under-canopy aerodynamic resistance rag and leaf boundary layer
@@ -4407,6 +4814,7 @@ endif   ! croptype == 0
 
   real (kind=kind_phys),              intent(inout) :: mozg   !monin-obukhov stability parameter
   real (kind=kind_phys),              intent(inout) :: fhg    !stability correction
+  real (kind=kind_phys),              intent(inout) :: fhgh   !stability correction, canopy
 
 ! outputs
   real (kind=kind_phys)                             :: ramg   !aerodynamic resistance for momentum (s/m)
@@ -4421,33 +4829,41 @@ endif   ! croptype == 0
   real (kind=kind_phys) :: tmprah2      !temporary calculation for aerodynamic resistances
   real (kind=kind_phys) :: tmprb        !temporary calculation for rb
   real (kind=kind_phys) :: molg,fhgnew,cwpc
+  real (kind=kind_phys) :: mozgh, fhgnewh
 ! --------------------------------------------------------------------------------------------------
 ! stability correction to below canopy resistance
 
        mozg = 0.
        molg = 0.
+       mozgh = 0.
 
        if(iter > 1) then
         tmp1 = vkc * (grav/tah) * hg/(rhoair*cpair)
         if (abs(tmp1) .le. mpe) tmp1 = mpe
         molg = -1. * fv**3 / tmp1
         mozg = min( (zpd-z0mg)/molg, 1.)
+        mozgh = min( (hcan - zpd)/molg, 1.)
        end if
 
        if (mozg < 0.) then
           fhgnew  = (1. - 15.*mozg)**(-0.25)
+          fhgnewh  = 0.74 * (1. - 9.*mozg)**(-0.5)    ! PHIh
        else
           fhgnew  = 1.+ 4.7*mozg
+          fhgnewh  = 0.74 + 4.7*mozgh      ! PHIh
        endif
 
        if (iter == 1) then
           fhg = fhgnew
+          fhgh = fhgnewh
        else
           fhg = 0.5 * (fhg+fhgnew)
+          fhgh = 0.5 * (fhgh+fhgnewh)
        endif
 
        cwpc = (cwp * vai * hcan * fhg)**0.5
 !       cwpc = (cwp*fhg)**0.5
+       cwpc = max(min(cwpc,5.0),1.0)
 
        tmp1 = exp( -cwpc*z0hg/hcan )
        tmp2 = exp( -cwpc*(z0h+zpd)/hcan )
@@ -4455,7 +4871,7 @@ endif   ! croptype == 0
 
 ! aerodynamic resistances raw and rah between heights zpd+z0h and z0hg.
 
-       kh  = max ( vkc*fv*(hcan-zpd), mpe )
+       kh  = max ( vkc*fv*(hcan-zpd)/(max(fhgh,0.1)), mpe )
        ramg = 0.
        rahg = tmprah2 / kh
        rawg = rahg
@@ -4857,6 +5273,242 @@ endif   ! croptype == 0
 !    end do
 ! ----------------------------------------------------------------------
   end subroutine sfcdif2
+
+!== begin sfcdif3 ==================================================================================
+
+!>\ingroup NoahMP_LSM
+!! compute surface drag coefficient cm for momentum and ch for heat.
+  subroutine sfcdif3(parameters,iloc    ,jloc    ,iter    ,sfctmp  ,qair    ,ur      , & !in 
+                       zlvl    ,tgb     ,thsfc_loc,prslkix,prsik1x ,prslk1x ,z0m     , & !in 
+                       z0h,zpd ,snowh   ,fveg    ,garea1  ,                            & !in 
+                       ustarx  ,fm      ,fh      ,fm2     ,fh2     ,                   & !inout 
+                       fv      ,cm      ,ch       )                    !out 
+  
+! -------------------------------------------------------------------------------------------------
+! computing surface drag coefficient cm for momentum and ch for heat
+! -------------------------------------------------------------------------------------------------
+    implicit none
+! -------------------------------------------------------------------------------------------------
+! inputs
+    
+  type (noahmp_parameters), intent(in) :: parameters
+    integer,               intent(in   ) :: iloc      ! grid index
+    integer,               intent(in   ) :: jloc      ! grid index
+    integer,               intent(in   ) :: iter      ! iteration index
+    real (kind=kind_phys), intent(in   ) :: sfctmp    ! temperature at reference height [K]
+    real (kind=kind_phys), intent(in   ) :: qair      ! specific humidity at reference height [kg/kg]
+    real (kind=kind_phys), intent(in   ) :: ur        ! wind speed [m/s]
+    real (kind=kind_phys), intent(in   ) :: zlvl      ! reference height  [m]
+    real (kind=kind_phys), intent(in   ) :: tgb       ! ground temperature [K]
+    logical,               intent(in   ) :: thsfc_loc ! flag for using sfc-based theta
+    real (kind=kind_phys), intent(in   ) :: prslkix   ! in exner function
+    real (kind=kind_phys), intent(in   ) :: prsik1x   ! in exner function
+    real (kind=kind_phys), intent(in   ) :: prslk1x   ! in exner function
+    real (kind=kind_phys), intent(in   ) :: z0m       ! roughness length, momentum, ground [m]
+    real (kind=kind_phys), intent(in   ) :: z0h       ! roughness length, sensible heat, ground [m]
+    real (kind=kind_phys), intent(in   ) :: zpd       ! zero plane displacement [m]
+    real (kind=kind_phys), intent(in   ) :: snowh     ! snow depth [m]
+    real (kind=kind_phys), intent(in   ) :: fveg      ! fractional vegetation cover
+    real (kind=kind_phys), intent(in   ) :: garea1    ! grid area [km2]
+    real (kind=kind_phys), intent(inout) :: ustarx    ! friction velocity [m/s]
+    real (kind=kind_phys), intent(inout) :: fm        ! momentum stability correction, weighted by prior iters
+    real (kind=kind_phys), intent(inout) :: fh        ! sen heat stability correction, weighted by prior iters
+    real (kind=kind_phys), intent(inout) :: fm2       ! sen heat stability correction, weighted by prior iters
+    real (kind=kind_phys), intent(inout) :: fh2       ! sen heat stability correction, weighted by prior iters
+    real (kind=kind_phys), intent(  out) :: fv        ! friction velocity (m/s)
+    real (kind=kind_phys), intent(  out) :: cm        ! drag coefficient for momentum
+    real (kind=kind_phys), intent(  out) :: ch        ! drag coefficient for heat
+
+    real (kind=kind_phys) :: snwd                     ! snow depth [mm]
+    real (kind=kind_phys) :: zlvlb                    ! reference height - zpd [m]
+    real (kind=kind_phys) :: virtfac                  ! virtual temperature factor [-]
+    real (kind=kind_phys) :: tv1                      ! virtual temperature at reference [K]
+    real (kind=kind_phys) :: thv1                     ! virtual theta at reference [K]
+    real (kind=kind_phys) :: tvs                      ! virtural surface temperature [K]
+    real (kind=kind_phys) :: rb1                      ! bulk Richardson - stability output
+    real (kind=kind_phys) :: stress1                  ! stress - stability output
+    real (kind=kind_phys) :: fm10                     ! 10-m stability adjustment - stability output
+    real (kind=kind_phys) :: tem1,tem2,zvfun1,gdx
+    real (kind=kind_phys), parameter :: z0lo=0.1, z0up=1.0
+
+! -------------------------------------------------------------------------------------------------
+
+    fv        = ustarx
+!   fv        = ur*vkc/log((zlvl-zpd)/z0m)
+
+    snwd    = snowh*1000.0
+    zlvlb   = zlvl - zpd
+
+    virtfac = 1.0 +  0.61 * max(qair, 1.0e-8)
+    tv1     = sfctmp * virtfac
+
+    if(thsfc_loc) then                         ! Use local potential temperature
+       thv1 = sfctmp * prslkix * virtfac
+    else                                       ! Use potential temperature reference to 1000 hPa
+       thv1 = sfctmp / prslk1x * virtfac
+    endif
+
+    tem1   = (z0m - z0lo) / (z0up - z0lo)
+    tem1   = min(max(tem1, 0.0_kind_phys), 1.0_kind_phys)
+    tem2   = max(fveg, 0.1_kind_phys)
+    zvfun1 = sqrt(tem1 * tem2)
+    gdx    = sqrt(garea1)
+
+    if(thsfc_loc) then            ! Use local potential temperature
+      tvs   = tgb * virtfac
+    else                          ! Use potential temperature referenced to 1000 hPa
+      tvs   = tgb/prsik1x * virtfac
+    endif
+
+    call stability (zlvlb, zvfun1, gdx, tv1, thv1, ur, z0m, z0h, tvs, grav, thsfc_loc,  &
+         rb1, fm,fh,fm10,fh2,cm,ch,stress1,fv)
+
+  end subroutine sfcdif3
+
+!== begin thermalz0
+!==================================================================================
+
+!>\ingroup NoahMP_LSM
+! compute thermal roughness length based on option opt_trs.
+  subroutine thermalz0(parameters,fveg,z0m,z0mg,zlvl,zpd,ezpd,ustarx,          & !in
+                       vegtyp,vaie,ur,csigmaf0,csigmaf1,aone,cdmnv,cdmng,icom, & !in 
+                       z0mt,z0ht)                                                !out
+! compute thermal roughness length based on option opt_trs.
+! -------------------------------------------------------------------------------------------------
+    implicit none
+! -------------------------------------------------------------------------------------------------
+! inputs
+
+  type (noahmp_parameters), intent(in) :: parameters
+    integer , intent(in   ) :: vegtyp      ! vegetation type
+    integer , intent(in   ) :: icom        ! 0=bared 1=vege 2=composition
+    real (kind=kind_phys), intent(in   ) :: fveg      ! green vegetation fraction [0.0-1.0]
+    real (kind=kind_phys), intent(in   ) :: z0m       ! z0 momentum (m)
+    real (kind=kind_phys), intent(in   ) :: z0mg      ! z0 momentum, ground (m)
+    real (kind=kind_phys), intent(in   ) :: zlvl      ! reference height  [m]
+    real (kind=kind_phys), intent(in   ) :: zpd       ! zero plane displacement (m)
+    real (kind=kind_phys), intent(in   ) :: ezpd      ! zero plane displacement (m)
+    real (kind=kind_phys), intent(in   ) :: ustarx    ! friction velocity (m/s)
+    real (kind=kind_phys), intent(in   ) :: vaie      ! reference height  [m]
+    real (kind=kind_phys), intent(in   ) :: ur        ! wind speed [m/s]
+    real (kind=kind_phys), intent(inout) :: csigmaf0  ! 
+    real (kind=kind_phys), intent(inout) :: csigmaf1  ! 
+    real (kind=kind_phys), intent(in   ) :: aone      ! 
+    real (kind=kind_phys), intent(in   ) :: cdmnv     ! 
+    real (kind=kind_phys), intent(in   ) :: cdmng     ! 
+    real (kind=kind_phys), intent(out  ) :: z0mt      ! composited z0 momentum (m) 
+    real (kind=kind_phys), intent(out  ) :: z0ht      ! composited z0 momentum (m) 
+
+! local
+    real (kind=kind_phys)                :: czil1     ! canopy based czil
+    real (kind=kind_phys)                :: coeffa
+    real (kind=kind_phys)                :: coeffb
+    real (kind=kind_phys)                :: csigmafveg
+    real (kind=kind_phys)                :: gsigma
+    real (kind=kind_phys)                :: sigmaa
+    real (kind=kind_phys)                :: cdmn
+    real (kind=kind_phys)                :: kbsigmafveg
+    real (kind=kind_phys)                :: reyn
+    real (kind=kind_phys)                :: kbsigmaf0
+    real (kind=kind_phys)                :: kbsigmaf1
+
+! -------------------------------------------------------------------------------------------------
+    czil1     = 0.5
+    coeffa    = 0.0
+    coeffb    = 0.0
+    csigmafveg= 0.0
+    gsigma    = 0.0
+    cdmn      = 0.0
+    reyn      = 0.0
+    sigmaa    = 0.0
+    kbsigmafveg = 0.0
+    kbsigmaf0 = 0.0
+    kbsigmaf1 = 0.0
+    if( icom == 2 )then
+     if (opt_trs == 1) then
+        z0mt  = fveg * z0m      + (1.0 - fveg) * z0mg
+        z0ht = z0mt
+     elseif (opt_trs == 2) then
+        z0mt  = fveg * z0m      + (1.0 - fveg) * z0mg
+        czil1=10.0 ** (- (0.40/0.07) * parameters%hvt)
+        z0ht = fveg * z0m*exp(-czil1*0.4*258.2*sqrt(ustarx*z0m))  &
+            +(1.0 - fveg) * z0mg*exp(-czil1*0.4*258.2*sqrt(ustarx*z0mg))
+     elseif (opt_trs == 3) then
+        z0mt  = fveg * z0m      + (1.0 - fveg) * z0mg
+        if (vegtyp.le.5) then
+          z0ht = fveg * z0m    + (1.0 - fveg) * z0mg*0.1
+        else
+         z0ht = fveg * z0m*0.01 + (1.0 - fveg) * z0mg*0.1
+        endif
+     elseif (opt_trs == 4) then
+        coeffa     = (csigmaf0 - csigmaf1)/(1.0 - exp(-1.0*aone))
+        coeffb     = csigmaf0 - coeffa
+        csigmafveg = coeffa * exp(-1.0*aone*fveg) + coeffb
+
+        gsigma = fveg**0.5 + fveg*(1.0-fveg)*1.0
+!
+! 0.5 ~ 1.0 for the 0.5 place; 0 ~ 1.0 for the 1.0 place, adjustable empirical
+! canopy roughness geometry parameter; currently fveg = 0.78 has the largest
+! momentum flux; can test the fveg-based average by setting 0.5 to 1.0 and 1.0
+! to 0.0 ! see Blumel; JAM,1998
+!
+
+        cdmn   = gsigma*cdmnv + (1.0-gsigma)*cdmng
+        z0mt = (zlvl - ezpd)*exp(-0.4/sqrt(cdmn))
+
+        kbsigmafveg = csigmafveg/log((zlvl-ezpd)/z0mt) - log((zlvl-ezpd)/z0mt)
+        z0ht = z0mt/exp(kbsigmafveg)
+     endif
+
+    elseif( icom == 0 )then
+
+        z0mt = z0mg
+     if (opt_trs == 1) then
+        z0ht = z0mt
+     elseif (opt_trs == 2) then
+        czil1=10.0 ** (- (0.40/0.07) * parameters%hvt)
+        z0ht =z0mt*exp(-czil1*0.4*258.2*sqrt(ustarx*z0mt))
+     elseif (opt_trs == 3) then
+      if (vegtyp.le.5) then
+        z0ht = z0mt
+      else
+        z0ht = z0mt*0.01
+      endif
+     elseif (opt_trs == 4) then
+      reyn = ustarx*z0mt/(1.5e-05)
+      if (reyn .gt. 2.0) then
+        kbsigmaf0 = 2.46*reyn**0.25 - log(7.4)
+      else
+        kbsigmaf0 = - log(0.397)
+      endif
+
+      z0ht = max(z0mt/exp(kbsigmaf0),1.0e-6)
+      csigmaf0 = log((zlvl-zpd)/z0mt)*(log((zlvl-zpd)/z0mt) + kbsigmaf0)
+     endif
+
+    elseif( icom == 1 )then
+
+        z0mt = z0m
+       if (opt_trs == 1) then
+         z0ht    = z0mt
+       elseif (opt_trs == 2) then
+         czil1= 10.0 ** (- (0.40/0.07) * parameters%hvt)
+         z0ht = z0mt*exp(-czil1*0.4*258.2*sqrt(ustarx*z0mt))
+       elseif (opt_trs == 3) then
+         if (vegtyp.le.5) then
+           z0ht = z0mt
+         else
+           z0ht = z0mt*0.01
+         endif
+        elseif (opt_trs == 4) then
+          sigmaa    = 1.0 - (0.5/(0.5+vaie))*exp(-vaie**2/8.0)
+          kbsigmaf1 = 16.4*(sigmaa*vaie**3)**(-0.25)*sqrt(parameters%dleaf*ur/log((zlvl-zpd)/z0mt))
+          z0ht       = z0mt/exp(kbsigmaf1)
+          csigmaf1  = log((zlvl-zpd)/z0mt)*(log((zlvl-zpd)/z0mt)+kbsigmaf1) ! for output for interpolation
+        endif
+     endif
+
+  end subroutine thermalz0
 
 !== begin esat =====================================================================================
 
@@ -5864,8 +6516,8 @@ endif   ! croptype == 0
 1001      continue
           if (.not.( (nlog < 10) .and. (kcount == 0)))   goto 1002
           nlog = nlog +1
-          df = alog ( ( parameters%psisat(isoil) * grav / hfus ) * ( ( 1. + ck * swl )**2.) * &
-               ( parameters%smcmax(isoil) / (smc - swl) )** bx) - alog ( - (               &
+          df = log ( ( parameters%psisat(isoil) * grav / hfus ) * ( ( 1. + ck * swl )**2.) * &
+               ( parameters%smcmax(isoil) / (smc - swl) )** bx) - log ( - (               &
                tkelv - tfrz)/ tkelv)
           denom = 2. * ck / ( 1. + ck * swl ) + bx / ( smc - swl )
           swlk = swl - df / denom
@@ -6399,8 +7051,10 @@ endif   ! croptype == 0
 
    if(isnow < 0) then  ! mb: only do for multi-layer
        sneqv = 0.
+       snowh = 0.
        do iz = isnow+1,0
              sneqv = sneqv + snice(iz) + snliq(iz)
+             snowh = snowh + dzsnso(iz)
        enddo
    end if
 
@@ -6906,7 +7560,7 @@ endif   ! croptype == 0
    real (kind=kind_phys), parameter     :: c4 = 0.04     ![1/k]
    real (kind=kind_phys), parameter     :: c5 = 2.0      !
    real (kind=kind_phys), parameter     :: dm = 100.0    !upper limit on destructive metamorphism compaction [kg/m3]
-   real (kind=kind_phys), parameter     :: eta0 = 0.8e+6 !viscosity coefficient [kg-s/m2] 
+   real (kind=kind_phys), parameter     :: eta0 = 1.8e+6 !viscosity coefficient [kg-s/m2] 
                                         !according to anderson, it is between 0.52e6~1.38e6
    real (kind=kind_phys) :: burden !pressure of overlying snow [kg/m2]
    real (kind=kind_phys) :: ddz1   !rate of settling of snow pack due to destructive metamorphism.
@@ -6968,7 +7622,7 @@ endif   ! croptype == 0
            ! the change in dz due to compaction
 
            dzsnso(j) = dzsnso(j)*(1.+pdzdtc)
-           dzsnso(j) = max(dzsnso(j),snice(j)/denice + snliq(j)/denh2o)
+           dzsnso(j) = min(max(dzsnso(j),(snliq(j)+snice(j))/500.0),(snliq(j)+snice(j))/50.0)  ! limit adjustment to a reasonable density
         end if
 
         ! pressure of overlying snow
@@ -7034,7 +7688,7 @@ endif   ! croptype == 0
    real (kind=kind_phys), dimension(-nsnow+1:0) :: epore     !effective porosity = porosity - vol_ice
    real (kind=kind_phys) :: propor, temp
    real (kind=kind_phys) :: ponding1, ponding2
-   REAL, PARAMETER :: max_liq_mass_fraction = 0.4
+   real (kind=kind_phys), parameter :: max_liq_mass_fraction = 0.4
 ! ----------------------------------------------------------------------
 
 !for the case when sneqv becomes '0' after 'combine'
@@ -7070,7 +7724,7 @@ endif   ! croptype == 0
       end if
    end if
 
-   if(snowh <= 1.e-8 .or. sneqv <= 1.e-6) then
+   if(snowh <= 1.e-6 .or. sneqv <= 1.e-3) then
      snowh = 0.0
      sneqv = 0.0
    end if
@@ -7122,7 +7776,7 @@ endif   ! croptype == 0
    end do
 
    do j = isnow+1, 0
-     dzsnso(j) = max(dzsnso(j),snliq(j)/denh2o + snice(j)/denice)
+     dzsnso(j) = min(max(dzsnso(j),(snliq(j)+snice(j))/500.0),(snliq(j)+snice(j))/50.0)  ! limit adjustment to a reasonable density
    end do
 
 ! liquid water from snow bottom to soil
@@ -7255,8 +7909,10 @@ endif   ! croptype == 0
     if ( parameters%urban_flag ) fcr(1)= 0.95
 
     if(opt_run == 1) then
-       fff = 6.0
-       fsat   = parameters%fsatmx*exp(-0.5*fff*(zwt-2.0))
+!       fff = 6.0
+       fff   = parameters%bexp(1) / 3.0    ! calibratable, c.he changed based on gy niu's update
+!       fsat   = parameters%fsatmx*exp(-0.5*fff*(zwt-2.0))
+       fsat   = parameters%fsatmx*exp(-0.5*fff*zwt)  ! c.he changed based on gy niu's update
        if(qinsur > 0.) then
          runsrf = qinsur * ( (1.0-fcr(1))*fsat + fcr(1) )
          pddum  = qinsur - runsrf                          ! m/s 
@@ -7971,8 +8627,9 @@ endif   ! croptype == 0
   real (kind=kind_phys)                                        :: watmin!minimum soil vol soil moisture [m3/m3]
   real (kind=kind_phys)                                        :: xs    !excessive water above saturation [mm]
   real (kind=kind_phys), parameter                             :: rous = 0.2    !specific yield [-]
-  real (kind=kind_phys), parameter                             :: cmic = 0.20   !microprore content (0.0-1.0)
+!  real (kind=kind_phys), parameter                             :: cmic = 0.20   !microprore content (0.0-1.0)
                                                                !0.0-close to free drainage
+  real (kind=kind_phys), parameter                             :: cmic = 0.80 ! calibratable, c.he changed based on gy niu's update
 ! -------------------------------------------------------------
       qdis      = 0.0
       qin       = 0.0
@@ -8014,8 +8671,10 @@ endif   ! croptype == 0
 
 ! groundwater discharge [mm/s]
 
-      fff   = 6.0
-      rsbmx = 5.0
+!      fff   = 6.0
+!      rsbmx = 5.0
+      fff   = parameters%bexp(iwt) / 3.0 ! calibratable, c.he changed based on gy niu's update
+      rsbmx = hk(iwt) * 1.0e3 * exp(3.0) ! mm/s, calibratable, c.he changed based on gy niu's update
 
       qdis = (1.0-fcrmax)*rsbmx*exp(-parameters%timean)*exp(-fff*(zwt-2.0))
 
@@ -9323,7 +9982,7 @@ end subroutine psn_crop
 !>\ingroup NoahMP_LSM
   subroutine noahmp_options(idveg     ,iopt_crs  ,iopt_btr  ,iopt_run  ,iopt_sfc  ,iopt_frz , & 
                              iopt_inf  ,iopt_rad  ,iopt_alb  ,iopt_snf  ,iopt_tbot, iopt_stc, &
-			     iopt_rsf , iopt_soil, iopt_pedo, iopt_crop )
+			     iopt_rsf , iopt_soil, iopt_pedo, iopt_crop ,iopt_trs )
 
   implicit none
 
@@ -9345,6 +10004,7 @@ end subroutine psn_crop
   integer,  intent(in) :: iopt_soil !soil parameters set-up option
   integer,  intent(in) :: iopt_pedo !pedo-transfer function (1->saxton and rawls)
   integer,  intent(in) :: iopt_crop !crop model option (0->none; 1->liu et al.)
+  integer,  intent(in) :: iopt_trs  !thermal roughness scheme option (1->z0h=z0; 2->rb reversed)
 
 ! -------------------------------------------------------------------------------------------------
 
@@ -9365,8 +10025,1216 @@ end subroutine psn_crop
   opt_soil = iopt_soil
   opt_pedo = iopt_pedo
   opt_crop = iopt_crop
+  opt_trs  = iopt_trs
   
   end subroutine noahmp_options
 
+   subroutine sfcdif4(iloc  ,jloc  ,ux    ,vx     ,t1d  , &
+                      p1d   ,psfcpa,pblhx ,dx     ,znt  , &
+                      ep_1, ep_2, cp,                     &
+                      itime ,snwh ,isice  ,psi_opt,       &
+                      tsk   ,qx    ,zlvl  ,iz0tlnd,qsfc , &
+                      hfx   ,qfx   ,cm    ,chs    ,chs2 , &
+                      cqs2  ,                             &
+                      rmolx ,ust  , rbx, fmx, fhx,stressx,& 
+                      fm10x, fh2x, wspdx,flhcx,flqcx)
+
+
+
+!-------------------------------------------------------------------                                                      
+   implicit none                                                                                                          
+!-------------------------------------------------------------------                                                      
+                                                                                                                          
+! input                                                                                                                   
+
+   integer,intent(in )   :: iloc                                                                                          
+   integer,intent(in )   :: jloc                                                                                          
+   integer,  intent(in)  :: itime
+
+   integer,  intent(in)  :: psi_opt
+
+   integer,  intent(in)  :: isice     ! for the glacier/snowh > 0.1m
+                                                                                                                          
+   real(kind=kind_phys),   intent(in )   :: pblhx      ! planetary boundary layer height                                                   
+   real(kind=kind_phys),   intent(in )   :: tsk       ! skin temperature                                                                  
+   real(kind=kind_phys),   intent(in )   :: psfcpa    ! pressure in pascal                                                                
+   real(kind=kind_phys),   intent(in )   :: p1d       !lowest model layer pressure (pa)                                                      
+   real(kind=kind_phys),   intent(in )   :: t1d       !lowest model layer temperature
+   real(kind=kind_phys),   intent(in )   :: qx        !water vapor specific humidity (kg/kg) from input
+   real(kind=kind_phys),   intent(in )   :: zlvl      ! thickness of lowest full level layer
+   real(kind=kind_phys),   intent(in )   :: hfx       ! sensible heat flux
+   real(kind=kind_phys),   intent(in )   :: qfx       ! moisture flux
+   real(kind=kind_phys),   intent(in )   :: dx        ! horisontal grid spacing
+   real(kind=kind_phys),   intent(in )   :: ux        ! u and v winds
+   real(kind=kind_phys),   intent(in )   :: vx
+   real(kind=kind_phys),   intent(in )   :: znt       ! z0m in m  or inout
+   real(kind=kind_phys),   intent(in )   :: snwh     ! in mm                                                                                       
+   real(kind=kind_phys),   intent(in )   :: ep_1
+   real(kind=kind_phys),   intent(in )   :: ep_2
+   real(kind=kind_phys),   intent(in )   :: cp
+
+! optional vars                                                                                                           
+
+   integer,optional,intent(in ) :: iz0tlnd                                                                                
+
+   real(kind=kind_phys),   intent(inout) :: qsfc
+   real(kind=kind_phys),   intent(inout) :: ust                                                                                           
+   real(kind=kind_phys),   intent(inout) :: chs                                                                                           
+   real(kind=kind_phys),   intent(inout) :: chs2                                                                                           
+   real(kind=kind_phys),   intent(inout) :: cqs2                                                                                           
+   real(kind=kind_phys),   intent(inout) :: cm                
+
+   real(kind=kind_phys),   intent(inout) :: rmolx                                                                                          
+   real(kind=kind_phys),   intent(inout) :: rbx
+   real(kind=kind_phys),   intent(inout) :: fmx
+   real(kind=kind_phys),   intent(inout) :: fhx
+   real(kind=kind_phys),   intent(inout) :: stressx
+   real(kind=kind_phys),   intent(inout) :: fm10x
+   real(kind=kind_phys),   intent(inout) :: fh2x
+
+   real(kind=kind_phys),   intent(inout) :: wspdx
+   real(kind=kind_phys),   intent(inout) :: flhcx
+   real(kind=kind_phys),   intent(inout) :: flqcx 
+
+   real(kind=kind_phys)                  :: zolx
+   real(kind=kind_phys)                  :: molx
+                                                                                                                          
+! diagnostics out                                                                                                         
+!  real,   intent(out)   :: u10                                                                                           
+!  real,   intent(out)   :: v10                                                                                           
+!   real,   intent(out)   :: th2                                                                                           
+!   real,   intent(out)   :: t2                                                                                            
+!   real,   intent(out)   :: q2                                                                                            
+!   real,   intent(out)   :: qsfc                                                                                          
+                                                                                                                          
+                                                                                                                          
+! local                                                                                                                   
+
+   real(kind=kind_phys)    :: za      ! height of full-sigma level                                                                        
+   real(kind=kind_phys)    :: thvx    ! virtual potential temperature                                                                     
+   real(kind=kind_phys)    :: zqkl    ! height of upper half level                                                                        
+   real(kind=kind_phys)    :: zqklp1  ! height of lower half level (surface)                                                              
+   real(kind=kind_phys)    :: thx     ! potential temperature                                                                             
+   real(kind=kind_phys)    :: psih    ! similarity function for heat                                                                      
+   real(kind=kind_phys)    :: psih2   ! similarity function for heat 2m                                                                   
+   real(kind=kind_phys)    :: psih10  ! similarity function for heat 10m                                                                  
+   real(kind=kind_phys)    :: psim    ! similarity function for momentum                                                                  
+   real(kind=kind_phys)    :: psim2   ! similarity function for momentum 2m                                                               
+   real(kind=kind_phys)    :: psim10  ! similarity function for momentum 10m                                                              
+
+   real(kind=kind_phys)    :: gz1oz0  ! log(za/z0)                                                                                        
+   real(kind=kind_phys)    :: gz2oz0  ! log(z2/z0)                                                                                        
+   real(kind=kind_phys)    :: gz10oz0 ! log(z10/z0)                                                                                       
+
+   real(kind=kind_phys)    :: rhox    ! density                                                                                           
+   real(kind=kind_phys)    :: govrth  ! g/theta for stability l                                                                           
+   real(kind=kind_phys)    :: tgdsa   ! tsk                                                                                               
+   real(kind=kind_phys)    :: tvir    ! temporal variable src4 -> tvir                                                                                
+   real(kind=kind_phys)    :: thgb    ! potential temperature ground                                                                      
+   real(kind=kind_phys)    :: psfcx   ! surface pressure                                                                                  
+   real(kind=kind_phys)    :: cpm                                                                                           
+   real(kind=kind_phys)    :: qgh    
+                                                                                                                          
+   integer :: n,i,k,kk,l,nzol,nk,nzol2,nzol10                                                                             
+
+   real(kind=kind_phys)    :: zolzt, zolz0, zolza
+   real(kind=kind_phys)    :: gz1ozt,gz2ozt,gz10ozt
+
+                                                                                                                          
+   real(kind=kind_phys)    ::  pl,thcon,tvcon,e1                                                                                          
+   real(kind=kind_phys)    ::  zl,tskv,dthvdz,dthvm,vconv,rzol,rzol2,rzol10,zol2,zol10                                                    
+   real(kind=kind_phys)    ::  dtg,psix,dtthx,psix10,psit,psit2,psiq,psiq2,psiq10                                                         
+   real(kind=kind_phys)    ::  fluxc,vsgd,z0q,visc,restar,czil,restar2                                                                    
+
+   real(kind=kind_phys)    ::  dqg
+   real(kind=kind_phys)    ::  tabs
+   real(kind=kind_phys)    ::  qsfcmr
+   real(kind=kind_phys)    ::  t1dc
+   real(kind=kind_phys)    ::  zt
+   real(kind=kind_phys)    ::  zq
+   real(kind=kind_phys)    ::  zratio
+   real(kind=kind_phys)    ::  qstar
+   real(kind=kind_phys)    ::  ep2
+   real(kind=kind_phys)    ::  ep_3
+!-------------------------------------------------------------------                                                      
+
+   psfcx=psfcpa/1000.     ! to kPa for saturation check                                                                                                 
+   ep2=ep_2
+   ep_3=1.-ep_2
+                                                                                                                          
+         if (itime == 1) then                               !init SP, MR
+           if (isice == 0) then
+                 tabs = 0.5*(tsk + t1d)
+               if (tabs .lt. 273.15) then
+                  !saturation vapor pressure wrt ice (svp1=.6112; 10*mb)
+                  e1=svp1*exp(4648*(1./273.15 - 1./tabs) - &
+                    & 11.64*log(273.15/tabs) + 0.02265*(273.15 - tabs))
+               else
+                  !saturation vapor pressure wrt water (bolton 1980)
+                  e1=svp1*exp(svp2*(tabs-svpt0)/(tabs-svp3))
+               endif
+
+               qsfc    =ep2*e1/(psfcx-ep_3*e1)               !avg with the input?
+               qsfcmr  =qsfc/(1.-qsfc)                      !to mixing ratio
+            endif
+
+           if (isice == 1) then
+               if (tsk .lt. 273.15) then
+                                 !saturation vapor pressure wrt ice (svp1=.6112; 10*mb)
+                   e1=svp1*exp(4648*(1./273.15 - 1./tsk) - &
+                    & 11.64*log(273.15/tsk) + 0.02265*(273.15 - tsk))
+               else
+                  !saturation vapor pressure wrt water (bolton 1980)
+                  e1=svp1*exp(svp2*(tsk-svpt0)/(tsk-svp3))
+               endif
+
+               qsfc=ep2*e1/(psfcx-ep_3*e1)             !specific humidity
+               qsfcmr=ep2*e1/(psfcx-e1)                !mixing ratio
+
+            endif
+
+         else
+            ! use what comes out of the lsm
+            if (isice == 0) then
+                 tabs = 0.5*(tsk + t1d)
+               if (tabs .lt. 273.15) then
+                  !saturation vapor pressure wrt ice (svp1=.6112; 10*mb)
+                  e1=svp1*exp(4648*(1./273.15 - 1./tabs) - &
+                    & 11.64*log(273.15/tabs) + 0.02265*(273.15 - tabs))
+               else
+                  !saturation vapor pressure wrt water (bolton 1980)
+                  e1=svp1*exp(svp2*(tabs-svpt0)/(tabs-svp3))
+               endif
+             
+               qsfc    =ep2*e1/(psfcx-ep_3*e1)        ! avg with previous qsfc? 
+               qsfcmr=qsfc/(1.-qsfc)
+
+             endif
+
+           if (isice == 1) then
+               if (tsk .lt. 273.15) then
+                                 !saturation vapor pressure wrt ice (svp1=.6112; 10*mb)
+                   e1=svp1*exp(4648*(1./273.15 - 1./tsk) - &
+                    & 11.64*log(273.15/tsk) + 0.02265*(273.15 - tsk))
+               else
+                  !saturation vapor pressure wrt water (bolton 1980)
+                  e1=svp1*exp(svp2*(tsk-svpt0)/(tsk-svp3))
+               endif
+
+               qsfc=ep2*e1/(psfcx-ep_3*e1)             !specific humidity
+               qsfcmr=qsfc/(1.-qsfc)
+
+               endif
+
+         endif                                     !done INIT if itime=1
+! convert (tah or tgb = tsk) temperature to potential temperature.                                                                    
+   tgdsa = tsk              
+   thgb  = tsk*(p1000mb/psfcpa)**(rair/cpair)  !psfcpa is pa
+                                   
+! store virtual, virtual potential and potential temperature
+
+   pl    = p1d/1000.                                                                                                      
+   thx   = t1d*(p1000mb*0.001/pl)**(rair/cpair)                                                                                        
+   t1dc  = t1d - 273.15
+
+   thvx  = thx*(1.+ep_1*qx)           !qx is SH from input     
+   tvir  = t1d*(1.+ep_1*qx)
+
+   rhox=psfcx*1000./(rair*tvir)                                                                                             
+   govrth=grav/thx                                                                                                           
+   za = zlvl
+   
+   !za=0.5*dz8w                                                                                                   
+
+
+!   directly from input; check units
+
+!   qfx = qflx * rhox
+!   hfx = hflx * rhox * cp
+
+
+
+! q2sat = qgh in lsm                                                                                                      
+!jref: canres and esat is calculated in the loop so should that be changed??
+!   qgh=ep_2*e1/(pl-e1)                                                                                                    
+!   cpm=cp*(1.+0.8*qx)                                                                                                     
+
+
+! qgh changed to use lowest-level air temp 
+
+         if (t1d .lt. 273.15) then
+            !saturation vapor pressure wrt ice
+            e1=svp1*exp(4648.*(1./273.15 - 1./t1d) - &
+            &  11.64*log(273.15/t1d) + 0.02265*(273.15 - t1d))
+         else
+            !saturation vapor pressure wrt water (bolton 1980)
+            e1=svp1*exp(svp2*(t1d-svpt0)/(t1d-svp3))
+         endif
+
+
+         !qgh=ep2*e1/(pl-ep_3*e1)    !specific humidity
+
+         qgh=ep2*e1/(pl-e1)          !sat. mixing ratio ?
+
+!        cpm=cp*(1.+0.84*qx)         ! qx is SH
+         cpm=cp*(1.+0.84*qx/(1.0-qx) )
+
+         wspdx=sqrt(ux*ux+vx*vx)                                                                                                 
+
+         tskv=thgb*(1.+ep_1*qsfc)  !avg with tsurf not used                                                                                             
+         dthvdz=(thvx-tskv)                                                                                                     
+
+         fluxc = max(hfx/rhox/cp + ep_1*tskv*qfx/rhox,0.)   !hfx + qfx are fluxes units: wm^-2 and kg m^-2 s^-1                                                                                       
+! vconv = vconvc*(g/tgdsa*pblh*fluxc)**.33                                                                                
+
+          vconv = vconvc*(grav/tgdsa*min(1.5*pblhx,4000.0)*fluxc)**.33   !wstar                                                                             
+!  vsgd = 0.32 * (max(dx/5000.-1.,0.))**.33                                                                               
+
+          vsgd = min(0.32 * (max(dx/5000.-1.,0.))**.33,0.5)                                                                               
+          wspdx=sqrt(wspdx*wspdx+vconv*vconv+vsgd*vsgd)                                                                             
+          wspdx=max(wspdx,0.1)                              !0.1 is wmin                                                                       
+          rbx=govrth*za*dthvdz/(wspdx*wspdx)                !buld rich #                                                                         
+
+          if (itime == 1) then
+                rbx=max(rbx,-2.0)
+                rbx=min(rbx, 2.0)
+           else
+                rbx=max(rbx,-4.0)
+                rbx=min(rbx, 4.0)
+           endif
+
+
+!        visc=(1.32+0.009*(t1d-273.15))*1.e-5                                                                            
+! kinematic viscosity
+
+
+         visc=1.326e-5*(1. + 6.542e-3*t1dc + 8.301e-6*t1dc*t1dc &
+                      - 4.84e-9*t1dc*t1dc*t1dc)
+
+!compute roughness reynolds number (restar) using default znt
+!the GFS option has been removed
+
+         restar=max(ust*znt/visc,0.1)                                                                                               
+
+! get zt, zq based on the input
+! the GFS roughness option and spp_pbl have been removed
+
+       if (snwh > 50. .or. isice == 1) then  ! (mm) treat as snow cover - use andreas cover isice =1
+          call andreas_2002(znt,visc,ust,zt,zq)
+       else
+          if ( present(iz0tlnd) ) then
+             if ( iz0tlnd .le. 1 ) then
+                call zilitinkevich_1995(znt,zt,zq,restar,&
+                      ust,vkc,1.0,iz0tlnd,0,0.0)
+             elseif ( iz0tlnd .eq. 2 ) then
+                call yang_2008(znt,zt,zq,ust,molx,&
+                              qstar,restar,visc)
+             elseif ( iz0tlnd .eq. 3 ) then
+                !original mynn in wrf-arw used this form:
+                call garratt_1992(zt,zq,znt,restar,1.0)
+             endif
+
+! the GFS option is removed along with gfs_z0_lnd
+
+          else
+
+             !default to zilitinkevich
+             call zilitinkevich_1995(znt,zt,zq,restar,&
+                         ust,vkc,1.0,0,0,0.0)
+          endif
+       endif
+
+
+! --------- 
+! calculate bulk richardson no. of surface layer,                                                                         
+! according to akb(1976), eq(12).                                                                                         
+
+
+       gz1oz0= log((za+znt)/znt)
+       gz1ozt= log((za+znt)/zt)
+       gz2oz0= log((2.0+znt)/znt)
+       gz2ozt= log((2.0+znt)/zt)
+       gz10oz0=log((10.+znt)/znt)
+!      gz10ozt=log((10.+znt)/zt)
+
+       zratio=znt/zt   !need estimate for li et al.
+
+
+! vconv = 0.25*sqrt(g/tskv*pblh(i)*dthvm)                                                                                 
+!  if(mol.lt.0.) br=amin1(br,0.0)   -> check the input mol later
+!  rmol=-govrth*dthvdz*za*vkc 
+
+       if (rbx .gt. 0.0) then
+
+          !compute z/l first guess:
+          call li_etal_2010(zolx,rbx,za/znt,zratio)
+          !zol=za*vkc*grav*mol/(thx*max(ust*ust,0.0001))
+          zolx=max(zolx,0.0)
+          zolx=min(zolx,20.)
+
+
+          !use pedros iterative function to find z/l
+          !zol=zolri(rb_lnd,za,zntstoch_lnd,zt_lnd,zol,psi_opt)
+          !use brute-force method
+
+          zolx=zolrib(rbx,za,znt,zt,gz1oz0,gz1ozt,zolx,psi_opt)
+          zolx=max(zolx,0.0)
+          zolx=min(zolx,20.)
+
+          zolzt = zolx*zt/za           ! zt/l
+          zolz0 = zolx*znt/za          ! z0/l
+          zolza = zolx*(za+znt)/za     ! (z+z0/l
+          zol10 = zolx*(10.+znt)/za    ! (10+z0)/l
+          zol2  = zolx*(2.+znt)/za     ! (2+z0)/l 
+
+          !compute psim and psih
+          !call psi_beljaars_holtslag_1991(psim,psih,zol)
+          !call psi_businger_1971(psim,psih,zol)
+          !call psi_zilitinkevich_esau_2007(psim,psih,zol)
+          !call psi_dyerhicks(psim,psih,zol,zt_lnd,zntstoch_lnd,za)
+          !call psi_cb2005(psim,psih,zolza,zolz0)
+
+          psim=psim_stable(zolza,psi_opt)-psim_stable(zolz0,psi_opt)
+          psih=psih_stable(zolza,psi_opt)-psih_stable(zolzt,psi_opt)
+          psim10=psim_stable(zol10,psi_opt)-psim_stable(zolz0,psi_opt)
+!         psih10=psih_stable(zol10,psi_opt)-psih_stable(zolz0,psi_opt)
+          psih2=psih_stable(zol2,psi_opt)-psih_stable(zolzt,psi_opt)
+
+          ! 1.0 over monin-obukhov length
+
+          rmolx= zolx/za
+
+       elseif(rbx .eq. 0.) then                  
+          !=========================================================  
+          !-----class 3; forced convection/neutral:                                                
+          !=========================================================
+
+          psim=0.0
+          psih=psim
+          psim10=0.
+!         psih10=0.
+          psih2=0.
+
+          zolx  =0.
+          rmolx =0.
+
+       elseif(rbx .lt. 0.)then
+          !==========================================================
+          !-----class 4; free convection:                                                  
+          !==========================================================
+
+          !compute z/l first guess:
+
+          call li_etal_2010(zolx,rbx,za/znt,zratio)
+
+          !zol=za*vkc*grav*mol/(th1d*max(ust_lnd*ust_lnd,0.001))
+
+          zolx=max(zolx,-20.0)
+          zolx=min(zolx,0.0)
+
+
+          !use pedros iterative function to find z/l
+          !zol=zolri(rb_lnd,za,zntstoch_lnd,zt_lnd,zol,psi_opt)
+          !use brute-force method
+
+          zolx=zolrib(rbx,za,znt,zt,gz1oz0,gz1ozt,zolx,psi_opt)
+          zolx=max(zolx,-20.0)
+          zolx=min(zolx,0.0)
+
+          zolzt = zolx*zt/za            ! zt/l
+          zolz0 = zolx*znt/za           ! z0/l
+          zolza = zolx*(za+znt)/za      ! (z+z0/l
+          zol10 = zolx*(10.+znt)/za     ! (10+z0)/l
+          zol2  = zolx*(2.+znt)/za      ! (2+z0)/l
+
+          !compute psim and psih
+          !call psi_hogstrom_1996(psim,psih,zol, zt_lnd, zntstoch_lnd, za)
+          !call psi_businger_1971(psim,psih,zol)
+          !call psi_dyerhicks(psim,psih,zol,zt_lnd,zntstoch_lnd,za)
+          ! use tables
+
+          psim=psim_unstable(zolza,psi_opt)-psim_unstable(zolz0,psi_opt)
+          psih=psih_unstable(zolza,psi_opt)-psih_unstable(zolzt,psi_opt)
+          psim10=psim_unstable(zol10,psi_opt)-psim_unstable(zolz0,psi_opt)
+!         psih10=psih_unstable(zol10,psi_opt)-psih_unstable(zolz0,psi_opt)
+          psih2=psih_unstable(zol2,psi_opt)-psih_unstable(zolzt,psi_opt)
+
+          !---limit psih and psim in the case of thin layers and
+          !---high roughness.  this prevents denominator in fluxes
+          !---from getting too small
+
+          psih=min(psih,0.9*gz1ozt)
+          psim=min(psim,0.9*gz1oz0)
+          psih2=min(psih2,0.9*gz2ozt)
+          psim10=min(psim10,0.9*gz10oz0)
+!         psih10=min(psih10,0.9*gz10ozt)
+
+          rmolx = zolx/za  
+
+       endif
+
+       ! calculate the resistance:
+
+       psix  =max(gz1oz0-psim, 1.0)
+       psix10=max(gz10oz0-psim10, 1.0)
+       psit  =max(gz1ozt-psih , 1.0)
+       psit2 =max(gz2ozt-psih2, 1.0)
+       psiq  =max(log((za+zq)/zq)-psih ,1.0)
+       psiq2 =max(log((2.0+zq)/zq)-psih2 ,1.0)
+
+    !------------------------------------------------------------
+    !-----compute the frictional velocity:                                           
+    !------------------------------------------------------------
+
+
+       ! to prevent oscillations average with old value
+
+!      oldust = ust
+
+       ust=0.5*ust+0.5*vkc*wspdx/psix
+       ust=max(ust,0.005)
+
+!      stress=ust**2
+
+       !set ustm = ust over land.
+
+!      ustmx=ust
+
+
+    !----------------------------------------------------
+    !----compute the temperature scale (a.k.a. friction temperature, t*, or mol)
+    !----and compute the moisture scale (or q*)
+    !----------------------------------------------------
+
+       dtg=thvx-tskv
+
+!      oldtst=mol
+
+       molx=vkc*dtg/psit/prt !T*
+
+       !t_star = -hfx/(ust*cpm*rho1d)
+       !t_star = mol
+       !----------------------------------------------------
+       ! dqg=(qvsh-qsfc)*1000.   !(kg/kg -> g/kg)
+
+       dqg=(qx-qsfc)*1000.   !(kg/kg -> g/kg)
+       qstar=vkc*dqg/psiq/prt
+
+        cm = (vkc/psix)*(vkc/psix)*wspdx
+
+!       cm = (vkc/psix)*(vkc/psix)
+!       ch = (vkc/psix)*(vkc/psit)
+
+        chs=ust*vkc/psit
+        cqs2=ust*vkc/psiq2
+        chs2=ust*vkc/psit2
+
+!       u10=ux*psix10/psix                                                                                                     
+!       v10=vx*psix10/psix                                                                                                     
+
+        flhcx = rhox*cpm*ust*vkc/psit
+        flqcx = rhox*1.0*ust*vkc/psiq
+
+!       ch = flhcx/(cpm*rhox)  !same chs
+
+        fmx = psix
+        fhx = psit
+        fm10x = psix10
+        fh2x =psit2
+
+!       ustmx = ust
+
+        stressx = ust**2 ! or cm*wind*wind
+
+   end subroutine sfcdif4                                                                                                 
+
+  subroutine zilitinkevich_1995(z_0,zt,zq,restar,ustar,vkc,&
+        & landsea,iz0tlnd2,spp_pbl,rstoch)
+
+       implicit none
+       real (kind=kind_phys), intent(in) :: z_0,restar,ustar,vkc,landsea
+       integer, optional, intent(in)::  iz0tlnd2
+       real (kind=kind_phys), intent(out) :: zt,zq
+       real (kind=kind_phys) :: czil  !=0.100 in chen et al. (1997)
+                     !=0.075 in zilitinkevich (1995)
+                     !=0.500 in lemone et al. (2008)
+       integer,  intent(in)  ::    spp_pbl
+       real (kind=kind_phys),     intent(in)  ::    rstoch
+
+
+       if (landsea-1.5 .gt. 0) then    !water
+
+          !this is based on zilitinkevich, grachev, and fairall (2001;
+          !their equations 15 and 16).
+          if (restar .lt. 0.1) then
+             zt = z_0*exp(vkc*2.0)
+             zt = min( zt, 6.0e-5)
+             zt = max( zt, 2.0e-9)
+             zq = z_0*exp(vkc*3.0)
+             zq = min( zq, 6.0e-5)
+             zq = max( zq, 2.0e-9)
+          else
+             zt = z_0*exp(-vkc*(4.0*sqrt(restar)-3.2))
+             zt = min( zt, 6.0e-5)
+             zt = max( zt, 2.0e-9)
+             zq = z_0*exp(-vkc*(4.0*sqrt(restar)-4.2))
+             zq = min( zt, 6.0e-5)
+             zq = max( zt, 2.0e-9)
+          endif
+
+       else                             !land
+
+          !option to modify czil according to chen & zhang, 2009
+          if ( iz0tlnd2 .eq. 1 ) then
+             czil = 10.0 ** ( -0.40 * ( z_0 / 0.07 ) )
+          else
+             czil = 0.085 !0.075 !0.10
+          end if
+
+          zt = z_0*exp(-vkc*czil*sqrt(restar))
+          zt = min( zt, 0.75*z_0)
+
+          zq = z_0*exp(-vkc*czil*sqrt(restar))
+          zq = min( zq, 0.75*z_0)
+
+
+! stochastically perturb thermal and moisture roughness length.
+! currently set to half the amplitude: 
+          if (spp_pbl==1) then
+             zt = zt + zt * 0.5 * rstoch
+             zt = max(zt, 0.0001)
+             zq = zt
+          endif
+
+       endif
+                   
+       return
+
+   end subroutine zilitinkevich_1995
+
+!!data. the formula for land uses a constant ratio (z_0/7.4) taken
+!!from garratt (1992).
+   subroutine garratt_1992(zt,zq,z_0,ren,landsea)
+
+       implicit none
+       real (kind=kind_phys), intent(in)  :: ren, z_0,landsea
+       real (kind=kind_phys), intent(out) :: zt,zq
+       real (kind=kind_phys) :: rq
+       real (kind=kind_phys), parameter  :: e=2.71828183
+
+       if (landsea-1.5 .gt. 0) then    !water
+
+          zt = z_0*exp(2.0 - (2.48*(ren**0.25)))
+          zq = z_0*exp(2.0 - (2.28*(ren**0.25)))
+
+          zq = min( zq, 5.5e-5)
+          zq = max( zq, 2.0e-9)
+          zt = min( zt, 5.5e-5)
+          zt = max( zt, 2.0e-9) !same lower limit as ecmwf
+       else                            !land
+          zq = z_0/(e**2.)      !taken from garratt (1980,1992)
+          zt = zq
+       endif
+                   
+       return
+
+    end subroutine garratt_1992
+!--------------------------------------------------------------------
+!>\ingroup mynn_sfc
+!> this is a modified version of yang et al (2002 qjrms, 2008 jamc) 
+!! and chen et al (2010, j of hydromet). although it was originally 
+!! designed for arid regions with bare soil, it is modified 
+!! here to perform over a broader spectrum of vegetation.
+!!
+!!the original formulation relates the thermal roughness length (zt) 
+!!to u* and t*:
+!!  
+!! zt = ht * exp(-beta*(ustar**0.5)*(abs(tstar)**0.25))
+!!
+!!where ht = renc*visc/ustar and the critical reynolds number 
+!!(renc) = 70. beta was originally = 10 (2002 paper) but was revised 
+!!to 7.2 (in 2008 paper). their form typically varies the
+!!ratio z0/zt by a few orders of magnitude (1-1e4).
+!!
+!!this modified form uses beta = 1.5 and a variable renc (function of z_0),
+!!so zt generally varies similarly to the zilitinkevich form (with czil = 0.1)
+!!for very small or negative surface heat fluxes but can become close to the
+!!zilitinkevich with czil = 0.2 for very large hfx (large negative t*).
+!!also, the exponent (0.25) on tstar was changed to 1.0, since we found
+!!zt was reduced too much for low-moderate positive heat fluxes.
+!!
+!!this should only be used over land!
+       subroutine yang_2008(z_0,zt,zq,ustar,tstar,qst,ren,visc)
+
+       implicit none
+       real (kind=kind_phys), intent(in)  :: z_0, ren, ustar, tstar, qst, visc
+       real (kind=kind_phys)              :: ht,     &! roughness height at critical reynolds number
+                            tstar2, &! bounded t*, forced to be non-positive
+                            qstar2, &! bounded q*, forced to be non-positive
+                            z_02,   &! bounded z_0 for variable renc2 calc
+                            renc2    ! variable renc, function of z_0
+       real (kind=kind_phys), intent(out) :: zt,zq
+       real (kind=kind_phys), parameter  :: renc=300., & !old constant renc
+                           beta=1.5,  & !important for diurnal variation
+                           m=170.,    & !slope for renc2 function
+                           b=691.       !y-intercept for renc2 function
+
+       z_02 = min(z_0,0.5)
+       z_02 = max(z_02,0.04)
+       renc2= b + m*log(z_02)
+       ht     = renc2*visc/max(ustar,0.01)
+       tstar2 = min(tstar, 0.0)
+       qstar2 = min(qst,0.0)
+
+       zt     = ht * exp(-beta*(ustar**0.5)*(abs(tstar2)**1.0))
+       zq     = ht * exp(-beta*(ustar**0.5)*(abs(qstar2)**1.0))
+       !zq     = zt
+
+       zt = min(zt, z_0/2.0)
+       zq = min(zq, z_0/2.0)
+
+       return
+
+    end subroutine yang_2008
+
+!>\ingroup mynn_sfc
+!> this is taken from andreas (2002; j. of hydromet) and 
+!! andreas et al. (2005; blm).
+!!
+!! this should only be used over snow/ice!
+    subroutine andreas_2002(z_0,bvisc,ustar,zt,zq)
+
+       implicit none
+       real (kind=kind_phys), intent(in)  :: z_0, bvisc, ustar
+       real (kind=kind_phys), intent(out) :: zt, zq
+       real (kind=kind_phys):: ren2, zntsno
+
+       real (kind=kind_phys), parameter  :: bt0_s=1.25,  bt0_t=0.149,  bt0_r=0.317,  &
+                           bt1_s=0.0,   bt1_t=-0.55,  bt1_r=-0.565, &
+                           bt2_s=0.0,   bt2_t=0.0,    bt2_r=-0.183
+
+       real (kind=kind_phys), parameter  :: bq0_s=1.61,  bq0_t=0.351,  bq0_r=0.396,  &
+                           bq1_s=0.0,   bq1_t=-0.628, bq1_r=-0.512, &
+                           bq2_s=0.0,   bq2_t=0.0,    bq2_r=-0.180
+
+      !calculate zo for snow (andreas et al. 2005, blm)                                                                     
+       zntsno = 0.135*bvisc/ustar + &
+               (0.035*(ustar*ustar)/9.8) * &
+               (5.*exp(-1.*(((ustar - 0.18)/0.1)*((ustar - 0.18)/0.1))) + 1.)                                                
+       ren2 = ustar*zntsno/bvisc
+
+       ! make sure that re is not outside of the range of validity
+       ! for using their equations
+       if (ren2 .gt. 1000.) ren2 = 1000. 
+
+       if (ren2 .le. 0.135) then
+
+          zt = zntsno*exp(bt0_s + bt1_s*log(ren2) + bt2_s*log(ren2)**2)
+          zq = zntsno*exp(bq0_s + bq1_s*log(ren2) + bq2_s*log(ren2)**2)
+
+       else if (ren2 .gt. 0.135 .and. ren2 .lt. 2.5) then
+
+          zt = zntsno*exp(bt0_t + bt1_t*log(ren2) + bt2_t*log(ren2)**2)
+          zq = zntsno*exp(bq0_t + bq1_t*log(ren2) + bq2_t*log(ren2)**2)
+
+       else
+
+          zt = zntsno*exp(bt0_r + bt1_r*log(ren2) + bt2_r*log(ren2)**2)
+          zq = zntsno*exp(bq0_r + bq1_r*log(ren2) + bq2_r*log(ren2)**2)
+
+       endif
+
+       return
+
+    end subroutine andreas_2002
+!--------------------------------------------------------------------
+!>\ingroup mynn_sfc
+!! this subroutine returns a more robust z/l that best matches
+!! the z/l from hogstrom (1996) for unstable conditions and beljaars
+!! and holtslag (1991) for stable conditions.
+    subroutine li_etal_2010(zl, rib, zaz0, z0zt)
+
+       implicit none
+       real (kind=kind_phys), intent(out)  :: zl
+       real (kind=kind_phys), intent(in) :: rib, zaz0, z0zt
+       real (kind=kind_phys) :: alfa, beta, zaz02, z0zt2
+       real (kind=kind_phys), parameter  :: au11=0.045, bu11=0.003, bu12=0.0059, &
+                          &bu21=-0.0828, bu22=0.8845, bu31=0.1739, &
+                          &bu32=-0.9213, bu33=-0.1057
+       real (kind=kind_phys), parameter  :: aw11=0.5738, aw12=-0.4399, aw21=-4.901,&
+                          &aw22=52.50, bw11=-0.0539, bw12=1.540, &
+                          &bw21=-0.669, bw22=-3.282
+       real (kind=kind_phys), parameter  :: as11=0.7529, as21=14.94, bs11=0.1569,&
+                          &bs21=-0.3091, bs22=-1.303
+          
+       !set limits according to li et al (2010), p 157.
+       zaz02=zaz0
+       if (zaz0 .lt. 100.0) zaz02=100.
+       if (zaz0 .gt. 100000.0) zaz02=100000.
+
+       !set more limits according to li et al (2010)
+       z0zt2=z0zt
+       if (z0zt .lt. 0.5) z0zt2=0.5
+       if (z0zt .gt. 100.0) z0zt2=100.
+
+       alfa = log(zaz02)
+       beta = log(z0zt2)
+
+       if (rib .le. 0.0) then
+          zl = au11*alfa*rib**2 + (                   &
+               &  (bu11*beta + bu12)*alfa**2 +        &
+               &  (bu21*beta + bu22)*alfa    +        &
+               &  (bu31*beta**2 + bu32*beta + bu33))*rib
+          !if(zl .lt. -15 .or. zl .gt. 0.)print*,"violation rib<0:",zl
+          zl = max(zl,-15.) !limits set according to li et al (2010)
+          zl = min(zl,0.)   !figure 1.
+       elseif (rib .gt. 0.0 .and. rib .le. 0.2) then
+          zl = ((aw11*beta + aw12)*alfa +             &
+             &  (aw21*beta + aw22))*rib**2 +          &
+             & ((bw11*beta + bw12)*alfa +             &
+             &  (bw21*beta + bw22))*rib
+          !if(zl .lt. 0 .or. zl .gt. 4)print*,"violation 0<rib<0.2:",zl
+          zl = min(zl,4.) !limits approx set according to li et al (2010)
+          zl = max(zl,0.) !their figure 1b.
+       else
+          zl = (as11*alfa + as21)*rib + bs11*alfa +   &
+             &  bs21*beta + bs22
+          !if(zl .le. 1 .or. zl .gt. 23)print*,"violation rib>0.2:",zl
+          zl = min(zl,20.) !limits according to li et al (2010), thier
+                           !figue 1c.
+          zl = max(zl,1.)
+       endif
+
+       return
+
+    end subroutine li_etal_2010
+!-------------------------------------------------------------------
+      real*8 function zolri(ri,za,z0,zt,zol1,psi_opt)
+
+      ! this iterative algorithm was taken from the revised surface layer 
+      ! scheme in wrf-arw, written by pedro jimenez and jimy dudhia and 
+      ! summarized in jimenez et al. (2012, mwr). this function was adapted
+      ! to input the thermal roughness length, zt, (as well as z0) and use initial
+      ! estimate of z/l.
+
+      implicit none
+      real (kind=kind_phys), intent(in) :: ri,za,z0,zt,zol1
+      integer, intent(in) :: psi_opt
+      real (kind=kind_phys) :: x1,x2,fx1,fx2
+      integer :: n
+      integer, parameter :: nmax = 20
+      real(kind=kind_phys) zolri_iteration
+      !real, dimension(nmax):: zlhux
+!     real  :: zolri2
+
+      if (ri.lt.0.)then
+         x1=zol1 - 0.02  !-5.
+         x2=0.
+      else
+         x1=0.
+         x2=zol1 + 0.02 !5.
+      endif
+
+      n=1
+      fx1=zolri2(x1,ri,za,z0,zt,psi_opt)
+      fx2=zolri2(x2,ri,za,z0,zt,psi_opt)
+
+      do while (abs(x1 - x2) > 0.01 .and. n < nmax)
+        if(abs(fx2).lt.abs(fx1))then
+          x1=x1-fx1/(fx2-fx1)*(x2-x1)
+          fx1=zolri2(x1,ri,za,z0,zt,psi_opt)
+          zolri=x1
+        else
+          x2=x2-fx2/(fx2-fx1)*(x2-x1)
+          fx2=zolri2(x2,ri,za,z0,zt,psi_opt)
+          zolri=x2
+        endif
+        n=n+1
+        !print*," n=",n," x1=",x1," x2=",x2
+        !zlhux(n)=zolri
+      enddo
+
+      if (n==nmax .and. abs(x1 - x2) >= 0.01) then
+         !if convergence fails, use approximate values:
+         zolri_iteration= zolri
+         call li_etal_2010(zolri_iteration, ri, za/z0, z0/zt)
+         zolri = zolri_iteration
+         !zlhux(n)=zolri
+         !print*,"iter fail, n=",n," ri=",ri," z0=",z0
+      else
+         !print*,"success,n=",n," ri=",ri," z0=",z0
+      endif
+
+      return
+      end function
+!-------------------------------------------------------------------
+      real*8 function zolri2(zol2,ri2,za,z0,zt,psi_opt)
+
+      ! input: =================================
+      ! zol2 - estimated z/l
+      ! ri2  - calculated bulk richardson number
+      ! za   - 1/2 depth of first model layer
+      ! z0   - aerodynamic roughness length
+      ! zt   - thermal roughness length
+      ! output: ================================
+      ! zolri2 - delta ri
+
+      implicit none
+      integer, intent(in) :: psi_opt
+      real (kind=kind_phys), intent(in) :: ri2,za,z0,zt
+      real (kind=kind_phys), intent(inout) :: zol2
+      real (kind=kind_phys) :: zol20,zol3,psim1,psih1,psix2,psit2,zolt
+
+!     real :: psih_unstable,psim_unstable,psih_stable, psim_stable
+
+      if(zol2*ri2 .lt. 0.)zol2=0.  ! limit zol2 - must be same sign as ri2
+
+      zol20=zol2*z0/za ! z0/l
+      zol3=zol2+zol20  ! (z+z0)/l
+      zolt=zol2*zt/za  ! zt/l
+
+      if (ri2.lt.0) then
+         !psix2=log((za+z0)/z0)-(psim_unstable(zol3)-psim_unstable(zol20))
+         !psit2=log((za+zt)/zt)-(psih_unstable(zol3)-psih_unstable(zol20))
+         psit2=max(log((za+z0)/zt)-(psih_unstable(zol3,psi_opt)-psih_unstable(zolt,psi_opt)), 1.0)
+         psix2=max(log((za+z0)/z0)-(psim_unstable(zol3,psi_opt)-psim_unstable(zol20,psi_opt)),1.0)
+      else
+         !psix2=log((za+z0)/z0)-(psim_stable(zol3)-psim_stable(zol20))
+         !psit2=log((za+zt)/zt)-(psih_stable(zol3)-psih_stable(zol20))
+         psit2=max(log((za+z0)/zt)-(psih_stable(zol3,psi_opt)-psih_stable(zolt,psi_opt)), 1.0)
+         psix2=max(log((za+z0)/z0)-(psim_stable(zol3,psi_opt)-psim_stable(zol20,psi_opt)),1.0)
+      endif
+
+      zolri2=zol2*psit2/psix2**2 - ri2
+      !print*,"  target ri=",ri2," est ri=",zol2*psit2/psix2**2
+
+      return
+      end function
+!====================================================================
+
+      real*8 function zolrib(ri,za,z0,zt,logz0,logzt,zol1,psi_opt)
+
+      ! this iterative algorithm to compute z/l from bulk-ri
+
+      implicit none
+      real (kind=kind_phys), intent(in) :: ri,za,z0,zt,logz0,logzt
+      integer, intent(in) :: psi_opt
+      real (kind=kind_phys), intent(inout) :: zol1
+      real (kind=kind_phys) :: zol20,zol3,zolt,zolold
+      integer :: n
+      integer, parameter :: nmax = 20
+      real (kind=kind_phys), dimension(nmax):: zlhux
+      real (kind=kind_phys) :: psit2,psix2,zolrib_iteration
+
+!     real    :: psim_unstable, psim_stable
+!     real    :: psih_unstable, psih_stable
+
+      !print*,"+++++++incoming: z/l=",zol1," ri=",ri
+      if (zol1*ri .lt. 0.) then
+         !print*,"begin: wrong quadrants: z/l=",zol1," ri=",ri
+         zol1=0.
+      endif
+
+      if (ri .lt. 0.) then
+        zolold=-99999.
+        zolrib=-66666.
+      else
+        zolold=99999.
+        zolrib=66666.
+      endif
+      n=1
+
+      do while (abs(zolold - zolrib) > 0.01 .and. n < nmax)
+
+        if(n==1)then
+          zolold=zol1
+        else
+          zolold=zolrib
+        endif
+        zol20=zolold*z0/za ! z0/l
+        zol3=zolold+zol20  ! (z+z0)/l
+        zolt=zolold*zt/za  ! zt/l
+        !print*,"z0/l=",zol20," (z+z0)/l=",zol3," zt/l=",zolt
+        if (ri.lt.0) then
+           !psit2=log((za+zt)/zt)-(psih_unstable(zol3)-psih_unstable(zol20))
+           !psit2=log((za+z0)/zt)-(psih_unstable(zol3)-psih_unstable(zol20))
+           psit2=max(logzt-(psih_unstable(zol3,psi_opt)-psih_unstable(zolt,psi_opt)), 1.0)
+           psix2=max(logz0-(psim_unstable(zol3,psi_opt)-psim_unstable(zol20,psi_opt)), 1.0)
+        else
+           !psit2=log((za+zt)/zt)-(psih_stable(zol3)-psih_stable(zol20))
+           !psit2=log((za+z0)/zt)-(psih_stable(zol3)-psih_stable(zol20))
+           psit2=max(logzt-(psih_stable(zol3,psi_opt)-psih_stable(zolt,psi_opt)), 1.0)
+           psix2=max(logz0-(psim_stable(zol3,psi_opt)-psim_stable(zol20,psi_opt)), 1.0)
+        endif
+        !print*,"n=",n," psit2=",psit2," psix2=",psix2
+        zolrib=ri*psix2**2/psit2
+        zlhux(n)=zolrib
+        n=n+1
+      enddo
+
+      if (n==nmax .and. abs(zolold - zolrib) > 0.01 ) then
+         !print*,"iter fail, n=",n," ri=",ri," z/l=",zolri
+         !if convergence fails, use approximate values:
+         zolrib_iteration = zolrib
+         call li_etal_2010(zolrib_iteration, ri, za/z0, z0/zt)
+         zolrib = zolrib_iteration
+         zlhux(n)=zolrib
+         !print*,"failed, n=",n," ri=",ri," z0=",z0
+         !print*,"z/l=",zlhux(1:nmax)
+      else
+         !if(zolrib*ri .lt. 0.) then
+         !   !print*,"end: wrong quadrants: z/l=",zolrib," ri=",ri
+         !   !phys_temp = zolrib
+         !   !call li_etal_2010(zolrib, ri, za/z0, z0/zt)
+         !   !zolrib = phys_temp
+         !endif
+         !print*,"success,n=",n," ri=",ri," z0=",z0
+      endif
+
+      return
+      end function
+!====================================================================
+
+   subroutine psi_init(psi_opt,errmsg,errflg)
+
+    integer                       :: n,psi_opt
+    real (kind=kind_phys)         :: zolf
+    character(len=*), intent(out) :: errmsg
+    integer, intent(out)          :: errflg
+
+    if (psi_opt == 0) then
+       do n=0,1000
+          ! stable function tables
+          zolf = float(n)*0.01
+          psim_stab(n)=psim_stable_full(zolf)
+          psih_stab(n)=psih_stable_full(zolf)
+
+          ! unstable function tables
+          zolf = -float(n)*0.01
+          psim_unstab(n)=psim_unstable_full(zolf)
+          psih_unstab(n)=psih_unstable_full(zolf)
+       enddo
+    else
+       do n=0,1000
+          ! stable function tables
+          zolf = float(n)*0.01
+          psim_stab(n)=psim_stable_full_gfs(zolf)
+          psih_stab(n)=psih_stable_full_gfs(zolf)
+
+          ! unstable function tables
+          zolf = -float(n)*0.01
+          psim_unstab(n)=psim_unstable_full_gfs(zolf)
+          psih_unstab(n)=psih_unstable_full_gfs(zolf)
+       enddo
+    endif
+
+    !simple test to see if initialization worked:
+    if (psim_stab(1) < 0. .and. psih_stab(1) < 0. .and. & 
+        psim_unstab(1) > 0. .and. psih_unstab(1) > 0.) then
+       errmsg = 'in mynn sfc, psi tables have been initialized'
+       errflg = 0
+    else
+       errmsg = 'error in mynn sfc: problem initializing psi tables'
+       errflg = 1
+    endif
+
+   end subroutine psi_init
+! ==================================================================
+! ... integrated similarity functions from mynn...
+!
+!>\ingroup mynn_sfc
+   real*8 function psim_stable_full(zolf)
+        real (kind=kind_phys) :: zolf   
+
+        !psim_stable_full=-6.1*log(zolf+(1+zolf**2.5)**(1./2.5))
+        psim_stable_full=-6.1*log(zolf+(1+zolf**2.5)**0.4) 
+
+        return
+   end function
+
+!>\ingroup mynn_sfc
+   real*8 function psih_stable_full(zolf)
+        real (kind=kind_phys) :: zolf
+
+        !psih_stable_full=-5.3*log(zolf+(1+zolf**1.1)**(1./1.1))
+        psih_stable_full=-5.3*log(zolf+(1+zolf**1.1)**0.9090909090909090909)
+
+        return
+   end function
+
+!>\ingroup mynn_sfc
+   real*8 function psim_unstable_full(zolf)
+        real (kind=kind_phys) :: zolf,x,ym,psimc,psimk
+
+        x=(1.-16.*zolf)**.25
+        !psimk=2*alog(0.5*(1+x))+alog(0.5*(1+x*x))-2.*atan(x)+2.*atan(1.)
+        psimk=2.*alog(0.5*(1+x))+alog(0.5*(1+x*x))-2.*atan(x)+2.*atan1
+
+        ym=(1.-10.*zolf)**onethird
+        !psimc=(3./2.)*log((ym**2.+ym+1.)/3.)-sqrt(3.)*atan((2.*ym+1)/sqrt(3.))+4.*atan(1.)/sqrt(3.)
+        psimc=1.5*log((ym**2 + ym+1.)*onethird)-sqrt3*atan((2.*ym+1)/sqrt3)+4.*atan1/sqrt3
+
+        psim_unstable_full=(psimk+zolf**2*(psimc))/(1+zolf**2.)
+
+        return
+   end function
+
+!>\ingroup mynn_sfc
+   real*8 function psih_unstable_full(zolf)
+        real (kind=kind_phys) :: zolf,y,yh,psihc,psihk
+
+        y=(1.-16.*zolf)**.5
+        !psihk=2.*log((1+y)/2.)
+        psihk=2.*log((1+y)*0.5)
+
+        yh=(1.-34.*zolf)**onethird
+        !psihc=(3./2.)*log((yh**2.+yh+1.)/3.)-sqrt(3.)*atan((2.*yh+1)/sqrt(3.))+4.*atan(1.)/sqrt(3.)
+        psihc=1.5*log((yh**2.+yh+1.)*onethird)-sqrt3*atan((2.*yh+1)/sqrt3)+4.*atan1/sqrt3
+
+        psih_unstable_full=(psihk+zolf**2*(psihc))/(1+zolf**2)
+
+        return
+   end function
+
+! ==================================================================
+! ... integrated similarity functions from gfs...
+!
+   real*8 function psim_stable_full_gfs(zolf)
+        real (kind=kind_phys) :: zolf
+        real (kind=kind_phys), parameter :: alpha4 = 20.
+        real (kind=kind_phys) :: aa
+
+        aa     = sqrt(1. + alpha4 * zolf)
+        psim_stable_full_gfs  = -1.*aa + log(aa + 1.)
+
+        return
+   end function
+
+   real*8 function psih_stable_full_gfs(zolf)
+        real (kind=kind_phys) :: zolf
+        real (kind=kind_phys), parameter :: alpha4 = 20.
+        real (kind=kind_phys) :: bb
+
+        bb     = sqrt(1. + alpha4 * zolf)
+        psih_stable_full_gfs  = -1.*bb + log(bb + 1.)
+
+        return
+   end function
+
+   real*8 function psim_unstable_full_gfs(zolf)
+        real (kind=kind_phys) :: zolf
+        real (kind=kind_phys) :: hl1,tem1
+        real (kind=kind_phys), parameter :: a0=-3.975,  a1=12.32,  &
+                           b1=-7.755,  b2=6.041
+
+        if (zolf .ge. -0.5) then
+           hl1   = zolf
+           psim_unstable_full_gfs  = (a0  + a1*hl1)  * hl1   / (1.+ (b1+b2*hl1)  *hl1)
+        else
+           hl1   = -zolf
+           tem1  = 1.0 / sqrt(hl1)
+           psim_unstable_full_gfs  = log(hl1) + 2. * sqrt(tem1) - .8776
+        end if
+
+        return
+   end function
+
+   real*8 function psih_unstable_full_gfs(zolf)
+        real (kind=kind_phys) :: zolf
+        real (kind=kind_phys) :: hl1,tem1
+        real (kind=kind_phys), parameter :: a0p=-7.941, a1p=24.75, &
+                           b1p=-8.705, b2p=7.899
+
+        if (zolf .ge. -0.5) then
+           hl1   = zolf
+           psih_unstable_full_gfs  = (a0p + a1p*hl1) * hl1   / (1.+ (b1p+b2p*hl1)*hl1)
+        else
+           hl1   = -zolf
+           tem1  = 1.0 / sqrt(hl1)
+           psih_unstable_full_gfs  = log(hl1) + .5 * tem1 + 1.386
+        end if
+
+        return
+   end function
+
+!=================================================================
+! look-up table functions - or, if beyond -10 < z/l < 10, recalculate
+!=================================================================
+   real*8 function psim_stable(zolf,psi_opt)
+        integer :: nzol,psi_opt
+        real (kind=kind_phys)    :: rzol,zolf
+
+        nzol = int(zolf*100.)
+        rzol = zolf*100. - nzol
+        if(nzol+1 .lt. 1000)then
+           psim_stable = psim_stab(nzol) + rzol*(psim_stab(nzol+1)-psim_stab(nzol))
+        else
+           if (psi_opt == 0) then
+              psim_stable = psim_stable_full(zolf)
+           else
+              psim_stable = psim_stable_full_gfs(zolf)
+           endif
+        endif
+
+      return
+   end function
+
+   real*8 function psih_stable(zolf,psi_opt)
+        integer :: nzol,psi_opt
+        real (kind=kind_phys)    :: rzol,zolf
+
+        nzol = int(zolf*100.)
+        rzol = zolf*100. - nzol
+        if(nzol+1 .lt. 1000)then
+           psih_stable = psih_stab(nzol) + rzol*(psih_stab(nzol+1)-psih_stab(nzol))
+        else
+           if (psi_opt == 0) then
+              psih_stable = psih_stable_full(zolf)
+           else
+              psih_stable = psih_stable_full_gfs(zolf)
+           endif
+        endif
+
+      return
+   end function
+
+   real*8 function psim_unstable(zolf,psi_opt)
+        integer :: nzol,psi_opt
+        real (kind=kind_phys)    :: rzol,zolf
+
+        nzol = int(-zolf*100.)
+        rzol = -zolf*100. - nzol
+        if(nzol+1 .lt. 1000)then
+           psim_unstable = psim_unstab(nzol) + rzol*(psim_unstab(nzol+1)-psim_unstab(nzol))
+        else
+           if (psi_opt == 0) then
+              psim_unstable = psim_unstable_full(zolf)
+           else
+              psim_unstable = psim_unstable_full_gfs(zolf)
+           endif
+        endif
+
+      return
+   end function
+
+   real*8 function psih_unstable(zolf,psi_opt)
+        integer :: nzol,psi_opt
+        real (kind=kind_phys)    :: rzol,zolf
+
+        nzol = int(-zolf*100.)
+        rzol = -zolf*100. - nzol
+        if(nzol+1 .lt. 1000)then
+           psih_unstable = psih_unstab(nzol) + rzol*(psih_unstab(nzol+1)-psih_unstab(nzol))
+        else
+           if (psi_opt == 0) then
+              psih_unstable = psih_unstable_full(zolf)
+           else
+              psih_unstable = psih_unstable_full_gfs(zolf)
+           endif
+        endif
+
+      return
+   end function
+!========================================================================
 end module module_sf_noahmplsm
 

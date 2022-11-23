@@ -123,7 +123,7 @@ contains
       enddo
  
       return
-      end
+      end subroutine setindxh2o
 !
 !**********************************************************************
 !
@@ -144,8 +144,9 @@ contains
 !
       real(kind=kind_phys) ddy(npts)
       real(kind=kind_phys) h2oplout(npts,levh2o,h2o_coeff)
-      real(kind=kind_phys) rinc(5), rjday
+      real(kind=kind_phys) rjday
       integer              jdow, jdoy, jday
+      real(8)              rinc(5)
       real(4)              rinc4(5)
       integer              w3kindreal, w3kindint
 !
@@ -201,6 +202,6 @@ contains
       enddo
 !
       return
-      end
+      end subroutine h2ointerpol
 
 end module h2ointerp
