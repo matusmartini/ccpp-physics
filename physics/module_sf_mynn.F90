@@ -821,8 +821,8 @@ CONTAINS
            ! CONVERT SKIN TEMPERATURES TO POTENTIAL TEMPERATURE: 
            THSK_lnd(I) = TSK_lnd(I)*THCON(I)   !(K)
            THVSK_lnd(I) = THSK_lnd(I)*(1.+EP1*qsfc_lnd(I))
-           if(THVSK_lnd(I) < 170. .or. THVSK_lnd(I) > 360.) &
-           print *,'THVSK_lnd(I)',itimestep,i,THVSK_lnd(I),THSK_lnd(i),tsurf_lnd(i),tskin_lnd(i),qsfc_lnd(i)
+           !if(THVSK_lnd(I) < 170. .or. THVSK_lnd(I) > 360.) &
+           !print *,'THVSK_lnd(I)',itimestep,i,THVSK_lnd(I),THSK_lnd(i),tsurf_lnd(i),tskin_lnd(i),qsfc_lnd(i)
          endif
          if(icy(i)) then
            TSK_ice(I) = tskin_ice(i)
