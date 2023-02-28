@@ -20,7 +20,7 @@ module mp_thompson
 
       private
 
-      logical :: is_initialized = .False.
+      logical, dimension(100) :: is_initialized = .False.
 
       integer, parameter :: ext_ndiag3d = 37
 
@@ -38,6 +38,7 @@ module mp_thompson
                                   nwfa, nifa, tgrs, prsl, phil, area,   &
                                   mpicomm, mpirank, mpiroot,            &
                                   threads, ext_diag, diag3d,            &
+                                  instance,                             &
                                   errmsg, errflg)
 
          implicit none
@@ -80,6 +81,8 @@ module mp_thompson
          ! Extended diagnostics
          logical,                   intent(in   ) :: ext_diag
          real(kind_phys),           intent(in   ) :: diag3d(:,:,:)
+         ! Which instance
+         integer,                   intent(in   ) :: instance
          ! CCPP error handling
          character(len=*),          intent(  out) :: errmsg
          integer,                   intent(  out) :: errflg
@@ -98,7 +101,7 @@ module mp_thompson
          errmsg = ''
          errflg = 0
 
-         if (is_initialized) return
+         if (is_initialized(instance)) return
 
          ! Consistency checks
          if (imp_physics/=imp_physics_thompson) then
@@ -123,7 +126,7 @@ module mp_thompson
 
          ! For restart runs, the init is done here
          if (restart) then
-           is_initialized = .true.
+           is_initialized(instance) = .true.
            return
          end if
 
@@ -285,7 +288,7 @@ module mp_thompson
            end if
          end if
 
-         is_initialized = .true.
+         is_initialized(instance) = .true.
 
       end subroutine mp_thompson_init
 
@@ -312,6 +315,7 @@ module mp_thompson
                               spp_prt_list, spp_var_list,          &
                               spp_stddev_cutoff,                   &
                               cplchm, pfi_lsan, pfl_lsan,          &
+                              instance,                            &
                               errmsg, errflg)
 
          implicit none
@@ -373,6 +377,8 @@ module mp_thompson
          logical,                   intent(in)    :: ext_diag
          real(kind_phys), target,   intent(inout) :: diag3d(:,:,:)
          logical,                   intent(in)    :: reset_diag3d
+         ! Which instance
+         integer,                   intent(in   ) :: instance
 
          ! CCPP error handling
          character(len=*),          intent(  out) :: errmsg
@@ -477,7 +483,7 @@ module mp_thompson
 
          if (first_time_step .and. istep==1 .and. blkno==1) then
             ! Check initialization state
-            if (.not.is_initialized) then
+            if (.not.is_initialized(instance)) then
                write(errmsg, fmt='((a))') 'mp_thompson_run called before mp_thompson_init'
                errflg = 1
                return
@@ -827,10 +833,12 @@ module mp_thompson
 !> \section arg_table_mp_thompson_finalize Argument Table
 !! \htmlinclude mp_thompson_finalize.html
 !!
-      subroutine mp_thompson_finalize(errmsg, errflg)
+      subroutine mp_thompson_finalize(instance,errmsg, errflg)
 
          implicit none
 
+         ! Which instance
+         integer,                   intent(in   ) :: instance
          character(len=*),          intent(  out) :: errmsg
          integer,                   intent(  out) :: errflg
 
@@ -838,11 +846,11 @@ module mp_thompson
          errmsg = ''
          errflg = 0
 
-         if (.not.is_initialized) return
+         if (.not.is_initialized(instance)) return
 
          call thompson_finalize()
 
-         is_initialized = .false.
+         is_initialized(instance) = .false.
 
       end subroutine mp_thompson_finalize
 

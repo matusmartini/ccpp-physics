@@ -190,7 +190,7 @@
          errmsg = ''
          errflg = 0
 
-         if (is_initialized) return
+!         if (is_initialized) return
          iamin=999
          iamax=-999
          jamin=999
@@ -779,11 +779,11 @@
          errflg = 0
 
          ! Check initialization status
-         if (.not.is_initialized) then
-            write(errmsg,'(*(a))') "Logic error: GFS_phys_time_vary_timestep_init called before GFS_phys_time_vary_init"
-            errflg = 1
-            return
-         end if
+!         if (.not.is_initialized) then
+!            write(errmsg,'(*(a))') "Logic error: GFS_phys_time_vary_timestep_init called before GFS_phys_time_vary_init"
+!            errflg = 1
+!            return
+!         end if
 
 !$OMP parallel num_threads(nthrds) default(none)                                         &
 !$OMP          shared(kdt,nsswr,lsswr,clstp,imfdeepcnv,cal_pre,random_clds)              &
@@ -942,7 +942,7 @@
          errmsg = ''
          errflg = 0
 
-         if (.not.is_initialized) return
+!         if (.not.is_initialized) return
 
          ! Deallocate ozone arrays
          if (allocated(oz_lat)  ) deallocate(oz_lat)
