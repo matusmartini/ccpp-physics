@@ -20,7 +20,7 @@ module cu_ntiedtke
      real(kind=kind_phys),private :: rcpd,vtmpc1,tmelt,als,t13,                &
              c1es,c2es,c3les,c3ies,c4les,c4ies,c5les,c5ies,zrg
 
-     real(kind=kind_phys),private :: rovcp,r5alvcp,r5alscp,ralvdcp,ralsdcp,ralfdcp,rtwat,rtber,rtice
+     real(kind=kind_phys),private :: rovcp,r5alvcp,r5alscp,ralvdcp,ralsdcp,ralfdcp
      real(kind=kind_phys),private :: entrdd,cmfcmax,cmfcmin,cmfdeps,zdnoprc,cprcon
      integer,private :: momtrans,p650
 
@@ -43,11 +43,11 @@ module cu_ntiedtke
       ralvdcp=alv*rcpd,           &
       ralsdcp=als*rcpd,           &
       ralfdcp=alf*rcpd,           &
-      rtwat=tmelt,                &
-      rtber=tmelt-5.,             &
-      rtice=tmelt-23.,            &
       vtmpc1=rv/rd-1.0,           &
       rovcp = rd*rcpd )
+      real(kind=kind_phys),parameter:: rtwat = tmelt
+      real(kind=kind_phys),parameter:: rtber = tmelt-5.
+      real(kind=kind_phys),parameter:: rtice = tmelt-23.
 !     pgcoef   = 0.7 to 1.0 is good depends on the basin
       real(kind=kind_phys),parameter:: pgcoef  = 0.7
 !
@@ -90,6 +90,9 @@ module cu_ntiedtke
       logical :: isequil
 !     isequil: representing equilibrium and nonequilibrium convection
 !     ( .false. [default]; .true. [experimental]. Ref. Bechtold et al. 2014 JAS )
+!     Note for the diurnal simulation of precipitaton
+!     When isequil = .true., the CAPE is relaxed toward to a value from PBL
+!     It can improve the diurnal precipitation over land.
 !
       parameter(isequil = .false. )
 !
@@ -1234,30 +1237,33 @@ contains
 !   ---------
 !          *cuadjtq* to specify qs at half levels
 ! ----------------------------------------------------------------
-      integer  klon,klev,klevp1,klevm1
-      real(kind=kind_phys)     pten(klon,klev),        pqen(klon,klev),&
-     &         puen(klon,klev),        pven(klon,klev),&
-     &         pqsen(klon,klev),       pverv(klon,klev),&
-     &         pgeo(klon,klev),        pgeoh(klon,klevp1),&
-     &         paph(klon,klevp1),      ptenh(klon,klev),&
-     &         pqenh(klon,klev),       pqsenh(klon,klev)
-      real(kind=kind_phys)     ptu(klon,klev),         pqu(klon,klev),&
-     &         ptd(klon,klev),         pqd(klon,klev),&
-     &         puu(klon,klev),         pud(klon,klev),&
-     &         pvu(klon,klev),         pvd(klon,klev),&
-     &         pmfu(klon,klev),        pmfd(klon,klev),&
-     &         pmfus(klon,klev),       pmfds(klon,klev),&
-     &         pmfuq(klon,klev),       pmfdq(klon,klev),&
-     &         pdmfup(klon,klev),      pdmfdp(klon,klev),&
-     &         plu(klon,klev),         plude(klon,klev)
-      real(kind=kind_phys)     zwmax(klon),            zph(klon), &
-     &         pdpmel(klon,klev)
-      integer  klab(klon,klev),        klwmin(klon)
-      logical  loflag(klon)
-!  local variables
-      integer  jl,jk
-      integer  icall,ik
-      real(kind=kind_phys)     zzs
+
+!--- input arguments:
+      integer,intent(in):: klon,klev,klevp1,klevm1
+
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,pqsen,puen,pven
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pgeo,pverv
+      real(kind=kind_phys),intent(in),dimension(klon,klev+1):: paph,pgeoh
+
+!--- output arguments:
+      integer,intent(out),dimension(klon):: klwmin
+      integer,intent(out),dimension(klon,klev):: klab
+
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: ptenh,pqenh,pqsenh
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: ptu,ptd,pqu,pqd,plu
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: puu,pud,pvu,pvd
+
+!--- inout arguments:
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfu,pmfd,pmfus,pmfds,pmfuq,pmfdq
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pdmfup,pdmfdp,plude,pdpmel
+
+!--- local variables and arrays:
+      logical,dimension(klon):: loflag
+      integer::  jl,jk
+      integer::  icall,ik
+      real(kind=kind_phys):: zzs
+      real(kind=kind_phys),dimension(klon):: zph,zwmax
+
 !------------------------------------------------------------
 !*    1.       specify large scale parameters at half levels
 !*             adjust temperature fields if staticly unstable
@@ -1385,51 +1391,51 @@ contains
 !-------------------------------------------------------------------
       implicit none
 !-------------------------------------------------------------------
-      integer  klon, klev, klevp1, klevm1
-      real(kind=kind_phys)     ptenh(klon,klev),       pqenh(klon,klev),&
-     &         pqsen(klon,klev),       pqsenh(klon,klev),&
-     &         pgeoh(klon,klevp1),     paph(klon,klevp1),&
-     &         pap(klon,klev),         pqen(klon,klev)
-      real(kind=kind_phys)     pten(klon,klev)
-      real(kind=kind_phys)     ptu(klon,klev),pqu(klon,klev),plu(klon,klev)
-      real(kind=kind_phys)     pgeo(klon,klev)
-      integer  klab(klon,klev)
-      integer  kctop(klon),kcbot(klon)
 
-      real(kind=kind_phys)     qfx(klon),hfx(klon)
-      real(kind=kind_phys)     zph(klon)
-      integer  lndj(klon)
-      logical  loflag(klon), deepflag(klon), resetflag(klon)
+!--- input arguments:
+      integer,intent(in):: klon,klev,klevp1,klevm1
+      integer,intent(in),dimension(klon):: lndj
 
-! output variables
-      real(kind=kind_phys)     cutu(klon,klev), cuqu(klon,klev), culu(klon,klev)
-      integer  culab(klon,klev)
-      real(kind=kind_phys)     wbase(klon)
-      integer  ktype(klon),cubot(klon),cutop(klon),kdpl(klon)
-      logical  ldcum(klon)
+      real(kind=kind_phys),intent(in),dimension(klon):: qfx,hfx
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pap,pgeo
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,pqsen
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: ptenh,pqenh,pqsenh
+      real(kind=kind_phys),intent(in),dimension(klon,klevp1):: paph,pgeoh
 
-! local variables
-      real(kind=kind_phys)     zqold(klon)
-      real(kind=kind_phys)     rho, part1, part2, root, conw, deltt, deltq
-      real(kind=kind_phys)     eta(klon),dz(klon),coef(klon)
-      real(kind=kind_phys)     dhen(klon,klev), dh(klon,klev)
-      real(kind=kind_phys)     plude(klon,klev)
-      real(kind=kind_phys)     kup(klon,klev)
-      real(kind=kind_phys)     vptu(klon,klev),vten(klon,klev)
-      real(kind=kind_phys)     zbuo(klon,klev),abuoy(klon,klev)
+!--- output arguments:
+      logical,intent(out),dimension(klon):: ldcum
 
-      real(kind=kind_phys)     zz,zdken,zdq
-      real(kind=kind_phys)     fscale,crirh1,pp
-      real(kind=kind_phys)     atop1,atop2,abot
-      real(kind=kind_phys)     tmix,zmix,qmix,pmix
-      real(kind=kind_phys)     zlglac,dp
-      integer  nk,is,ikb,ikt
+      integer,intent(out),dimension(klon):: ktype
+      integer,intent(out),dimension(klon):: cubot,cutop,kdpl
+      integer,intent(out),dimension(klon,klev):: culab
 
-      real(kind=kind_phys)     zqsu,zcor,zdp,zesdp,zalfaw,zfacw,zfaci,zfac,zdsdp,zdqsdt,zdtdp
-      real(kind=kind_phys)     zpdifftop, zpdiffbot
-      integer  zcbase(klon), itoppacel(klon)
-      integer  jl,jk,ik,icall,levels
-      logical  needreset, lldcum(klon)
+      real(kind=kind_phys),intent(out),dimension(klon):: wbase
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: cutu,cuqu,culu
+
+!--- local variables and arrays:
+      logical:: needreset
+      logical,dimension(klon):: lldcum
+      logical,dimension(klon):: loflag,deepflag,resetflag
+
+      integer:: jl,jk,ik,icall,levels
+      integer:: nk,is,ikb,ikt
+      integer,dimension(klon):: kctop,kcbot
+      integer,dimension(klon):: zcbase,itoppacel
+      integer,dimension(klon,klev):: klab
+
+      real(kind=kind_phys):: rho,part1,part2,root,conw,deltt,deltq
+      real(kind=kind_phys):: zz,zdken,zdq
+      real(kind=kind_phys):: fscale,crirh1,pp
+      real(kind=kind_phys):: atop1,atop2,abot
+      real(kind=kind_phys):: tmix,zmix,qmix,pmix
+      real(kind=kind_phys):: zlglac,dp
+      real(kind=kind_phys):: zqsu,zcor,zdp,zesdp,zalfaw,zfacw,zfaci,zfac,zdsdp,zdqsdt,zdtdp
+      real(kind=kind_phys):: zpdifftop, zpdiffbot
+
+      real(kind=kind_phys),dimension(klon):: eta,dz,coef,zqold,zph
+      real(kind=kind_phys),dimension(klon,klev):: dh,dhen,kup,vptu,vten
+      real(kind=kind_phys),dimension(klon,klev):: ptu,pqu,plu
+      real(kind=kind_phys),dimension(klon,klev):: zbuo,abuoy,plude
 
 !--------------------------------------------------------------
       do jl=1,klon
@@ -1952,55 +1958,58 @@ contains
 !       kctop0 [ictop0] - estimate of cloud top. (cumastr)
 !       kcum [icum] - flag to control the call
 
-      integer  klev,klon,klevp1,klevm1
-      real(kind=kind_phys)     ptenh(klon,klev),       pqenh(klon,klev), &
-     &         puen(klon,klev),        pven(klon,klev),&
-     &         pten(klon,klev),        pqen(klon,klev),&
-     &         pgeo(klon,klev),        pgeoh(klon,klevp1),&
-     &         pap(klon,klev),         paph(klon,klevp1),&
-     &         pqsen(klon,klev),       pqte(klon,klev),&
-     &         pverv(klon,klev),       pqsenh(klon,klev)
-      real(kind=kind_phys)     ptu(klon,klev),         pqu(klon,klev),&
-     &         puu(klon,klev),         pvu(klon,klev),&
-     &         pmfu(klon,klev),        zph(klon),&
-     &         pmfub(klon),            &
-     &         pmfus(klon,klev),       pmfuq(klon,klev),&
-     &         plu(klon,klev),         plude(klon,klev),&
-     &         pmful(klon,klev),       pdmfup(klon,klev)
-      real(kind=kind_phys)     zdmfen(klon),           zdmfde(klon),&
-     &         zmfuu(klon),            zmfuv(klon),&
-     &         zpbase(klon),           zqold(klon)
-      real(kind=kind_phys)     phcbase(klon),          zluold(klon)
-      real(kind=kind_phys)     zprecip(klon),          zlrain(klon,klev)
-      real(kind=kind_phys)     zbuo(klon,klev),        kup(klon,klev)
-      real(kind=kind_phys)     wup(klon)
-      real(kind=kind_phys)     wbase(klon),            zodetr(klon,klev)
-      real(kind=kind_phys)     plglac(klon,klev)
+!--- input arguments:
+      integer,intent(in):: klev,klon,klevp1,klevm1
+      integer,intent(in),dimension(klon):: lndj
+      integer,intent(in),dimension(klon):: klwmin
+      integer,intent(in),dimension(klon):: kdpl
 
-      real(kind=kind_phys)     eta(klon),dz(klon)
+      real(kind=kind_phys),intent(in):: ztmst
+      real(kind=kind_phys),intent(in),dimension(klon):: wbase
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,pqsen,puen,pven,pqte,pverv
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pap,pgeo
+      real(kind=kind_phys),intent(in),dimension(klon,klevp1):: paph,pgeoh
 
-      integer  klwmin(klon),           ktype(klon),&
-     &         klab(klon,klev),        kcbot(klon),&
-     &         kctop(klon),            kctop0(klon)
-      integer  lndj(klon)
-      logical  ldcum(klon),            loflag(klon)
-      logical  llo2,llo3,              llo1(klon)
+!--- inout arguments:
+      logical,intent(inout),dimension(klon):: ldcum
 
-      integer  kdpl(klon)
-      real(kind=kind_phys)     zoentr(klon),           zdpmean(klon)
-      real(kind=kind_phys)     pdmfen(klon,klev),      pmfude_rate(klon,klev)
-! local variables
-      integer  jl,jk
-      integer  ikb,icum,itopm2,ik,icall,is,kcum,jlm,jll
-      integer  jlx(klon)
-      real(kind=kind_phys)     ztmst,zcons2,zfacbuo,zprcdgw,z_cwdrag,z_cldmax,z_cwifrac,z_cprc2
-      real(kind=kind_phys)     zmftest,zmfmax,zqeen,zseen,zscde,zqude
-      real(kind=kind_phys)     zmfusk,zmfuqk,zmfulk
-      real(kind=kind_phys)     zbc,zbe,zkedke,zmfun,zwu,zprcon,zdt,zcbf,zzco
-      real(kind=kind_phys)     zlcrit,zdfi,zc,zd,zint,zlnew,zvw,zvi,zalfaw,zrold
-      real(kind=kind_phys)     zrnew,zz,zdmfeu,zdmfdu,dp
-      real(kind=kind_phys)     zfac,zbuoc,zdkbuo,zdken,zvv,zarg,zchange,zxe,zxs,zdshrd
-      real(kind=kind_phys)     atop1,atop2,abot
+      integer,intent(inout):: kcum
+      integer,intent(inout),dimension(klon):: kcbot,kctop,kctop0
+      integer,intent(inout),dimension(klon,klev):: klab
+
+      real(kind=kind_phys),intent(inout),dimension(klon):: phcbase
+      real(kind=kind_phys),intent(inout),dimension(klon):: pmfub
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptenh,pqenh,pqsenh
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptu,pqu,plu,puu,pvu
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfu,pmfus,pmfuq,pmful,plude,pdmfup
+
+!--- output arguments:
+      integer,intent(out),dimension(klon):: ktype
+
+      real(kind=kind_phys),intent(out),dimension(klon):: wup
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: plglac,pmfude_rate
+
+!--- local variables and arrays:
+      logical:: llo2,llo3
+      logical,dimension(klon):: loflag,llo1
+
+      integer:: jl,jk
+      integer::ikb,icum,itopm2,ik,icall,is,jlm,jll
+      integer,dimension(klon):: jlx
+
+      real(kind=kind_phys):: zcons2,zfacbuo,zprcdgw,z_cwdrag,z_cldmax,z_cwifrac,z_cprc2
+      real(kind=kind_phys):: zmftest,zmfmax,zqeen,zseen,zscde,zqude
+      real(kind=kind_phys):: zmfusk,zmfuqk,zmfulk
+      real(kind=kind_phys):: zbc,zbe,zkedke,zmfun,zwu,zprcon,zdt,zcbf,zzco
+      real(kind=kind_phys):: zlcrit,zdfi,zc,zd,zint,zlnew,zvw,zvi,zalfaw,zrold
+      real(kind=kind_phys):: zrnew,zz,zdmfeu,zdmfdu,dp
+      real(kind=kind_phys):: zfac,zbuoc,zdkbuo,zdken,zvv,zarg,zchange,zxe,zxs,zdshrd
+      real(kind=kind_phys):: atop1,atop2,abot
+
+      real(kind=kind_phys),dimension(klon):: eta,dz,zoentr,zdpmean
+      real(kind=kind_phys),dimension(klon):: zph,zdmfen,zdmfde,zmfuu,zmfuv,zpbase,zqold,zluold,zprecip
+      real(kind=kind_phys),dimension(klon,klev):: zlrain,zbuo,kup,zodetr,pdmfen
+
 !--------------------------------
 !*    1.       specify parameters
 !--------------------------------
@@ -2468,35 +2477,39 @@ contains
 
       implicit none
 
-      integer  klev,klon
-      real(kind=kind_phys)     ptenh(klon,klev),       pqenh(klon,klev), &
-     &         puen(klon,klev),        pven(klon,klev),  &
-     &         pten(klon,klev),        pqsen(klon,klev),  &
-     &         pgeo(klon,klev),                       &
-     &         pgeoh(klon,klev+1),     paph(klon,klev+1),&
-     &         ptu(klon,klev),         pqu(klon,klev),   &
-     &         puu(klon,klev),         pvu(klon,klev),   &
-     &         plu(klon,klev),                          &
-     &         pmfub(klon),            prfl(klon)
+!--- input arguments:
+      integer,intent(in):: klon
+      logical,intent(in),dimension(klon):: ldcum
 
-      real(kind=kind_phys)     ptd(klon,klev),         pqd(klon,klev),   &
-     &         pud(klon,klev),         pvd(klon,klev),    &
-     &         pmfd(klon,klev),        pmfds(klon,klev),  &
-     &         pmfdq(klon,klev),       pdmfdp(klon,klev)
-      integer  kcbot(klon),            kctop(klon),       &
-     &         kdtop(klon),            ikhsmin(klon)
-      logical  ldcum(klon),                              &
-     &         lddraf(klon)
-      integer  lndj(klon)
+      integer,intent(in):: klev
+      integer,intent(in),dimension(klon):: lndj
+      integer,intent(in),dimension(klon):: kcbot,kctop
 
-      real(kind=kind_phys)     ztenwb(klon,klev),      zqenwb(klon,klev), &
-     &         zcond(klon),            zph(klon),         &
-     &         zhsmin(klon)
-      logical  llo2(klon)
-! local variables
-      integer  jl,jk
-      integer  is,ik,icall,ike
-      real(kind=kind_phys)     zhsk,zttest,zqtest,zbuo,zmftop
+      real(kind=kind_phys),intent(in),dimension(klon):: pmfub
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqsen,pgeo,puen,pven
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: ptenh,pqenh
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: ptu,pqu,puu,pvu,plu
+      real(kind=kind_phys),intent(in),dimension(klon,klev+1):: pgeoh,paph
+
+!--- inout arguments:
+      real(kind=kind_phys),intent(inout),dimension(klon):: prfl
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pud,pvd
+
+!--- output arguments:
+      logical,intent(out),dimension(klon):: lddraf
+      integer,intent(out),dimension(klon):: kdtop
+
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: ptd,pqd,pmfd,pmfds,pmfdq,pdmfdp
+
+!--- local variables and arrays:
+      logical,dimension(klon):: llo2
+      integer:: jl,jk
+      integer:: is,ik,icall,ike
+      integer,dimension(klon):: ikhsmin
+
+      real(kind=kind_phys):: zhsk,zttest,zqtest,zbuo,zmftop
+      real(kind=kind_phys),dimension(klon):: zcond,zph,zhsmin
+      real(kind=kind_phys),dimension(klon,klev):: ztenwb,zqenwb
 
 !----------------------------------------------------------------------
 
@@ -2676,31 +2689,35 @@ contains
 !----------------------------------------------------------------------
       implicit none
 
-      integer  klev,klon
-      real(kind=kind_phys)     ptenh(klon,klev),       pqenh(klon,klev),   &
-     &         puen(klon,klev),        pven(klon,klev),    &
-     &         pgeoh(klon,klev+1),     paph(klon,klev+1),  &
-     &         pgeo(klon,klev),        pmfu(klon,klev)
+!--- input arguments:
+      integer,intent(in)::klon
+      logical,intent(in),dimension(klon):: lddraf
 
-      real(kind=kind_phys)     ptd(klon,klev),         pqd(klon,klev),     &
-     &         pud(klon,klev),         pvd(klon,klev),     &
-     &         pmfd(klon,klev),        pmfds(klon,klev),   &
-     &         pmfdq(klon,klev),       pdmfdp(klon,klev),  &
-     &         prfl(klon)
-      real(kind=kind_phys)     pmfdde_rate(klon,klev)
-      logical  lddraf(klon)
+      integer,intent(in)::klev
 
-      real(kind=kind_phys)     zdmfen(klon),           zdmfde(klon),       &
-     &         zcond(klon),            zoentr(klon),       &
-     &         zbuoy(klon)
-      real(kind=kind_phys)     zph(klon)
-      logical  llo2(klon)
-      logical  llo1
-! local variables
-      integer  jl,jk
-      integer  is,ik,icall,ike, itopde(klon)
-      real(kind=kind_phys)     zentr,zdz,zzentr,zseen,zqeen,zsdde,zqdde,zdmfdp
-      real(kind=kind_phys)     zmfdsk,zmfdqk,zbuo,zrain,zbuoyz,zmfduk,zmfdvk
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: ptenh,pqenh,puen,pven
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pgeo,pmfu
+      real(kind=kind_phys),intent(in),dimension(klon,klev+1):: pgeoh,paph
+
+!--- inout arguments:
+      real(kind=kind_phys),intent(inout),dimension(klon):: prfl
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptd,pqd,pud,pvd
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfd,pmfds,pmfdq,pdmfdp
+
+!--- output arguments:
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfdde_rate
+
+!--- local variables and arrays:
+      logical:: llo1
+      logical,dimension(klon):: llo2
+
+      integer::  jl,jk
+      integer::  is,ik,icall,ike
+      integer,dimension(klon):: itopde
+
+      real(kind=kind_phys):: zentr,zdz,zzentr,zseen,zqeen,zsdde,zqdde,zdmfdp
+      real(kind=kind_phys):: zmfdsk,zmfdqk,zbuo,zrain,zbuoyz,zmfduk,zmfdvk
+      real(kind=kind_phys),dimension(klon):: zdmfen,zdmfde,zcond,zoentr,zbuoy,zph
 
 !----------------------------------------------------------------------
 !     1.           calculate moist descent for cumulus downdraft by
@@ -2916,36 +2933,47 @@ contains
 !----------------------------------------------------------------------
       implicit none
 
-      integer  klev,klon,ktopm2
-      real(kind=kind_phys)     pten(klon,klev),        ptenh(klon,klev),          &
-     &         pqen(klon,klev),        pqsen(klon,klev),          &
-     &         pqenh(klon,klev),       pap(klon,klev),            &
-     &         paph(klon,klev+1),      pgeoh(klon,klev+1),        &
-     &         plglac(klon,klev)
+!--- input arguments:
+      integer,intent(in):: klon
+      logical,intent(in),dimension(klon):: ldcum
 
-      real(kind=kind_phys)     pmfu(klon,klev),        pmfd(klon,klev),           &
-     &         pmfus(klon,klev),       pmfds(klon,klev),          &
-     &         pmfuq(klon,klev),       pmfdq(klon,klev),          &
-     &         pdmfup(klon,klev),      pdmfdp(klon,klev),         &
-     &         pdpmel(klon,klev),      prain(klon),               &
-     &         pmful(klon,klev),       plude(klon,klev),          &
-     &         pmflxr(klon,klev+1),    pmflxs(klon,klev+1)
-      real(kind=kind_phys)     pmfdde_rate(klon,klev)
-      integer  kcbot(klon),            kctop(klon),               &
-     &         kdtop(klon),            ktype(klon)
-      logical  lddraf(klon),                                &
-     &         ldcum(klon)
-      integer  lndj(klon)
+      integer,intent(in):: klev
+      integer,intent(in),dimension(klon):: lndj
+      integer,intent(in),dimension(klon):: kcbot,kctop,kdtop
+
+      real(kind=kind_phys),intent(in):: ztmst
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,ptenh,pqen,pqenh
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pap
+      real(kind=kind_phys),intent(in),dimension(klon,klev+1):: paph,pgeoh
+
+!--- inout arguments:
+      logical,intent(inout),dimension(klon):: lddraf
+
+      integer,intent(inout):: ktopm2
+      integer,intent(inout),dimension(klon):: ktype
+
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfu,pmfd,pmfus,pmfds
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfuq,pmfdq,pmful,plude
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pdmfup,pdmfdp
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pqsen
+
+!--- output arguments:
+      real(kind=kind_phys),dimension(klon):: prain
+      real(kind=kind_phys),dimension(klon,klev):: pdpmel,plglac
+      real(kind=kind_phys),dimension(klon,klev):: pmfdde_rate
+      real(kind=kind_phys),dimension(klon,klev+1):: pmflxr,pmflxs
+
 !--- local variables and arrays:
       logical:: llddraf
 
       integer::  jl,jk
       integer::  is,ik,icall,ike,ikb
-      real(kind=kind_phys)::     ztmst,ztaumel,zcons1a,zcons1,zcons2,zcucov,zcpecons
-      real(kind=kind_phys)     zalfaw,zrfl,zdrfl1,zrnew,zrmin,zrfln,zdrfl,zdenom
-      real(kind=kind_phys)     zpdr,zpds,zzp,zfac,zsnmlt
-      real(kind=kind_phys)     rhevap(klon)
-      integer  idbas(klon)
+      integer,dimension(klon):: idbas
+
+      real(kind=kind_phys):: ztaumel,zcons1a,zcons1,zcons2,zcucov,zcpecons
+      real(kind=kind_phys):: zalfaw,zrfl,zdrfl1,zrnew,zrmin,zrfln,zdrfl,zdenom
+      real(kind=kind_phys):: zpdr,zpds,zzp,zfac,zsnmlt
+      real(kind=kind_phys),dimension(klon):: rhevap
 
 !--------------------------------------------------------------------
 !*             specify constants
@@ -3162,27 +3190,32 @@ contains
                      pqenh,pqsen,plglac,plude,pmfu,pmfd,pmfus,pmfds, &
                      pmfuq,pmfdq,pmful,pdmfup,pdmfdp,pdpmel,ptent,ptenq,pcte)
     implicit none
-    integer  klon,klev,ktopm2
-    integer  kctop(klon),  kdtop(klon)
-    logical  ldcum(klon),  lddraf(klon)
-    real(kind=kind_phys)     ztmst
-    real(kind=kind_phys)     paph(klon,klev+1), pgeoh(klon,klev+1)
-    real(kind=kind_phys)     pgeo(klon,klev),   pten(klon,klev), &
-             pqen(klon,klev),   ptenh(klon,klev),&
-             pqenh(klon,klev),  pqsen(klon,klev),&
-             plglac(klon,klev), plude(klon,klev)
-    real(kind=kind_phys)     pmfu(klon,klev),   pmfd(klon,klev),&
-             pmfus(klon,klev),  pmfds(klon,klev),&
-             pmfuq(klon,klev),  pmfdq(klon,klev),&
-             pmful(klon,klev),  pdmfup(klon,klev),&
-             pdpmel(klon,klev), pdmfdp(klon,klev)
-    real(kind=kind_phys)     ptent(klon,klev),  ptenq(klon,klev)
-    real(kind=kind_phys)     pcte(klon,klev)
 
-! local variables
-    integer  jk , ik , jl
-    real(kind=kind_phys)     zalv , zzp
-    real(kind=kind_phys)     zdtdt(klon,klev) , zdqdt(klon,klev) , zdp(klon,klev)
+!--- input arguments:
+    integer,intent(in):: klon
+    logical,intent(in),dimension(klon):: ldcum,lddraf
+
+    integer,intent(in):: klev,ktopm2
+    integer,intent(in),dimension(klon):: kctop,kdtop
+
+    real(kind=kind_phys),intent(in):: ztmst
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: pgeo
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: pten
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: pmfu,pmfus,pmfd,pmfds
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: pmfuq,pmfdq,pmful
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: plglac,plude,pdpmel
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: pdmfup,pdmfdp
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: pqen, ptenh,pqenh,pqsen
+    real(kind=kind_phys),intent(in),dimension(klon,klev+1):: paph,pgeoh
+
+!--- inout arguments:
+    real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptent,ptenq,pcte
+
+!--- local variables and arrays:
+    integer::  jk ,ik ,jl
+    real(kind=kind_phys):: zalv ,zzp
+    real(kind=kind_phys),dimension(klon,klev):: zdtdt,zdqdt,zdp
+
     !*    1.0          SETUP AND INITIALIZATIONS
     ! -------------------------
     do jk = 1 , klev
@@ -3244,25 +3277,28 @@ contains
                     ztmst,paph,puen,pven,pmfu,pmfd,puu,pud,pvu,pvd,ptenu, &
                     ptenv)
     implicit none
-    integer  klon,klev,ktopm2
-    integer  ktype(klon), kcbot(klon), kctop(klon)
-    logical  ldcum(klon)
-    real(kind=kind_phys)     ztmst
-    real(kind=kind_phys)     paph(klon,klev+1)
-    real(kind=kind_phys)     puen(klon,klev),  pven(klon,klev),&
-             pmfu(klon,klev),  pmfd(klon,klev),&
-             puu(klon,klev),   pud(klon,klev),&
-             pvu(klon,klev),   pvd(klon,klev)
-    real(kind=kind_phys)     ptenu(klon,klev), ptenv(klon,klev)
 
-!local variables
-    real(kind=kind_phys)     zuen(klon,klev) , zven(klon,klev) , zmfuu(klon,klev), &
-             zmfdu(klon,klev), zmfuv(klon,klev), zmfdv(klon,klev)
+!--- input arguments:
+    integer,intent(in):: klon
+    logical,intent(in),dimension(klon):: ldcum
+    integer,intent(in):: klev,ktopm2
+    integer,intent(in),dimension(klon):: ktype,kcbot,kctop
 
-    integer  ik , ikb , jk , jl
-    real(kind=kind_phys)     zzp, zdtdt
+    real(kind=kind_phys),intent(in):: ztmst
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: pmfu,pmfd,puen,pven
+    real(kind=kind_phys),intent(in),dimension(klon,klev):: puu,pud,pvu,pvd
+    real(kind=kind_phys),intent(in),dimension(klon,klev+1):: paph
 
-    real(kind=kind_phys)     zdudt(klon,klev), zdvdt(klon,klev), zdp(klon,klev)
+!--- inout arguments:
+    real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptenu,ptenv
+
+!--- local variables and arrays:
+    integer:: ik,ikb,jk,jl
+
+    real(kind=kind_phys):: zzp,zdtdt
+    real(kind=kind_Phys),dimension(klon,klev):: zdudt,zdvdt,zdp
+    real(kind=kind_phys),dimension(klon,klev):: zuen,zven,zmfuu,zmfdu,zmfuv,zmfdv
+
 !
     do jk = 1 , klev
       do jl = 1, klon
@@ -3678,23 +3714,31 @@ contains
 !   ---------
 !          none
 ! ----------------------------------------------------------------
-      real(kind=kind_phys)     pten(klon,klev),        pqen(klon,klev),&
-     &         puen(klon,klev),        pven(klon,klev),&
-     &         pqsen(klon,klev),       pverv(klon,klev),&
-     &         pgeo(klon,klev),        pgeoh(klon,klev+1)
-      real(kind=kind_phys)     ptu(klon,klev),         pqu(klon,klev),&
-     &         puu(klon,klev),         pvu(klon,klev),&
-     &         plu(klon,klev),         pmfu(klon,klev),&
-     &         pmfub(klon),   &
-     &         pmfus(klon,klev),       pmfuq(klon,klev),&
-     &         pmful(klon,klev),       pdmfup(klon,klev),&
-     &         plrain(klon,klev)
-      integer  ktype(klon),            kcbot(klon),&
-     &         klab(klon,klev)
-      logical  ldcum(klon)
-! local variabels
-      integer  jl,kk,klev,klon,klevp1,klevm1
-      real(kind=kind_phys)     zzzmb
+
+!--- input arguments:
+      integer,intent(in):: klon
+      logical,intent(in),dimension(klon):: ldcum
+      integer,intent(in):: kk,klev,klevm1
+
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,pqsen,pgeo,pverv
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: puen,pven ! not used.
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: puu,pvu   ! not used.
+      real(kind=kind_phys),intent(in),dimension(klon,klev+1):: pgeoh
+
+!--- output arguments:
+      integer,intent(out),dimension(klon):: ktype,kcbot
+      integer,intent(out),dimension(klon,klev):: klab
+
+      real(kind=kind_phys),intent(out),dimension(klon):: pmfub
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: plrain
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: ptu,pqu,plu
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: pmfu,pmfus,pmfuq,pmful
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: pdmfup
+
+!--- local variables and arrays:
+      integer:: jl,klevp1
+      real(kind=kind_phys):: zzzmb
+
 !--------------------------------------------------------
 !*    1.      calculate entrainment and detrainment rates
 ! -------------------------------------------------------
@@ -3730,18 +3774,28 @@ contains
       subroutine cuentrn(klon,klev,kk,kcbot,ldcum,ldwork, &
                     pgeoh,pmfu,pdmfen,pdmfde)
        implicit none
-       integer  klon,klev,kk
-       integer  kcbot(klon)
-       logical  ldcum(klon)
-       logical  ldwork
-       real(kind=kind_phys)  pgeoh(klon,klev+1)
-       real(kind=kind_phys)  pmfu(klon,klev)
-       real(kind=kind_phys)  pdmfen(klon)
-       real(kind=kind_phys)  pdmfde(klon)
-       logical  llo1
-       integer  jl
-       real(kind=kind_phys)  zdz , zmf
-       real(kind=kind_phys)  zentr(klon)
+
+!--- input arguments:
+       logical,intent(in):: ldwork
+       integer,intent(in):: klon
+       logical,intent(in),dimension(klon):: ldcum
+
+       integer,intent(in):: klev,kk
+       integer,intent(in),dimension(klon):: kcbot
+
+       real(kind=kind_phys),intent(in),dimension(klon,klev):: pmfu
+       real(kind=kind_phys),intent(in),dimension(klon,klev+1):: pgeoh
+
+!--- output arguments:
+       real(kind=kind_phys),intent(out),dimension(klon):: pdmfen
+       real(kind=kind_phys),intent(out),dimension(klon):: pdmfde
+
+!--- local variables and arrays:
+       logical:: llo1
+       integer:: jl
+       real(kind=kind_phys):: zdz ,zmf
+       real(kind=kind_phys),dimension(klon):: zentr
+
     !
     !* 1. CALCULATE ENTRAINMENT AND DETRAINMENT RATES
     ! -------------------------------------------
