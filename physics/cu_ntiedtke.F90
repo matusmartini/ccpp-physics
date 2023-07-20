@@ -17,24 +17,26 @@ module cu_ntiedtke
    &       cpd=>con_cp, alv=>con_hvap, alf=>con_hfus
 
      implicit none
-     real(kind=kind_phys),private :: rcpd,vtmpc1,tmelt,als,t13,                &
-             c1es,c2es,c3les,c3ies,c4les,c4ies,c5les,c5ies,zrg
+     real(kind=kind_phys),private :: rcpd,vtmpc1,als,                &
+             c2es,c5les,c5ies,zrg
 
      real(kind=kind_phys),private :: rovcp,r5alvcp,r5alscp,ralvdcp,ralsdcp,ralfdcp
-     real(kind=kind_phys),private :: entrdd,cmfcmax,cmfcmin,cmfdeps,zdnoprc,cprcon
-     integer,private :: momtrans,p650
 
+      real(kind=kind_phys),parameter:: t13   = 0.333333333
+      real(kind=kind_phys),parameter:: tmelt = 273.16
+      real(kind=kind_phys),parameter:: c1es  = 610.78
+      real(kind=kind_phys),parameter:: c3les = 17.2693882
+      real(kind=kind_phys),parameter:: c3ies = 21.875
+      real(kind=kind_phys),parameter:: c4les = 35.86
+      real(kind=kind_phys),parameter:: c4ies = 7.66
+
+      real(kind=kind_phys),parameter:: rtwat = tmelt
+      real(kind=kind_phys),parameter:: rtber = tmelt-5.
+      real(kind=kind_phys),parameter:: rtice = tmelt-23.
      parameter(         &
-      t13 = 0.333333333,&
       rcpd=1.0/cpd,     &
-      tmelt=273.16,     &
       zrg=1.0/g,        &
-      c1es=610.78,      &
       c2es=c1es*rd/rv,  &
-      c3les=17.2693882, &
-      c3ies=21.875,     &
-      c4les=35.86,      &
-      c4ies=7.66,       &
       als  = alv+alf,   &
       c5les=c3les*(tmelt-c4les),  &
       c5ies=c3ies*(tmelt-c4ies),  &
@@ -45,65 +47,71 @@ module cu_ntiedtke
       ralfdcp=alf*rcpd,           &
       vtmpc1=rv/rd-1.0,           &
       rovcp = rd*rcpd )
-      real(kind=kind_phys),parameter:: rtwat = tmelt
-      real(kind=kind_phys),parameter:: rtber = tmelt-5.
-      real(kind=kind_phys),parameter:: rtice = tmelt-23.
-!     pgcoef   = 0.7 to 1.0 is good depends on the basin
-      real(kind=kind_phys),parameter:: pgcoef  = 0.7
+
+!     momtrans: momentum transport method ( 1 = IFS40r1 method; 2 = new method )
+!     -------
+!
+      integer,parameter:: momtrans = 2
+!     -------
 !
 !     entrdd: average entrainment & detrainment rate for downdrafts
 !     ------
 !
-      parameter(entrdd = 2.0e-4)
+      real(kind=kind_phys),parameter:: entrdd  = 2.0e-4
 !
 !     cmfcmax:   maximum massflux value allowed for updrafts etc
 !     -------
 !
-      parameter(cmfcmax = 1.0)
+      real(kind=kind_phys),parameter:: cmfcmax = 1.0
 !
 !     cmfcmin:   minimum massflux value (for safety)
 !     -------
 !
-      parameter(cmfcmin = 1.e-10)
+      real(kind=kind_phys),parameter:: cmfcmin = 1.e-10
 !
 !     cmfdeps:   fractional massflux for downdrafts at lfs
 !     -------
 !
-      parameter(cmfdeps = 0.30)
-
-!     zdnoprc:   deep cloud is thicker than this height (Unit:Pa)
+      real(kind=kind_phys),parameter:: cmfdeps = 0.30
 !
-      parameter(zdnoprc = 2.0e4)
+!     zdnoprc:   deep cloud is thicker than this height (Unit:Pa)
 !     -------
+!
+      real(kind=kind_phys),parameter:: zdnoprc = 2.0e4
 !
 !     cprcon:    coefficient from cloud water to rain water
-!
-      parameter(cprcon = 1.4e-3)
 !     -------
 !
-!     momtrans: momentum transport method
-!     ( 1 = IFS40r1 method; 2 = new method )
+      real(kind=kind_phys),parameter:: cprcon  = 1.4e-3
 !
-      parameter(momtrans = 2 )
+!     pgcoef:   0.7 to 1.0 is good depends on the basin
 !     -------
 !
-      logical :: isequil
+      real(kind=kind_phys),parameter:: pgcoef  = 0.7
+
+
 !     isequil: representing equilibrium and nonequilibrium convection
 !     ( .false. [default]; .true. [experimental]. Ref. Bechtold et al. 2014 JAS )
 !     Note for the diurnal simulation of precipitaton
 !     When isequil = .true., the CAPE is relaxed toward to a value from PBL
 !     It can improve the diurnal precipitation over land.
+!     -------
 !
-      parameter(isequil = .false. )
+      logical,parameter:: isequil = .false.
 !
 !--------------------
 !     switches for deep, mid, shallow convections, downdraft, and momemtum transport
 !     ------------------
-      logical :: lmfpen,lmfmid,lmfscv,lmfdd,lmfdudv
-      parameter(lmfpen=.true.,lmfmid=.true.,lmfscv=.true.,lmfdd=.true.,lmfdudv=.true.)
-!--------------------
+      logical,parameter:: lmfpen   = .true.
+      logical,parameter:: lmfmid   = .true.
+      logical,parameter:: lmfscv   = .true.
+      logical,parameter:: lmfdd    = .true.
+      logical,parameter:: lmfdudv  = .true.
+
+
+!=================================================================================================================
 !#################### end of variables definition##########################
-!-----------------------------------------------------------------------
+!=================================================================================================================
 !
 contains
 !> \brief Brief description of the subroutine
@@ -152,63 +160,89 @@ contains
 
       end subroutine cu_ntiedtke_init
 
-! Tiedtke cumulus scheme from WRF with small modifications
-! This scheme includes both deep and shallow convections
 !===================
 !
 !> \section arg_table_cu_ntiedtke_run Argument Table
 !! \htmlinclude cu_ntiedtke_run.html
 !!
-!-----------------------------------------------------------------------
-!          level 1 subroutine 'tiecnvn'
-!-----------------------------------------------------------------
+!=================================================================================================================
+!     level 1 subroutine 'cu_ntiedkte_run'
       subroutine cu_ntiedtke_run(pu,pv,pt,pqv,tdi,qvdi,pqvf,ptf,clw,poz,pzz,prsl,prsi,pomg, &
                                  evap,hfx,zprecc,lmask,lq,km,dt,dx,kbot,ktop,kcnv, &
                                  ktrac,ud_mf,dd_mf,dt_mf,cnvw,cnvc,errmsg,errflg)
-!-----------------------------------------------------------------
-!  this is the interface between the model and the mass
-!  flux convection module
-!-----------------------------------------------------------------
+!=================================================================================================================
+!  this is the interface between the model and the mass flux convection module
+!     m.tiedtke      e.c.m.w.f.      1989
+!     j.morcrette                    1992
+!--------------------------------------------
+!     modifications
+!     C. zhang & Yuqing Wang         2011-2017
+!
+!     modified from IPRC IRAM - yuqing wang, university of hawaii (ICTP REGCM4.4).
+!
+!     The current version is stable.  There are many updates to the old Tiedtke scheme (cu_physics=6)
+!     update notes:
+!     the new Tiedtke scheme is similar to the Tiedtke scheme used in REGCM4 and ECMWF cy40r1.
+!     the major differences to the old Tiedtke (cu_physics=6) scheme are,
+!        (a) New trigger functions for deep and shallow convections (Jakob and Siebesma 2003;
+!            Bechtold et al. 2004, 2008, 2014).
+!        (b) Non-equilibrium situations are considered in the closure for deep convection
+!            (Bechtold et al. 2014).
+!        (c) New convection time scale for the deep convection closure (Bechtold et al. 2008).
+!        (d) New entrainment and detrainment rates for all convection types (Bechtold et al. 2008).
+!        (e) New formula for the conversion from cloud water/ice to rain/snow (Sundqvist 1978).
+!        (f) Different way to include cloud scale pressure gradients (Gregory et al. 1997;
+!            Wu and Yanai 1994)
+!
+!     other reference: tiedtke (1989, mwr, 117, 1779-1800)
+!                      IFS documentation - cy33r1, cy37r2, cy38r1, cy40r1
+!
       implicit none
-! in&out variables
-      integer, intent(in)  ::  lq, km, ktrac
-      real(kind=kind_phys),     intent(in ) :: dt
-      integer, dimension( : ),   intent(in)  :: lmask
-      real(kind=kind_phys), dimension( : ),     intent(in ) :: evap, hfx, dx
-      real(kind=kind_phys), dimension( :, : ),     intent(inout) :: pu, pv, pt, pqv
-      real(kind=kind_phys), dimension( :, :),     intent(in )   :: tdi, qvdi, poz, prsl, pomg, pqvf, ptf
-      real(kind=kind_phys), dimension( :, : ),   intent(in )   :: pzz, prsi
+!--- input arguments:
+      integer, intent(in):: lq,km,ktrac
+      integer,intent(in),dimension(lq):: lmask
+
+      real(kind=kind_phys),intent(in):: dt
+      real(kind=kind_phys),intent(in),dimension(lq):: dx
+      real(kind=kind_phys),intent(in),dimension(lq):: evap,hfx
+      real(kind=kind_phys),intent(in),dimension(lq,km):: pqvf,ptf
+      real(kind=kind_phys),intent(in),dimension(lq,km):: poz,pomg
+      real(kind=kind_phys),intent(in),dimension(lq,km+1):: pzz
+      real(kind=kind_phys), dimension( :, :),     intent(in )   :: tdi, qvdi, prsl
+      real(kind=kind_phys), dimension( :, : ),   intent(in )   :: prsi
       real(kind=kind_phys), dimension( :, :, : ),    intent(inout ) ::  clw
 
+!--- inout arguments:
+      real(kind=kind_phys),intent(inout),dimension(lq):: zprecc
+      real(kind=kind_phys),intent(inout),dimension(lq,km):: pu,pv,pt,pqv
       integer, dimension( : ),   intent(out)  :: kbot, ktop, kcnv
-      real(kind=kind_phys), dimension( : ),   intent(out)  :: zprecc
       real(kind=kind_phys), dimension (:, :), intent(out)  :: ud_mf, dd_mf, dt_mf, cnvw, cnvc
 
-! error messages
-      character(len=*), intent(out)    ::                                 errmsg
-      integer,          intent(out)    ::                                 errflg
+!--- output arguments:
+      character(len=*),intent(out):: errmsg
+      integer,intent(out):: errflg
 
-! local variables
-      real(kind=kind_phys),dimension(lq):: scale_fac,scale_fac2
-      real(kind=kind_phys) pum1(lq,km),  pvm1(lq,km),  ztt(lq,km),                &
-     &     ptte(lq,km),    pqte(lq,km),  pvom(lq,km),  pvol(lq,km),               &
-     &     pverv(lq,km),   pgeo(lq,km),  pap(lq,km),   paph(lq,km+1)
-      real(kind=kind_phys) pqhfl(lq),      zqq(lq,km),                            &
-     &     prsfc(lq),      pssfc(lq),    pcte(lq,km),                             &
-     &     phhfl(lq),      pgeoh(lq,km+1)
-      real(kind=kind_phys) ztp1(lq,km),    zqp1(lq,km),  ztu(lq,km),   zqu(lq,km),&
-     &     zlu(lq,km),     zlude(lq,km), zmfu(lq,km),  zmfd(lq,km),  zmfude_rate(lq,km),&
-     &     zqsat(lq,km),   zrain(lq)
+!--- local variables and arrays:
       real(kind=kind_phys),allocatable ::  pcen(:,:,:),ptenc(:,:,:)
+      integer,dimension(lq):: lndj
+      logical,dimension(lq):: locum
+      integer:: i,j,k
+      integer:: k1,n,km1,ktracer
+      integer,dimension(lq):: icbot,ictop,ktype
 
-      integer icbot(lq),   ictop(lq),     ktype(lq),   lndj(lq)
-      logical locum(lq)
-!
-      real(kind=kind_phys) ztmst,fliq,fice,ztc,zalf,tt
-      integer i,j,k,k1,n,km1,ktracer
-      real(kind=kind_phys) ztpp1
-      real(kind=kind_phys) zew,zqs,zcor
+      real(kind=kind_phys):: ztmst,fliq,fice,ztc,zalf,tt
+      real(kind=kind_phys):: ztpp1,zew,zqs,zcor
       real(kind=kind_phys):: dxref
+
+      real(kind=kind_phys),dimension(lq):: pqhfl,prsfc,pssfc,phhfl,zrain
+      real(kind=kind_phys),dimension(lq):: scale_fac,scale_fac2
+
+      real(kind=kind_phys),dimension(lq,km):: pum1,pvm1,ztt,ptte,pqte,pvom,pvol,pverv,pgeo
+      real(kind=kind_phys),dimension(lq,km):: zqq,pcte
+      real(kind=kind_phys),dimension(lq,km):: ztp1,zqp1,ztu,zqu,zlu,zlude,zmfu,zmfd,zqsat,zmfude_rate,pap
+      real(kind=kind_phys),dimension(lq,km+1):: pgeoh,paph
+
+!-----------------------------------------------------------------------------------------------------------------
 !
 ! Initialize CCPP error handling variables
    errmsg = ''
@@ -471,67 +505,64 @@ contains
 !   ----------
 !          paper on massflux scheme (tiedtke,1989)
 !-----------------------------------------------------------------
-      integer  klev,klon,ktrac,klevp1,klevm1
-      real(kind=kind_phys)     pten(klon,klev),        pqen(klon,klev),&
-     &         puen(klon,klev),        pven(klon,klev),&
-     &         ptte(klon,klev),        pqte(klon,klev),&
-     &         pvom(klon,klev),        pvol(klon,klev),&
-     &         pqsen(klon,klev),       pgeo(klon,klev),&
-     &         pap(klon,klev),         paph(klon,klevp1),&
-     &         pverv(klon,klev),       pqhfl(klon),&
-     &         phhfl(klon)
-      real(kind=kind_phys),intent(in),dimension(klon):: scale_fac,scale_fac2
-      real(kind=kind_phys)     ptu(klon,klev),         pqu(klon,klev),&
-     &         plu(klon,klev),         plude(klon,klev),&
-     &         pmfu(klon,klev),        pmfd(klon,klev),&
-     &         prain(klon),&
-     &         prsfc(klon),            pssfc(klon)
-      real(kind=kind_phys)     ztenh(klon,klev),       zqenh(klon,klev),&
-     &         zgeoh(klon,klevp1),     zqsenh(klon,klev),&
-     &         ztd(klon,klev),         zqd(klon,klev),&
-     &         zmfus(klon,klev),       zmfds(klon,klev),&
-     &         zmfuq(klon,klev),       zmfdq(klon,klev),&
-     &         zdmfup(klon,klev),      zdmfdp(klon,klev),&
-     &         zmful(klon,klev),       zrfl(klon),&
-     &         zuu(klon,klev),         zvu(klon,klev),&
-     &         zud(klon,klev),         zvd(klon,klev),&
-     &         zlglac(klon,klev)
-      real(kind=kind_phys)     pmflxr(klon,klevp1),    pmflxs(klon,klevp1)
-      real(kind=kind_phys)     zhcbase(klon),&
-     &         zmfub(klon),            zmfub1(klon),&
-     &         zdhpbl(klon)
-      real(kind=kind_phys)     zsfl(klon),             zdpmel(klon,klev),&
-     &         pcte(klon,klev),        zcape(klon),&
-     &         zcape1(klon),           zcape2(klon),&
-     &         ztauc(klon),            ztaubl(klon),&
-     &         zheat(klon)
-      real(kind=kind_phys)     pcen(klon,klev,ktrac), ptenc(klon,klev,ktrac)
-      real(kind=kind_phys)     wup(klon),              zdqcv(klon)
-      real(kind=kind_phys)     wbase(klon),            zmfuub(klon)
-      real(kind=kind_phys)     upbl(klon)
-      real(kind=kind_phys)     dx(klon)
-      real(kind=kind_phys)     pmfude_rate(klon,klev), pmfdde_rate(klon,klev)
-      real(kind=kind_phys)     zmfuus(klon,klev),      zmfdus(klon,klev)
-      real(kind=kind_phys)     zmfudr(klon,klev),      zmfddr(klon,klev)
-      real(kind=kind_phys)     zuv2(klon,klev),ztenu(klon,klev),ztenv(klon,klev)
-      real(kind=kind_phys)     zmfuvb(klon),zsum12(klon),zsum22(klon)
-      integer  ilab(klon,klev),        idtop(klon),&
-     &         ictop0(klon),           ilwmin(klon)
-      integer  kdpl(klon)
-      integer  kcbot(klon),            kctop(klon),&
-     &         ktype(klon),            lndj(klon)
-      logical  ldcum(klon),            lldcum(klon)
-      logical  loddraf(klon),          llddraf3(klon), llo1,   llo2(klon)
 
-!  local varaiables
-      real(kind=kind_phys)     zcons,zcons2,zqumqe,zdqmin,zdh,zmfmax
-      real(kind=kind_phys)     zalfaw,zalv,zqalv,zc5ldcp,zc4les,zhsat,zgam,zzz,zhhat
-      real(kind=kind_phys)     zpbmpt,zro,zdz,zdp,zeps,zfac,wspeed
-      integer  jl,jk,ik
-      integer  ikb,ikt,icum,itopm2
-      real(kind=kind_phys)     ztmst,ztau,zerate,zderate,zmfa
-      real(kind=kind_phys)     zmfs(klon),pmean(klev),zlon
-      real(kind=kind_phys)     zduten,zdvten,ztdis,pgf_u,pgf_v
+!--- input arguments:
+      integer,intent(in):: klev,klon,klevp1,klevm1
+      integer,intent(in):: ktrac
+      integer,intent(in),dimension(klon):: lndj
+
+      real(kind=kind_phys),intent(in):: ztmst
+      real(kind=kind_phys),intent(in),dimension(klon):: dx
+      real(kind=kind_phys),intent(in),dimension(klon):: pqhfl,phhfl
+      real(kind=kind_phys),intent(in),dimension(klon):: scale_fac,scale_fac2
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,puen,pven,pverv
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pap,pgeo
+      real(kind=kind_phys),intent(in),dimension(klon,klevp1):: paph,zgeoh
+
+!--- inout arguments:
+      integer,intent(inout),dimension(klon):: ktype,kcbot,kctop
+      logical,intent(inout),dimension(klon):: ldcum
+
+      real(kind=kind_phys),intent(inout),dimension(klon):: pqsen
+      real(kind=kind_phys),intent(inout),dimension(klon):: prsfc,pssfc,prain
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pcte,ptte,pqte,pvom,pvol
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptu,pqu,plu,plude,pmfu,pmfd
+
+!--- local variables and arrays:
+      logical:: llo1
+      logical,dimension(klon):: loddraf,llo2
+      logical,dimension(klon):: lldcum,llddraf3
+
+      integer:: jl,jk,ik
+      integer:: ikb,ikt,icum,itopm2
+      integer,dimension(klon):: kdpl,idtop,ictop0,ilwmin
+      integer,dimension(klon,klev):: ilab
+
+      real(kind=kind_phys):: zcons,zcons2,zqumqe,zdqmin,zdh,zmfmax
+      real(kind=kind_phys):: zalfaw,zalv,zqalv,zc5ldcp,zc4les,zhsat,zgam,zzz,zhhat
+      real(kind=kind_phys):: zpbmpt,zro,zdz,zdp,zeps,zfac,wspeed
+      real(kind=kind_phys):: zduten,zdvten,ztdis,pgf_u,pgf_v
+      real(kind=kind_phys):: zlon
+      real(kind=kind_phys):: ztau,zerate,zderate,zmfa
+      real(kind=kind_phys),dimension(klon):: zmfs
+      real(kind=kind_phys),dimension(klon):: zsfl,zcape,zcape1,zcape2,ztauc,ztaubl,zheat
+      real(kind=kind_phys),dimension(klon):: wup,zdqcv
+      real(kind=kind_phys),dimension(klon):: wbase,zmfuub
+      real(kind=kind_phys),dimension(klon):: upbl
+      real(kind=kind_phys),dimension(klon):: zhcbase,zmfub,zmfub1,zdhpbl
+      real(kind=kind_phys),dimension(klon):: zmfuvb,zsum12,zsum22
+      real(kind=kind_phys),dimension(klon):: zrfl
+      real(kind=kind_phys),dimension(klev):: pmean
+      real(kind=kind_phys),dimension(klon,klev):: pmfude_rate,pmfdde_rate
+      real(kind=kind_phys),dimension(klon,klev,ktrac):: pcen, ptenc
+      real(kind=kind_phys),dimension(klon,klev):: zdpmel
+      real(kind=kind_phys),dimension(klon,klev):: zmfuus,zmfdus,zuv2,ztenu,ztenv
+      real(kind=kind_phys),dimension(klon,klev):: zmfudr,zmfddr
+      real(kind=kind_phys),dimension(klon,klev):: ztenh,zqenh,zqsenh,ztd,zqd
+      real(kind=kind_phys),dimension(klon,klev):: zmfus,zmfds,zmfuq,zmfdq,zdmfup,zdmfdp,zmful
+      real(kind=kind_phys),dimension(klon,klev):: zuu,zvu,zud,zvd,zlglac
+      real(kind=kind_phys),dimension(klon,klevp1):: pmflxr,pmflxs
+
 !-------------------------------------------
 !     1.    specify constants and parameters
 !-------------------------------------------
@@ -2429,7 +2460,7 @@ contains
 !    *lndj*       land sea mask (1 for land)
 !    *ldcum*        flag: .true. for convective points
 
-!    input parameters (real(kind=kind_phys)):
+!    input parameters (real):
 
 !    *ptenh*        env. temperature (t+1) on half levels          k
 !    *pqenh*        env. spec. humidity (t+1) on half levels     kg/kg
@@ -2447,11 +2478,11 @@ contains
 !    *pvu*          v-velocity in updrafts                        m/s
 !    *pmfub*        massflux in updrafts at cloud base           kg/(m2*s)
 
-!    updated parameters (real(kind=kind_phys)):
+!    updated parameters (real):
 
 !    *prfl*         precipitation rate                           kg/(m2*s)
 
-!    output parameters (real(kind=kind_phys)):
+!    output parameters (real):
 
 !    *ptd*          temperature in downdrafts                      k
 !    *pqd*          spec. humidity in downdrafts                 kg/kg
@@ -2656,7 +2687,7 @@ contains
 
 !    *lddraf*       .true. if downdrafts exist
 
-!    input parameters (real(kind=kind_phys)):
+!    input parameters (real):
 
 !    *ptenh*        env. temperature (t+1) on half levels          k
 !    *pqenh*        env. spec. humidity (t+1) on half levels     kg/kg
@@ -2667,11 +2698,11 @@ contains
 !    *paph*         provisional pressure on half levels           pa
 !    *pmfu*         massflux updrafts                           kg/(m2*s)
 
-!    updated parameters (real(kind=kind_phys)):
+!    updated parameters (real):
 
 !    *prfl*         precipitation rate                           kg/(m2*s)
 
-!    output parameters (real(kind=kind_phys)):
+!    output parameters (real):
 
 !    *ptd*          temperature in downdrafts                      k
 !    *pqd*          spec. humidity in downdrafts                 kg/kg
@@ -2885,7 +2916,7 @@ contains
 !    *lndj*       land sea mask (1 for land)
 !    *ldcum*        flag: .true. for convective points
 
-!    input parameters (real(kind=kind_phys)):
+!    input parameters (real):                                                  
 
 !    *ztmst*        time step for the physics                       s
 !    *pten*         provisional environment temperature (t+1)       k
@@ -2905,7 +2936,7 @@ contains
 
 !    *lddraf*       set to .false. if ldcum=.false. or kdtop<kctop
 
-!    updated parameters (real(kind=kind_phys)):
+!    updated parameters (real):                                                
 
 !    *pmfu*         massflux in updrafts                          kg/(m2*s)
 !    *pmfd*         massflux in downdrafts                        kg/(m2*s)
@@ -2918,7 +2949,7 @@ contains
 !    *pdmfup*       flux difference of precip. in updrafts        kg/(m2*s)
 !    *pdmfdp*       flux difference of precip. in downdrafts      kg/(m2*s)
 
-!    output parameters (real(kind=kind_phys)):
+!    output parameters (real):                                                 
 
 !    *pdpmel*       change in precip.-fluxes due to melting       kg/(m2*s)
 !    *plglac*       flux of frozen cloud water in updrafts        kg/(m2*s)
@@ -3566,11 +3597,11 @@ contains
 !                      kcall=0  env. t and qs in*cuini*
 !                      kcall=1  condensation in updrafts  (e.g. cubase, cuasc)
 !                      kcall=2  evaporation in downdrafts (e.g. cudlfs,cuddraf)
-!     input parameters (real(kind=kind_phys)):
+!     input parameters (real):
 
 !    *psp*          pressure                                        pa
 
-!     updated parameters (real(kind=kind_phys)):
+!     updated parameters (real):
 
 !    *pt*           temperature                                     k
 !    *pq*           specific humidity                             kg/kg
