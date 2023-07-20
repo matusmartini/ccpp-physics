@@ -1426,7 +1426,7 @@ contains
       integer,intent(in):: klon,klev,klevp1,klevm1
       integer,intent(in),dimension(klon):: lndj
 
-      real(kind=kind_phys),intent(in),dimension(klon):: qfx,hfx
+      real(kind=kind_phys),dimension(klon):: qfx,hfx
       real(kind=kind_phys),intent(in),dimension(klon,klev):: pap,pgeo
       real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,pqsen
       real(kind=kind_phys),intent(in),dimension(klon,klev):: ptenh,pqenh,pqsenh
