@@ -389,8 +389,7 @@ contains
         k1 = km-k+1
         do j=1,lq
           pt(j,k) = ztp1(j,k1)+(ptte(j,k1)-ztt(j,k1))*ztmst
-          zqp1(j,k)=zqp1(j,k1)+(pqte(j,k1)-zqq(j,k1))*ztmst
-          pqv(j,k)= zqp1(j,k)/(1.0-zqp1(j,k))
+          pqv(j,k)= zqp1(j,k1)+(pqte(j,k1)-zqq(j,k1))*ztmst
           ud_mf(j,k)= zmfu(j,k1)*ztmst
           dd_mf(j,k)= -zmfd(j,k1)*ztmst
           dt_mf(j,k)= zmfude_rate(j,k1)*ztmst
@@ -402,7 +401,7 @@ contains
       end do
 
       do j=1,lq
-        zprecc(j)=amax1(0.0,(prsfc(j)+pssfc(j))*ztmst)
+        zprecc(j)=amax1(0.0,(prsfc(j)+pssfc(j))*ztmst*0.001)
         kbot(j) = km-icbot(j)+1
         ktop(j) = km-ictop(j)+1
         if(ktype(j).eq.1 .or. ktype(j).eq.3) then
@@ -1513,6 +1512,8 @@ contains
       do jl=1,klon
         rho=pap(jl,klev)/ &
      &         (rd*(pten(jl,klev)*(1.+vtmpc1*pqen(jl,klev))))
+        hfx(jl) = hfx(jl)*rho*cpd
+        qfx(jl) = qfx(jl)*rho
         part1 = 1.5*0.4*pgeo(jl,klev)/ &
      &              (rho*pten(jl,klev))
         part2 = -hfx(jl)*rcpd-vtmpc1*pten(jl,klev)*qfx(jl)
