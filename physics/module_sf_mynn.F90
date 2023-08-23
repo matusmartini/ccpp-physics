@@ -1109,6 +1109,8 @@ CONTAINS
              ELSEIF ( ISFTCFLX .EQ. 4 ) THEN
                 !GFS surface layer scheme
                 CALL GFS_z0_wat(ZNT_wat(i),UST_wat(i),WSPD(i),ZA(I),sfc_z0_type,redrag)
+             ELSEIF ( ISFTCFLX .EQ. 5 ) THEN
+                CALL COAMPSTC_2016(ZNT_wat(i),UST_wat(i),WSPD(i),visc,ZA(I))
              ENDIF
           ELSE
              !DEFAULT TO COARE 3.0/3.5
@@ -1180,6 +1182,9 @@ CONTAINS
              !GFS zt formulation
              CALL GFS_zt_wat(ZT_wat(i),ZNTstoch_wat(i),restar,WSPD(i),ZA(i),sfc_z0_type)
              ZQ_wat(i)=ZT_wat(i)
+
+          ELSEIF ( ISFTCFLX .EQ. 5 ) THEN
+             CALL COAMPSTC_2016(ZNT_wat(i),UST_wat(i),WSPD(i),visc,ZA(I))
           ENDIF
        ELSE
           !DEFAULT TO COARE 3.0/3.5
@@ -2385,6 +2390,50 @@ END SUBROUTINE SFCLAY1D_mynn
 
    END SUBROUTINE Taylor_Yelland_2001
 !--------------------------------------------------------------------
+!>\ingroup mynn_sfc
+!>Formulation "15" from COAMPS-TC
+   SUBROUTINE COAMPSTC_2016(Z_0,ustar,wsp10,visc,zu)
+       IMPLICIT NONE
+
+       REAL, INTENT(IN)  :: ustar, visc, wsp10, zu
+       REAL, INTENT(OUT) :: Z_0
+
+       REAL, PARAMETER :: cdcri = 2.5e-3
+       REAL, PARAMETER :: c1 = -5.24444444444443e-09
+       REAL, PARAMETER :: c2 = -1.25846153846154e-07
+       REAL, PARAMETER :: c3 =  3.10170940170938e-06
+       REAL, PARAMETER :: c4 =  2.054662004662e-05
+       REAL, PARAMETER :: c5 = -0.000104334887334883
+       REAL, PARAMETER :: c6 = -0.00555412587412587
+       REAL, PARAMETER :: c7 =  1.23518881118881
+       REAL, PARAMETER :: vc = 65.0
+       REAL, PARAMETER :: z0minx = 9.6649e-5
+
+       REAL, PARAMETER :: vkrmn = 0.4
+       REAL, PARAMETER :: charnk = 0.016
+       REAL, PARAMETER :: gravity = 9.81
+       REAL, PARAMETER :: tpc = charnk/gravity
+       REAL, PARAMETER :: visk = 1.45e-05
+       REAL, PARAMETER :: cvisk = 0.11
+
+       REAL :: z0cri, vcd, cdm
+
+       z0cri=zu*exp(-vkrmn/sqrt(cdcri))
+
+       !z_0 = min(tpc*ustar**2 + cvisk*visk/ustar, z0cri)
+       z_0 = min(tpc*ustar**2 + cvisk*visc/ustar, z0cri)
+
+       if(wsp10 .ge. 35.0) then
+         vcd = wsp10 - vc
+
+         cdm = (c1*vcd**6 + c2*vcd**5 + c3*vcd**4 +c4*vcd**3 + c5*vcd**2 &
+             + c6*vcd + c7) * 1.0e-3
+
+         z_0 = zu*exp(-vkrmn/(sqrt(cdm)))
+         z_0 = min(z_0,z0cri)
+         z_0 = max(z_0,z0minx)
+       end if 
+   END SUBROUTINE COAMPSTC_2016
 !>\ingroup mynn_sfc
 !>This version of Charnock's relation employs a varying
 !! Charnock parameter, similar to COARE3.0 [Fairall et al. (2003)].
