@@ -627,7 +627,7 @@ contains
              zdqmin = max(0.01*zqenh(jl,ikb),1.e-10)
              zdh = cpd*(ptu(jl,ikb)-ztenh(jl,ikb)) + alv*zqumqe
              !zdh = g*max(zdh,1.e5*zdqmin)
-             zdh = g*max(zdh,0.75*cpd)
+             zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
              if ( zdhpbl(jl) > 0. ) then
                zmfub(jl) = zdhpbl(jl)/zdh
                zmfub(jl) = min(zmfub(jl),zmfmax)
@@ -808,7 +808,7 @@ contains
            zdh=cpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)- &
      &       (1.-zeps)*ztenh(jl,ikb))+alv*zqumqe
            !zdh=g*max(zdh,1.e5*zdqmin)
-           zdh = g*max(zdh,0.75*cpd)
+           zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
            if(zdhpbl(jl).gt.0.)then
              zmfub1(jl)=zdhpbl(jl)/zdh
            else
