@@ -486,6 +486,7 @@ contains
 function grv(lat)
   real(kind=kind_phys) :: lat
   real(kind=kind_phys) :: gamma,c1,c2,c3,c4,pi,phi,x
+  real(kind=kind_phys) :: grv
   gamma=9.7803267715
   c1=0.0052790414
   c2=0.0000232718
