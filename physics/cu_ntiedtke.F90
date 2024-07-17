@@ -54,7 +54,7 @@ module cu_ntiedtke
       integer,parameter:: momtrans = 2
 !     -------
 !
-!     entrdd: average entrainment & detrainment rate for downdrafts
+!     entrdd: average turbulent entrainment & detrainment rate for downdrafts (Eq. 6.15 IFS Cy48r1)
 !     ------
       real(kind=kind_phys),parameter:: entrdd  = 2.0e-4
 !
@@ -81,7 +81,14 @@ module cu_ntiedtke
 !     pgcoef:   0.7 to 1.0 is good depends on the basin
 !     -------
       real(kind=kind_phys),parameter:: pgcoef  = 0.7
-
+!
+!     entorg:   organized entrainment scaling factor (Eq. 6.7 IFS Cy48r1)
+!     -------
+      real(kind=kind_phys),parameter:: entorg  = 1.75e-3
+!
+!     detturb:   turbulent detrainment scaling factor (Eq. 6.8 IFS Cy48r1)
+!     -------
+      real(kind=kind_phys),parameter:: detturb  = 0.75e-4
 
 !     isequil: representing equilibrium and nonequilibrium convection
 !     ( .false. [default]; .true. [experimental]. Ref. Bechtold et al. 2014 JAS )
@@ -1740,8 +1747,8 @@ contains
       !----------------------------------------------------------
       ! we check the parcel starting level by level
       ! assume the mix-layer is 60hPa
-      deltt = 0.2       ! give parcel a small temperature perturbation at surface
-      deltq = 1.0e-4    ! give parcel a small humidity perturbation at surface
+      deltt = 0.2       ! give parcel a small temperature perturbation at surface (Eq. 6.21 IFS Cy48r1)
+      deltq = 1.0e-4    ! give parcel a small humidity perturbation at surface (Eq. 6.21 IFS Cy48r1)
 
       do jl=1,klon
         deepflag(jl) = .false.
@@ -1844,7 +1851,7 @@ contains
             ! calculate parcel entrainment rate for deep convection
             fscale = min(1.,(pqsen(jl,jk)/pqsen(jl,levels))**3)                         ! (env. qvsat / (env. qvsat at cloud base))**3
             !eta(jl) = 1.75e-3 * (0.3-(min(1.,pqen(jl,jk) /pqsen(jl,jk))-1.)) * fscale  ! entrainment rate
-            eta(jl) = 1.75e-3 * fscale                                                  ! entrainment rate
+            eta(jl) = entorg * fscale                                                  ! entrainment rate
             dz(jl)  = (pgeoh(jl,jk)-pgeoh(jl,jk+1)) * zrg                               ! convert from geopotential to height
             !coef(jl) = eta(jl) * dz(jl)
             coef(jl) = 0.5 * eta(jl) * dz(jl)
@@ -1906,7 +1913,7 @@ contains
               zdtdp = rd*ptu(jl,ik)/(cpd*paph(jl,ik))
               zdp = zdq/(zdqsdt*zdtdp)
               zcbase(jl) = paph(jl,ik) + zdp
-              ! chose nearest half level as cloud base (jk or jk+1)
+              ! choose nearest half level as cloud base (jk or jk+1)
               zpdifftop = zcbase(jl) - paph(jl,jk)
               zpdiffbot = paph(jl,jk+1) - zcbase(jl)
 
@@ -2264,7 +2271,7 @@ contains
           !---------------------------------------
           if ( jk == kcbot(jl) ) then
             
-            zoentr(jl) = -1.75e-3*(min(1.,pqen(jl,jk)/pqsen(jl,jk)) - &
+            zoentr(jl) = -entorg*(min(1.,pqen(jl,jk)/pqsen(jl,jk)) - &
                          1.)*(pgeoh(jl,jk)-pgeoh(jl,jk+1))*zrg
             zoentr(jl) = min(0.4,zoentr(jl))*pmfu(jl,jk+1)
           end if
@@ -2278,17 +2285,26 @@ contains
             wup(jl) = wup(jl) + kup(jl,jk+1)*(pap(jl,jk+1)-pap(jl,jk))
             zdpmean(jl) = zdpmean(jl) + pap(jl,jk+1) - pap(jl,jk)
 
+            ! current level's entrainment is equal to zoentr value of level below
             zdmfen(jl) = zoentr(jl)
             !---------------------------------------
             ! Set entrainment/detrainment rates for
-            ! shallow or mid-level convection
+            ! shallow or mid-level convection. This 
+            ! overwrites the values from the call 
+            ! to cuentr.
             !---------------------------------------
             if ( ktype(jl) >= 2 ) then
+              ! double the entrainment rate for shallow convection
               zdmfen(jl) = 2.0*zdmfen(jl)
+              ! set turbulent detrainment equal to entrainment for shallow convection
               zdmfde(jl) = zdmfen(jl)
             end if
             !---------------------------------------
-            ! Modify detrainment rate
+            ! Multiply detrainment rate by (1.6-RH) 
+            ! (Eq. 6.8/6.9 IFS Cy48r1)
+            ! For deep convection, will be value 
+            ! from call to cuentr.
+            ! For shallow convection, value is set above.
             !---------------------------------------
             zdmfde(jl) = zdmfde(jl) * (1.6-min(1.,pqen(jl,jk)/pqsen(jl,jk)))
 
@@ -2324,8 +2340,8 @@ contains
           pqu(jl,jk) = zmfuqk*(1./max(cmfcmin,pmfu(jl,jk)))
           ptu(jl,jk) = (zmfusk * &
             (1./max(cmfcmin,pmfu(jl,jk)))-pgeoh(jl,jk))*rcpd
-          ptu(jl,jk) = max(100.,ptu(jl,jk))
-          ptu(jl,jk) = min(400.,ptu(jl,jk))
+          ptu(jl,jk) = max(100.,ptu(jl,jk)) ! updraft can't get colder than 100 K
+          ptu(jl,jk) = min(400.,ptu(jl,jk)) ! updraft can't get warmer than 400 K
 
           zqold(jl) = pqu(jl,jk)  ! store parcel humidity, used later to determine how much 
                                   ! cloud water to condense after adjusting 'pqu' for saturation
@@ -2422,26 +2438,38 @@ contains
 
               kup(jl,jk) = (kup(jl,jk+1)*(1.-zdken)+zdkbuo) / &
                            (1.+zdken)
-
+              !----------------------------------------------
+              ! Organized detrainment for negatively buoyant
+              ! updraft (generally at cloud top) based 
+              ! on the decrease of updraft velocity with height 
+              ! (Eq. 6.12 IFS Cy48r1 without RH term)
+              !
+              ! Is stable -> no org. entrainment. This overwrites 
+              ! PMFU for current level which has been calculated 
+              ! above with organised entrainment (ICON comment)
+              !----------------------------------------------
               if ( zbuo(jl,jk) < 0. ) then
                 zkedke = kup(jl,jk)/max(1.e-10,kup(jl,jk+1))
                 zkedke = max(0.,min(1.,zkedke))
-                zmfun = sqrt(zkedke)*pmfu(jl,jk+1)
+                zmfun = sqrt(zkedke) * pmfu(jl,jk+1)
                 zdmfde(jl) = max(zdmfde(jl),pmfu(jl,jk+1)-zmfun)
                 plude(jl,jk) = plu(jl,jk+1)*zdmfde(jl)
-                ! THIS LEVEL'S MASSFLUX CALCULATED HERE FROM LEVEL BELOW, PLUS ENTR, MINUS DETR (ICON)
+                ! mass flux = mass flux at layer below plus entr minus detr
                 pmfu(jl,jk) = pmfu(jl,jk+1) + zdmfen(jl) - zdmfde(jl)
               end if
               !----------------------------------------------
               ! Calculate parcel entrainment rate given
               ! a sufficiently buoyant updraft, otherwise
-              ! set to zero
+              ! set to zero (Eq. 6.7 IFS Cy48r1)
               !----------------------------------------------
               if ( zbuo(jl,jk) > -0.2  ) then
-
+                ! when positively buoyant, have organised entrainment 
+                ! which increases MF with height, while detrainment 
+                ! is pretty small and constant (ICON comment)
                 ikb = kcbot(jl)
-                
-                zoentr(jl) = 1.75e-3*(0.3-(min(1.,pqen(jl,jk-1) /    &
+                ! zoentr is overwritten, but not used until
+                ! the next jk level in the loop (ICON comment)
+                zoentr(jl) = entorg*(0.3-(min(1.,pqen(jl,jk-1) /    &
                   pqsen(jl,jk-1))-1.))*(pgeoh(jl,jk-1)-pgeoh(jl,jk)) * &
                   zrg*min(1.,pqsen(jl,jk)/pqsen(jl,ikb))**3
                   
@@ -2455,6 +2483,12 @@ contains
                 pmfu(jl,jk) = pmfu(jl,jk+1)
                 kup(jl,jk) = 0.5
               end if
+              !-------------------------------------------
+              ! determine convection top level;
+              ! the last set of criteria serves to limit 
+              ! the overshooting of updrafts 
+              ! through the tropopause (ICON comment)
+              !-------------------------------------------
               if ( kup(jl,jk) > 0. .and. pmfu(jl,jk) > 0. ) then
                 kctop(jl) = jk
                 llo1(jl) = .true.
@@ -4016,7 +4050,7 @@ contains
           llo1 = kk < kcbot(jl)
           if ( llo1 ) then
             pdmfen(jl) = zentr(jl)*zmf
-            pdmfde(jl) = 0.75e-4*zmf
+            pdmfde(jl) = detturb*zmf
           end if
         end if
       end do
