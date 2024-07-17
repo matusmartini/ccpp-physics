@@ -161,7 +161,7 @@ contains
 !=================================================================================================================
 !     level 1 subroutine 'cu_ntiedkte_run'
       subroutine cu_ntiedtke_run(pu,pv,pt,pqv,tdi,qvdi,pqvf,ptf,clw,poz,pzz,prsl,prsi,pomg, &
-                                 evap,hfx,zprecc,lmask,lq,km,dt,dx,kbot,ktop,kcnv,kscnv, &
+                                 evap,hfx,zprecc,lmask,lq,km,dt,dx,kbot,ktop,kcnv, &
                                  ktrac,ud_mf,dd_mf,dt_mf,cnvw,cnvc,errmsg,errflg)
 !=================================================================================================================
 !  this is the interface between the model and the mass flux convection module
@@ -208,7 +208,7 @@ contains
 !--- inout arguments:
       real(kind=kind_phys),intent(inout),dimension(lq):: zprecc
       real(kind=kind_phys),intent(inout),dimension(lq,km):: pu,pv,pt,pqv
-      integer, dimension( : ),   intent(out)  :: kbot, ktop, kcnv, kscnv
+      integer, dimension( : ),   intent(out)  :: kbot, ktop, kcnv
       real(kind=kind_phys), dimension (:, :), intent(out)  :: ud_mf, dd_mf, dt_mf, cnvw, cnvc
 
 !--- output arguments:
@@ -402,12 +402,6 @@ contains
            kcnv(j)=1
         else
            kcnv(j)=0
-        end if
-        ! shallow convection flag
-        if(ktype(j).eq.2) then
-          kscnv(j)=1
-        else
-          kscnv(j)=0
         end if
       end do
 
