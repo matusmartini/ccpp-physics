@@ -603,11 +603,16 @@ contains
         idtop(jl)=0
       end do
 
+      !-----------------------------------------------
+      ! Calculate moist static energy and kinetic
+      ! energy within the subcloud layer for the
+      ! environment
+      !-----------------------------------------------
       do jk=2,klev
         do jl=1,klon
 
           if(jk.ge.kcbot(jl) .and. ldcum(jl)) then
-
+            ! sum subcloud layer moist static energy
             zdhpbl(jl) = zdhpbl(jl) + (alv*pqte(jl,jk)+cpd*ptte(jl,jk)) * (paph(jl,jk+1)-paph(jl,jk))
 
             if(lndj(jl) .eq. 0) then
@@ -620,39 +625,50 @@ contains
         end do
       end do
 
+      !-----------------------------------------------
+      ! Calculate first guess cloud base mass flux
+      !-----------------------------------------------
       do jl=1,klon
 
         if(ldcum(jl)) then
 
-           ikb = kcbot(jl)
-           zmfmax = (paph(jl,ikb)-paph(jl,ikb-1))*zcons2
-            !-----------------------------------------------
-            ! 
-            !-----------------------------------------------
-            if(ktype(jl) == 1) then
+          ikb = kcbot(jl)
+          zmfmax = (paph(jl,ikb)-paph(jl,ikb-1))*zcons2
+          !-----------------------------------------------
+          ! Deep convection.
+          ! Initial updraft mass flux is 10% of its maximum 
+          ! value, which is determined by the layer thickness
+          ! and time step.
+          !-----------------------------------------------
+          if(ktype(jl) == 1) then
 
-              zmfub(jl)= 0.1*zmfmax
+            zmfub(jl)= 0.1*zmfmax
+          !-----------------------------------------------
+          ! Shallow convection.
+          ! Initial updraft mass flux is determined by
+          ! a balance of moist static energy in the
+          ! boundary layer.
+          !-----------------------------------------------
+          else if ( ktype(jl) == 2 ) then
 
-            else if ( ktype(jl) == 2 ) then
+            zqumqe = pqu(jl,ikb) + plu(jl,ikb) - zqenh(jl,ikb)
+            zdqmin = max(0.01*zqenh(jl,ikb),1.e-10)
+            zdh = cpd*(ptu(jl,ikb)-ztenh(jl,ikb)) + alv*zqumqe
+            !zdh = g*max(zdh,1.e5*zdqmin)
+            zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
 
-              zqumqe = pqu(jl,ikb) + plu(jl,ikb) - zqenh(jl,ikb)
-              zdqmin = max(0.01*zqenh(jl,ikb),1.e-10)
-              zdh = cpd*(ptu(jl,ikb)-ztenh(jl,ikb)) + alv*zqumqe
-              !zdh = g*max(zdh,1.e5*zdqmin)
-              zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
-
-              if ( zdhpbl(jl) > 0. ) then
-                zmfub(jl) = zdhpbl(jl) / zdh
-                zmfub(jl) = min(zmfub(jl),zmfmax)
-              else
-                zmfub(jl) = 0.1*zmfmax
-                ldcum(jl) = .false.
-              end if
+            if ( zdhpbl(jl) > 0. ) then
+              zmfub(jl) = zdhpbl(jl) / zdh
+              zmfub(jl) = min(zmfub(jl),zmfmax)
+            else
+              zmfub(jl) = 0.1*zmfmax
+              ldcum(jl) = .false.
+            end if
 
             end if
 
         else
-           zmfub(jl) = 0.
+          zmfub(jl) = 0.
         end if
 
       end do
@@ -738,127 +754,133 @@ contains
 !       for deep convection (ktype=1)
 !
       do jl=1,klon
-      if(ldcum(jl) .and. ktype(jl) .eq. 1) then
-        ikb = kcbot(jl)
-        ikt = kctop(jl)
-        zheat(jl)=0.0
-        zcape(jl)=0.0
-        zcape1(jl)=0.0
-        zcape2(jl)=0.0
-        zmfub1(jl)=zmfub(jl)
-
-        ztauc(jl)  = (zgeoh(jl,ikt)-zgeoh(jl,ikb)) / &
-                   ((2.+ min(15.0,wup(jl)))*g)
-        if(lndj(jl) .eq. 0) then
-          upbl(jl) = 2.+ upbl(jl)/(paph(jl,klev+1)-paph(jl,ikb))
-          ztaubl(jl) = (zgeoh(jl,ikb)-zgeoh(jl,klev+1))/(g*upbl(jl))
-          ztaubl(jl) = min(300., ztaubl(jl))
-        else
-          ztaubl(jl) = ztauc(jl)
-        end if
-      end if
-      end do
-!
-      do jk = 1 , klev
-      do jl = 1 , klon
-        llo1 = ldcum(jl) .and. ktype(jl) .eq. 1
-        if ( llo1 .and. jk <= kcbot(jl) .and. jk > kctop(jl) ) then
+        if(ldcum(jl) .and. ktype(jl) .eq. 1) then
           ikb = kcbot(jl)
-          zdz = pgeo(jl,jk-1)-pgeo(jl,jk)
-          zdp = pap(jl,jk)-pap(jl,jk-1)
-          zheat(jl) = zheat(jl) + ((pten(jl,jk-1)-pten(jl,jk)+zdz*rcpd) / &
-                      ztenh(jl,jk)+vtmpc1*(pqen(jl,jk-1)-pqen(jl,jk))) * &
-                      (g*(pmfu(jl,jk)+pmfd(jl,jk)))
-          zcape1(jl) = zcape1(jl) + ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk) + &
-                      vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))-plu(jl,jk))*zdp
-        end if
+          ikt = kctop(jl)
+          zheat(jl)=0.0
+          zcape(jl)=0.0
+          zcape1(jl)=0.0
+          zcape2(jl)=0.0
+          zmfub1(jl)=zmfub(jl)
 
-        if ( llo1 .and. jk >= kcbot(jl) ) then
-        if((paph(jl,klev+1)-paph(jl,kdpl(jl)))<50.e2) then
-          zdp = paph(jl,jk+1)-paph(jl,jk)
-          zcape2(jl) = zcape2(jl) + ztaubl(jl)* &
-                     ((1.+vtmpc1*pqen(jl,jk))*ptte(jl,jk)+vtmpc1*pten(jl,jk)*pqte(jl,jk))*zdp
-        end if
+          ztauc(jl)  = (zgeoh(jl,ikt)-zgeoh(jl,ikb)) / &
+                    ((2.+ min(15.0,wup(jl)))*g)
+          if(lndj(jl) .eq. 0) then
+            upbl(jl) = 2.+ upbl(jl)/(paph(jl,klev+1)-paph(jl,ikb))
+            ztaubl(jl) = (zgeoh(jl,ikb)-zgeoh(jl,klev+1))/(g*upbl(jl))
+            ztaubl(jl) = min(300., ztaubl(jl))
+          else
+            ztaubl(jl) = ztauc(jl)
+          end if
         end if
       end do
+
+      do jk = 1 , klev
+        do jl = 1 , klon
+          llo1 = ldcum(jl) .and. ktype(jl) .eq. 1
+          if ( llo1 .and. jk <= kcbot(jl) .and. jk > kctop(jl) ) then
+            ikb = kcbot(jl)
+            zdz = pgeo(jl,jk-1)-pgeo(jl,jk)
+            zdp = pap(jl,jk)-pap(jl,jk-1)
+            zheat(jl) = zheat(jl) + ((pten(jl,jk-1)-pten(jl,jk)+zdz*rcpd) / &
+                        ztenh(jl,jk)+vtmpc1*(pqen(jl,jk-1)-pqen(jl,jk))) * &
+                        (g*(pmfu(jl,jk)+pmfd(jl,jk)))
+            zcape1(jl) = zcape1(jl) + ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk) + &
+                        vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))-plu(jl,jk))*zdp
+          end if
+
+          if ( llo1 .and. jk >= kcbot(jl) ) then
+            if((paph(jl,klev+1)-paph(jl,kdpl(jl)))<50.e2) then
+              zdp = paph(jl,jk+1)-paph(jl,jk)
+              zcape2(jl) = zcape2(jl) + ztaubl(jl)* &
+                        ((1.+vtmpc1*pqen(jl,jk))*ptte(jl,jk)+vtmpc1*pten(jl,jk)*pqte(jl,jk))*zdp
+            end if
+          end if
+        end do
       end do
 
       do jl=1,klon
-       if(ldcum(jl).and.ktype(jl).eq.1) then
-           ikb = kcbot(jl)
-           ikt = kctop(jl)
-           ztauc(jl) = max(ztmst,ztauc(jl))
-           ztauc(jl) = max(360.,ztauc(jl))
-           ztauc(jl) = min(10800.,ztauc(jl))
-           ztau = ztauc(jl) * scale_fac(jl)
-           if(isequil) then
-             zcape2(jl)= max(0.,zcape2(jl))
-             zcape(jl) = max(0.,min(zcape1(jl)-zcape2(jl),5000.))
-           else
-             zcape(jl) = max(0.,min(zcape1(jl),5000.))
-           end if
-           zheat(jl) = max(1.e-4,zheat(jl))
-           zmfub1(jl) = (zcape(jl)*zmfub(jl))/(zheat(jl)*ztau)
-           zmfub1(jl) = max(zmfub1(jl),0.001)
-           zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
-           zmfub1(jl)=min(zmfub1(jl),zmfmax)
-       end if
-      end do
-!
-!*  6.2   recalculate convective fluxes due to effect of
-!         downdrafts on boundary layer moist static energy budget (ktype=2)
-!--------------------------------------------------------
-       do jl=1,klon
-         if(ldcum(jl) .and. ktype(jl) .eq. 2) then
-           ikb=kcbot(jl)
-           if(pmfd(jl,ikb).lt.0.0 .and. loddraf(jl)) then
-              zeps=-pmfd(jl,ikb)/max(zmfub(jl),cmfcmin)
-           else
-              zeps=0.
-           endif
-           zqumqe=pqu(jl,ikb)+plu(jl,ikb)-  &
-     &            zeps*zqd(jl,ikb)-(1.-zeps)*zqenh(jl,ikb)
-           zdqmin=max(0.01*zqenh(jl,ikb),cmfcmin)
-           zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
-           !  using moist static engergy closure instead of moisture closure
-           zdh = cpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)- &
-     &       (1.-zeps)*ztenh(jl,ikb))+alv*zqumqe
-           !zdh=g*max(zdh,1.e5*zdqmin)
-           zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
-           if(zdhpbl(jl).gt.0.)then
-             zmfub1(jl) = zdhpbl(jl)/zdh
-           else
-             zmfub1(jl) = zmfub(jl)
-           end if
-           zmfub1(jl) = zmfub1(jl)/scale_fac2(jl)
-           zmfub1(jl) = min(zmfub1(jl),zmfmax)
-         end if
-
-!*  6.3   mid-level convection - nothing special
-!---------------------------------------------------------
-         if(ldcum(jl) .and. ktype(jl) .eq. 3 ) then
-            zmfub1(jl) = zmfub(jl)
-         end if
-
-       end do
-
-!*  6.4   scaling the downdraft mass flux
-!---------------------------------------------------------
-       do jk=1,klev
-       do jl=1,klon
-        if( ldcum(jl) ) then
-           zfac=zmfub1(jl)/max(zmfub(jl),cmfcmin)
-           pmfd(jl,jk)=pmfd(jl,jk)*zfac
-           zmfds(jl,jk)=zmfds(jl,jk)*zfac
-           zmfdq(jl,jk)=zmfdq(jl,jk)*zfac
-           zdmfdp(jl,jk)=zdmfdp(jl,jk)*zfac
-           pmfdde_rate(jl,jk) = pmfdde_rate(jl,jk)*zfac
+        if(ldcum(jl).and.ktype(jl).eq.1) then
+          ikb = kcbot(jl)
+          ikt = kctop(jl)
+          ztauc(jl) = max(ztmst,ztauc(jl))
+          ztauc(jl) = max(360.,ztauc(jl))
+          ztauc(jl) = min(10800.,ztauc(jl))
+          ztau = ztauc(jl) * scale_fac(jl)
+          if(isequil) then
+            zcape2(jl)= max(0.,zcape2(jl))
+            zcape(jl) = max(0.,min(zcape1(jl)-zcape2(jl),5000.))
+          else
+            zcape(jl) = max(0.,min(zcape1(jl),5000.))
+          end if
+          zheat(jl) = max(1.e-4,zheat(jl))
+          zmfub1(jl) = (zcape(jl)*zmfub(jl))/(zheat(jl)*ztau)
+          zmfub1(jl) = max(zmfub1(jl),0.001)
+          zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
+          zmfub1(jl)=min(zmfub1(jl),zmfmax)
         end if
-       end do
-       end do
+      end do
+      !
+      !*  6.2   recalculate convective fluxes due to effect of
+      !         downdrafts on boundary layer moist static energy budget (ktype=2)
+      !--------------------------------------------------------
+      do jl=1,klon
 
-!*  6.5   scaling the updraft mass flux
-! --------------------------------------------------------
+        if(ldcum(jl) .and. ktype(jl) .eq. 2) then
+
+          ikb=kcbot(jl)
+
+          if(pmfd(jl,ikb).lt.0.0 .and. loddraf(jl)) then
+            zeps=-pmfd(jl,ikb)/max(zmfub(jl),cmfcmin)
+          else
+            zeps=0.
+          endif
+
+          zqumqe=pqu(jl,ikb)+plu(jl,ikb)-  &
+                  zeps*zqd(jl,ikb)-(1.-zeps)*zqenh(jl,ikb)
+          zdqmin=max(0.01*zqenh(jl,ikb),cmfcmin)
+          zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
+          !  using moist static engergy closure instead of moisture closure
+          zdh = cpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)- &
+            (1.-zeps)*ztenh(jl,ikb))+alv*zqumqe
+          !zdh=g*max(zdh,1.e5*zdqmin)
+          zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
+
+          if(zdhpbl(jl).gt.0.)then
+            zmfub1(jl) = zdhpbl(jl)/zdh
+          else
+            zmfub1(jl) = zmfub(jl)
+          end if
+
+          zmfub1(jl) = zmfub1(jl)/scale_fac2(jl)
+          zmfub1(jl) = min(zmfub1(jl),zmfmax)
+        end if
+
+        !*  6.3   mid-level convection - nothing special
+        !---------------------------------------------------------
+        if(ldcum(jl) .and. ktype(jl) .eq. 3 ) then
+          zmfub1(jl) = zmfub(jl)
+        end if
+
+      end do
+
+      !*  6.4   scaling the downdraft mass flux
+      !---------------------------------------------------------
+      do jk=1,klev
+      do jl=1,klon
+        if( ldcum(jl) ) then
+            zfac=zmfub1(jl)/max(zmfub(jl),cmfcmin)
+            pmfd(jl,jk)=pmfd(jl,jk)*zfac
+            zmfds(jl,jk)=zmfds(jl,jk)*zfac
+            zmfdq(jl,jk)=zmfdq(jl,jk)*zfac
+            zdmfdp(jl,jk)=zdmfdp(jl,jk)*zfac
+            pmfdde_rate(jl,jk) = pmfdde_rate(jl,jk)*zfac
+        end if
+      end do
+      end do
+
+    !*  6.5   scaling the updraft mass flux
+    ! --------------------------------------------------------
     do jl = 1,klon
       if ( ldcum(jl) ) zmfs(jl) = zmfub1(jl)/max(cmfcmin,zmfub(jl))
     end do
@@ -891,8 +913,8 @@ contains
       end do
     end do
 
-!*    6.6  if ktype = 2, kcbot=kctop is not allowed
-! ---------------------------------------------------
+    !*    6.6  if ktype = 2, kcbot=kctop is not allowed
+    ! ---------------------------------------------------
     do jl = 1,klon
       if ( ktype(jl) == 2 .and. &
            kcbot(jl) == kctop(jl) .and. kcbot(jl) >= klev-1 ) then
@@ -912,8 +934,8 @@ contains
       end do
     end if
 
-!*   6.7  set downdraft mass fluxes to zero above cloud top
-!----------------------------------------------------
+    !*   6.7  set downdraft mass fluxes to zero above cloud top
+    !----------------------------------------------------
     do jl = 1,klon
       if ( loddraf(jl) .and. idtop(jl) <= kctop(jl) ) then
         idtop(jl) = kctop(jl) + 1
