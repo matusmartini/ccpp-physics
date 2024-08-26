@@ -323,8 +323,8 @@
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
+         type(GFS_data_type),         intent(in)  :: Data(:,:)
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
 
@@ -336,9 +336,9 @@
          errflg = 0
 
          do i=1,size(Data)
-           call GFS_diagtoscreen_run (Model, Data(i)%Statein, Data(i)%Stateout, Data(i)%Sfcprop,    &
-                                      Data(i)%Coupling, Data(i)%Grid, Data(i)%Tbd, Data(i)%Cldprop, &
-                                      Data(i)%Radtend, Data(i)%Intdiag, Interstitial(1),            &
+           call GFS_diagtoscreen_run (Model, data(i,1)%Statein, data(i,1)%Stateout, data(i,1)%Sfcprop,    &
+                                      data(i,1)%Coupling, data(i,1)%Grid, data(i,1)%Tbd, data(i,1)%Cldprop, &
+                                      data(i,1)%Radtend, data(i,1)%Intdiag, interstitial(1,1),            &
                                       size(Interstitial), i, errmsg, errflg)
          end do
 
@@ -356,8 +356,8 @@
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
+         type(GFS_data_type),         intent(in)  :: Data(:,:)
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
 
@@ -369,9 +369,9 @@
          errflg = 0
 
          do i=1,size(Data)
-           call GFS_diagtoscreen_run (Model, Data(i)%Statein, Data(i)%Stateout, Data(i)%Sfcprop,    &
-                                      Data(i)%Coupling, Data(i)%Grid, Data(i)%Tbd, Data(i)%Cldprop, &
-                                      Data(i)%Radtend, Data(i)%Intdiag, Interstitial(1),            &
+           call GFS_diagtoscreen_run (Model, data(i,1)%Statein, data(i,1)%Stateout, data(i,1)%Sfcprop,    &
+                                      data(i,1)%Coupling, data(i,1)%Grid, data(i,1)%Tbd, data(i,1)%Cldprop, &
+                                      data(i,1)%Radtend, data(i,1)%Intdiag, interstitial(1,1),            &
                                       size(Interstitial), i, errmsg, errflg)
          end do
 
@@ -867,13 +867,13 @@
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%v10mi_cpl   ', Coupling%v10mi_cpl    )
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%tsfci_cpl   ', Coupling%tsfci_cpl    )
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%psurfi_cpl  ', Coupling%psurfi_cpl   )
-                        if (Model%use_med_flux) then
-                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dusfcino_cpl ', Coupling%dusfcino_cpl  )
-                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dvsfcino_cpl ', Coupling%dvsfcino_cpl  )
-                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dtsfcino_cpl ', Coupling%dtsfcino_cpl  )
-                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dqsfcino_cpl ', Coupling%dqsfcino_cpl  )
-                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%ulwsfcino_cpl', Coupling%ulwsfcino_cpl )
-                        end if
+!                        if (Model%use_med_flux) then
+!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dusfcino_cpl ', Coupling%dusfcino_cpl  )
+!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dvsfcino_cpl ', Coupling%dvsfcino_cpl  )
+!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dtsfcino_cpl ', Coupling%dtsfcino_cpl  )
+!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dqsfcino_cpl ', Coupling%dqsfcino_cpl  )
+!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%ulwsfcino_cpl', Coupling%ulwsfcino_cpl )
+!                        end if
                      end if
                      if (Model%cplchm) then
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%rainc_cpl', Coupling%rainc_cpl)
@@ -981,8 +981,8 @@
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
+         type(GFS_data_type),         intent(in)  :: Data(:,:)
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
 
@@ -993,11 +993,10 @@
          errmsg = ''
          errflg = 0
 
-
          do i=1,size(Interstitial)
-           call GFS_interstitialtoscreen_run (Model, Data(1)%Statein, Data(1)%Stateout, Data(1)%Sfcprop,    &
-                                              Data(1)%Coupling, Data(1)%Grid, Data(1)%Tbd, Data(1)%Cldprop, &
-                                              Data(1)%Radtend, Data(1)%Intdiag, Interstitial(i),            &
+           call GFS_interstitialtoscreen_run (Model, Data(1,1)%Statein, Data(1,1)%Stateout, Data(1,1)%Sfcprop,    &
+                                              Data(1,1)%Coupling, Data(1,1)%Grid, Data(1,1)%Tbd, Data(1,1)%Cldprop, &
+                                              Data(1,1)%Radtend, Data(1,1)%Intdiag, Interstitial(i,1),            &
                                               size(Interstitial), -999, errmsg, errflg)
          end do
 
@@ -1015,8 +1014,8 @@
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
+         type(GFS_data_type),         intent(in)  :: Data(:,:)
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
 
@@ -1029,9 +1028,9 @@
 
 
          do i=1,size(Interstitial)
-           call GFS_interstitialtoscreen_run (Model, Data(1)%Statein, Data(1)%Stateout, Data(1)%Sfcprop,    &
-                                              Data(1)%Coupling, Data(1)%Grid, Data(1)%Tbd, Data(1)%Cldprop, &
-                                              Data(1)%Radtend, Data(1)%Intdiag, Interstitial(i),            &
+           call GFS_interstitialtoscreen_run (Model, Data(1,1)%Statein, Data(1,1)%Stateout, Data(1,1)%Sfcprop,    &
+                                              Data(1,1)%Coupling, Data(1,1)%Grid, Data(1,1)%Tbd, Data(1,1)%Cldprop, &
+                                              Data(1,1)%Radtend, Data(1,1)%Intdiag, Interstitial(i,1),            &
                                               size(Interstitial), -999, errmsg, errflg)
          end do
 
