@@ -335,11 +335,11 @@
          errflg = 0
 
          associate ( instance => Model%ccpp_instance )
-         do i=1,size(Data(:,1))
+         do i=1,size(Data(:,instance))
            call GFS_diagtoscreen_run (Model, data(i,instance)%Statein, data(i,instance)%Stateout, data(i,instance)%Sfcprop,    &
                                       data(i,instance)%Coupling, data(i,instance)%Grid, data(i,instance)%Tbd, data(i,instance)%Cldprop, &
-                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,1),            &
-                                      size(Interstitial(:,1)), i, errmsg, errflg)
+                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,instance),            &
+                                      size(Interstitial(:,instance)), i, errmsg, errflg)
          end do
          end associate
 
@@ -370,11 +370,11 @@
          errflg = 0
 
          associate ( instance => Model%ccpp_instance )
-         do i=1,size(Data(:,1))
+         do i=1,size(Data(:,instance))
            call GFS_diagtoscreen_run (Model, data(i,instance)%Statein, data(i,instance)%Stateout, data(i,instance)%Sfcprop,    &
                                       data(i,instance)%Coupling, data(i,instance)%Grid, data(i,instance)%Tbd, data(i,instance)%Cldprop, &
-                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,1),            &
-                                      size(interstitial(:,1)), i, errmsg, errflg)
+                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,instance),            &
+                                      size(interstitial(:,instance)), i, errmsg, errflg)
          end do
          end associate
 
@@ -996,11 +996,11 @@
          errflg = 0
 
          associate ( instance => Model%ccpp_instance )
-         do i=1,size(Interstitial(:,1))
+         do i=1,size(interstitial(:,instance))
            call GFS_interstitialtoscreen_run (Model, data(1,instance)%Statein, data(1,instance)%Stateout, data(1,instance)%Sfcprop,    &
                                               data(1,instance)%Coupling, data(1,instance)%Grid, data(1,instance)%Tbd, data(1,instance)%Cldprop, &
-                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, Interstitial(i,1),            &
-                                              size(interstitial(:,1)), -999, errmsg, errflg)
+                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, interstitial(i,instance),            &
+                                              size(interstitial(:,instance)), -999, errmsg, errflg)
          end do
          end associate
 
@@ -1031,11 +1031,11 @@
          errflg = 0
 
          associate ( instance => Model%ccpp_instance )
-         do i=1,size(Interstitial(:,1))
+         do i=1,size(interstitial(:,instance))
            call GFS_interstitialtoscreen_run (Model, data(1,instance)%Statein, data(1,instance)%Stateout, data(1,instance)%Sfcprop,    &
                                               data(1,instance)%Coupling, data(1,instance)%Grid, data(1,instance)%Tbd, data(1,instance)%Cldprop, &
-                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, Interstitial(i,1),            &
-                                              size(interstitial(:,1)), -999, errmsg, errflg)
+                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, interstitial(i,instance),            &
+                                              size(interstitial(:,instance)), -999, errmsg, errflg)
          end do
          end associate
 
