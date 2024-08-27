@@ -1,6 +1,5 @@
 !> \file GFS_debug.F90
 
-
 !!
 !! This is the place to switch between different debug outputs.
 !! - The default behavior for Intel (or any compiler other than GNU)
@@ -335,11 +334,12 @@
          errmsg = ''
          errflg = 0
 
-         do i=1,size(Data)
+         ! Print data for the first CCPP instance
+         do i=1,size(Data(:,1))
            call GFS_diagtoscreen_run (Model, data(i,1)%Statein, data(i,1)%Stateout, data(i,1)%Sfcprop,    &
                                       data(i,1)%Coupling, data(i,1)%Grid, data(i,1)%Tbd, data(i,1)%Cldprop, &
                                       data(i,1)%Radtend, data(i,1)%Intdiag, interstitial(1,1),            &
-                                      size(Interstitial), i, errmsg, errflg)
+                                      size(Interstitial(:,1)), i, errmsg, errflg)
          end do
 
       end subroutine GFS_diagtoscreen_init
@@ -368,11 +368,11 @@
          errmsg = ''
          errflg = 0
 
-         do i=1,size(Data)
+         do i=1,size(Data(:,1))
            call GFS_diagtoscreen_run (Model, data(i,1)%Statein, data(i,1)%Stateout, data(i,1)%Sfcprop,    &
                                       data(i,1)%Coupling, data(i,1)%Grid, data(i,1)%Tbd, data(i,1)%Cldprop, &
                                       data(i,1)%Radtend, data(i,1)%Intdiag, interstitial(1,1),            &
-                                      size(Interstitial), i, errmsg, errflg)
+                                      size(interstitial(:,1)), i, errmsg, errflg)
          end do
 
       end subroutine GFS_diagtoscreen_timestep_init
@@ -956,7 +956,6 @@
 
     end module GFS_diagtoscreen
 
-
     module GFS_interstitialtoscreen
 
       use print_var_chksum, only: print_var
@@ -993,11 +992,12 @@
          errmsg = ''
          errflg = 0
 
-         do i=1,size(Interstitial)
+         ! Print data for the first CCPP instance
+         do i=1,size(Interstitial(:,1))
            call GFS_interstitialtoscreen_run (Model, Data(1,1)%Statein, Data(1,1)%Stateout, Data(1,1)%Sfcprop,    &
                                               Data(1,1)%Coupling, Data(1,1)%Grid, Data(1,1)%Tbd, Data(1,1)%Cldprop, &
                                               Data(1,1)%Radtend, Data(1,1)%Intdiag, Interstitial(i,1),            &
-                                              size(Interstitial), -999, errmsg, errflg)
+                                              size(interstitial(:,1)), -999, errmsg, errflg)
          end do
 
       end subroutine GFS_interstitialtoscreen_init
@@ -1026,12 +1026,11 @@
          errmsg = ''
          errflg = 0
 
-
-         do i=1,size(Interstitial)
+         do i=1,size(Interstitial(:,1))
            call GFS_interstitialtoscreen_run (Model, Data(1,1)%Statein, Data(1,1)%Stateout, Data(1,1)%Sfcprop,    &
                                               Data(1,1)%Coupling, Data(1,1)%Grid, Data(1,1)%Tbd, Data(1,1)%Cldprop, &
                                               Data(1,1)%Radtend, Data(1,1)%Intdiag, Interstitial(i,1),            &
-                                              size(Interstitial), -999, errmsg, errflg)
+                                              size(interstitial(:,1)), -999, errmsg, errflg)
          end do
 
       end subroutine GFS_interstitialtoscreen_timestep_init
