@@ -334,13 +334,14 @@
          errmsg = ''
          errflg = 0
 
-         ! Print data for the first CCPP instance
+         associate ( instance => Model%ccpp_instance )
          do i=1,size(Data(:,1))
-           call GFS_diagtoscreen_run (Model, data(i,1)%Statein, data(i,1)%Stateout, data(i,1)%Sfcprop,    &
-                                      data(i,1)%Coupling, data(i,1)%Grid, data(i,1)%Tbd, data(i,1)%Cldprop, &
-                                      data(i,1)%Radtend, data(i,1)%Intdiag, interstitial(1,1),            &
+           call GFS_diagtoscreen_run (Model, data(i,instance)%Statein, data(i,instance)%Stateout, data(i,instance)%Sfcprop,    &
+                                      data(i,instance)%Coupling, data(i,instance)%Grid, data(i,instance)%Tbd, data(i,instance)%Cldprop, &
+                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,1),            &
                                       size(Interstitial(:,1)), i, errmsg, errflg)
          end do
+         end associate
 
       end subroutine GFS_diagtoscreen_init
 
@@ -368,12 +369,14 @@
          errmsg = ''
          errflg = 0
 
+         associate ( instance => Model%ccpp_instance )
          do i=1,size(Data(:,1))
-           call GFS_diagtoscreen_run (Model, data(i,1)%Statein, data(i,1)%Stateout, data(i,1)%Sfcprop,    &
-                                      data(i,1)%Coupling, data(i,1)%Grid, data(i,1)%Tbd, data(i,1)%Cldprop, &
-                                      data(i,1)%Radtend, data(i,1)%Intdiag, interstitial(1,1),            &
+           call GFS_diagtoscreen_run (Model, data(i,instance)%Statein, data(i,instance)%Stateout, data(i,instance)%Sfcprop,    &
+                                      data(i,instance)%Coupling, data(i,instance)%Grid, data(i,instance)%Tbd, data(i,instance)%Cldprop, &
+                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,1),            &
                                       size(interstitial(:,1)), i, errmsg, errflg)
          end do
+         end associate
 
       end subroutine GFS_diagtoscreen_timestep_init
 
@@ -992,13 +995,14 @@
          errmsg = ''
          errflg = 0
 
-         ! Print data for the first CCPP instance
+         associate ( instance => Model%ccpp_instance )
          do i=1,size(Interstitial(:,1))
-           call GFS_interstitialtoscreen_run (Model, Data(1,1)%Statein, Data(1,1)%Stateout, Data(1,1)%Sfcprop,    &
-                                              Data(1,1)%Coupling, Data(1,1)%Grid, Data(1,1)%Tbd, Data(1,1)%Cldprop, &
-                                              Data(1,1)%Radtend, Data(1,1)%Intdiag, Interstitial(i,1),            &
+           call GFS_interstitialtoscreen_run (Model, data(1,instance)%Statein, data(1,instance)%Stateout, data(1,instance)%Sfcprop,    &
+                                              data(1,instance)%Coupling, data(1,instance)%Grid, data(1,instance)%Tbd, data(1,instance)%Cldprop, &
+                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, Interstitial(i,1),            &
                                               size(interstitial(:,1)), -999, errmsg, errflg)
          end do
+         end associate
 
       end subroutine GFS_interstitialtoscreen_init
 
@@ -1026,12 +1030,14 @@
          errmsg = ''
          errflg = 0
 
+         associate ( instance => Model%ccpp_instance )
          do i=1,size(Interstitial(:,1))
-           call GFS_interstitialtoscreen_run (Model, Data(1,1)%Statein, Data(1,1)%Stateout, Data(1,1)%Sfcprop,    &
-                                              Data(1,1)%Coupling, Data(1,1)%Grid, Data(1,1)%Tbd, Data(1,1)%Cldprop, &
-                                              Data(1,1)%Radtend, Data(1,1)%Intdiag, Interstitial(i,1),            &
+           call GFS_interstitialtoscreen_run (Model, data(1,instance)%Statein, data(1,instance)%Stateout, data(1,instance)%Sfcprop,    &
+                                              data(1,instance)%Coupling, data(1,instance)%Grid, data(1,instance)%Tbd, data(1,instance)%Cldprop, &
+                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, Interstitial(i,1),            &
                                               size(interstitial(:,1)), -999, errmsg, errflg)
          end do
+         end associate
 
       end subroutine GFS_interstitialtoscreen_timestep_init
 
