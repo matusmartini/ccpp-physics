@@ -167,9 +167,9 @@
   type = GFS_interstitial_type
   intent = in
 [nthreads]
-  standard_name = ccpp_thread_number
+  standard_name = number_of_openmp_threads
   long_name = number of OpenMP threads or fast physics schemes
-  units = index
+  units = count
   dimensions = ()
   type = integer
   intent = in
@@ -366,9 +366,9 @@
   type = GFS_interstitial_type
   intent = in
 [nthreads]
-  standard_name = ccpp_thread_number
+  standard_name = number_of_openmp_threads
   long_name = number of OpenMP threads or fast physics schemes
-  units = index
+  units = count
   dimensions = ()
   type = integer
   intent = in
