@@ -18,14 +18,14 @@
   standard_name = GFS_data_type_instance_all_blocks
   long_name = instance of derived type GFS_data_type
   units = DDT
-  dimensions = (ccpp_block_number,ccpp_instance)
+  dimensions = (ccpp_block_count,ccpp_instance)
   type = GFS_data_type
   intent = in
 [Interstitial]
   standard_name = GFS_interstitial_type_instance_all_threads
   long_name = instance of derived type GFS_interstitial_type
   units = DDT
-  dimensions = (ccpp_thread_number,ccpp_instance)
+  dimensions = (number_of_openmp_threads,ccpp_instance)
   type = GFS_interstitial_type
   intent = in
 [errmsg]
@@ -59,14 +59,14 @@
   standard_name = GFS_data_type_instance_all_blocks
   long_name = instance of derived type GFS_data_type
   units = DDT
-  dimensions = (ccpp_block_number,ccpp_instance)
+  dimensions = (ccpp_block_count,ccpp_instance)
   type = GFS_data_type
   intent = in
 [Interstitial]
   standard_name = GFS_interstitial_type_instance_all_threads
   long_name = instance of derived type GFS_interstitial_type
   units = DDT
-  dimensions = (ccpp_thread_number,ccpp_instance)
+  dimensions = (number_of_openmp_threads,ccpp_instance)
   type = GFS_interstitial_type
   intent = in
 [errmsg]
@@ -217,14 +217,14 @@
   standard_name = GFS_data_type_instance_all_blocks
   long_name = instance of derived type GFS_data_type
   units = DDT
-  dimensions = (ccpp_block_number,ccpp_instance)
+  dimensions = (ccpp_block_count,ccpp_instance)
   type = GFS_data_type
   intent = in
 [Interstitial]
   standard_name = GFS_interstitial_type_instance_all_threads
   long_name = instance of derived type GFS_interstitial_type
   units = DDT
-  dimensions = (ccpp_thread_number,ccpp_instance)
+  dimensions = (number_of_openmp_threads,ccpp_instance)
   type = GFS_interstitial_type
   intent = in
 [errmsg]
@@ -258,14 +258,14 @@
   standard_name = GFS_data_type_instance_all_blocks
   long_name = instance of derived type GFS_data_type
   units = DDT
-  dimensions = (ccpp_block_number,ccpp_instance)
+  dimensions = (ccpp_block_count,ccpp_instance)
   type = GFS_data_type
   intent = in
 [Interstitial]
   standard_name = GFS_interstitial_type_instance_all_threads
   long_name = instance of derived type GFS_interstitial_type
   units = DDT
-  dimensions = (ccpp_thread_number,ccpp_instance)
+  dimensions = (number_of_openmp_threads,ccpp_instance)
   type = GFS_interstitial_type
   intent = in
 [errmsg]
