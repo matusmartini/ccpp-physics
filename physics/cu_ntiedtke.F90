@@ -72,7 +72,7 @@ module cu_ntiedtke
 !
 !     zdnoprc:   deep cloud is thicker than this height (Unit:Pa)
 !     -------
-      real(kind=kind_phys),parameter:: zdnoprc = 2.0e4
+      real(kind=kind_phys),parameter:: zdnoprc = 1.5e4
 
 !     cprcon:    coefficient from cloud water to rain water
 !     -------
@@ -84,7 +84,7 @@ module cu_ntiedtke
 !
 !     entorg:   organized updraft entrainment scaling factor (Eq. 6.7 IFS Cy48r1)
 !     -------
-      real(kind=kind_phys),parameter:: entorg  = 1.75e-3 ! exp 2.4, 2.1, and 1.4, orig. 1.75
+      real(kind=kind_phys),parameter:: entorg  = 2.10e-3 ! exp 2.4, 2.1, and 1.4, orig. 1.75
 !
 !     detturb:   turbulent detrainment scaling factor (Eq. 6.8 IFS Cy48r1)
 !     -------
