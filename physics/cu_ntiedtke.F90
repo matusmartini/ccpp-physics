@@ -71,6 +71,8 @@ module cu_ntiedtke
       real(kind=kind_phys),parameter:: cmfdeps = 0.30
 !
 !     zdnoprc:   deep cloud is thicker than this height (Unit:Pa)
+!     NRL changed from 2.0e4 to 1.5e4 as a result of NEPTUNE tuning experiments,
+!     see https://github.nrlmry.navy.mil/NEPTUNE/ccpp-physics/pull/28
 !     -------
       real(kind=kind_phys),parameter:: zdnoprc = 1.5e4
 
@@ -83,6 +85,8 @@ module cu_ntiedtke
       real(kind=kind_phys),parameter:: pgcoef  = 0.7
 !
 !     entorg:   organized updraft entrainment scaling factor (Eq. 6.7 IFS Cy48r1)
+!     NRL changed from 1.75e-3 to 2.10e-3 as a result of NEPTUNE tuning experiments,
+!     see https://github.nrlmry.navy.mil/NEPTUNE/ccpp-physics/pull/28
 !     -------
       real(kind=kind_phys),parameter:: entorg  = 2.10e-3 ! exp 2.4, 2.1, and 1.4, orig. 1.75
 !
