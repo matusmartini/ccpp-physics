@@ -1327,6 +1327,7 @@
   dimensions = ()
   type = logical
   intent = in
+  optional = True
 [smoke_ext]
   standard_name = extinction_coefficient_in_air_due_to_smoke
   long_name = extinction coefficient in air due to smoke
@@ -1335,6 +1336,7 @@
   type = real
   kind = kind_phys
   intent = in
+  optional = True
 [dust_ext]
   standard_name = extinction_coefficient_in_air_due_to_dust
   long_name = extinction coefficient in air due to dust
@@ -1343,6 +1345,7 @@
   type = real
   kind = kind_phys
   intent = in
+  optional = True
 [spp_wts_rad]
   standard_name = spp_weights_for_radiation_scheme
   long_name = spp weights for radiation scheme
