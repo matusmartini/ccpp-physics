@@ -321,7 +321,7 @@
    logical, intent(in) :: lprnt
    integer, intent(in) :: KPBL(:)
    real(kind=kind_phys), intent(in) :: deltim, G, CP, RD, RV, cdmbgwd(:)
-   real(kind=kind_phys), intent(inout) :: dtend(:,:,:)
+   real(kind=kind_phys), optional, intent(inout) :: dtend(:,:,:)
    logical, intent(in) :: ldiag3d
    integer, intent(in) :: dtidx(:,:), index_of_temperature,      &
      &  index_of_process_orographic_gwd, index_of_x_wind, index_of_y_wind

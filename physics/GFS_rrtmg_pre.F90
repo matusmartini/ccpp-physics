@@ -123,8 +123,8 @@
       logical,              intent(in) :: lextop, lsswr, lslwr, ltaerosol, lgfdlmprad, &
                                           uni_cld, effr_in, do_mynnedmf,               &
                                           lmfshal, lmfdeep2, pert_clds
-      logical,              intent(in) :: aero_dir_fdb
-      real(kind=kind_phys), dimension(:,:), intent(in) :: smoke_ext, dust_ext
+      logical,              optional, intent(in) :: aero_dir_fdb
+      real(kind=kind_phys), optional, dimension(:,:), intent(in) :: smoke_ext, dust_ext
 
       logical,              intent(in) :: nssl_ccn_on, nssl_invertccn
       integer,              intent(in) :: spp_rad
@@ -654,13 +654,15 @@
        enddo
 
       !> Aerosol direct feedback effect by smoke and dust
-      if(aero_dir_fdb) then ! add smoke/dust extinctions
-        do k = 1, LMK
-          do i = 1, IM
-            ! 550nm (~18000/cm)
-            faersw1(i,k,rrfs_smoke_band) = faersw1(i,k,rrfs_smoke_band) + MIN(4.,smoke_ext(i,k) + dust_ext(i,k))
+      if (present(aero_dir_fdb)) then
+        if(aero_dir_fdb) then ! add smoke/dust extinctions
+          do k = 1, LMK
+            do i = 1, IM
+              ! 550nm (~18000/cm)
+              faersw1(i,k,rrfs_smoke_band) = faersw1(i,k,rrfs_smoke_band) + MIN(4.,smoke_ext(i,k) + dust_ext(i,k))
+            enddo
           enddo
-        enddo
+        endif
       endif
 
       do j = 1,NBDLW

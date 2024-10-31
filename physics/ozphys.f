@@ -57,7 +57,7 @@
       ! Interface variables
       integer, intent(in) :: im, levs, ko3, oz_coeff, me
       real(kind=kind_phys), intent(inout) :: oz(:,:)
-      real(kind=kind_phys), intent(inout) :: dtend(:,:,:)
+      real(kind=kind_phys), optional, intent(inout) :: dtend(:,:,:)
       integer, intent(in) :: dtidx(:,:), ntoz,                          &
      &  index_of_process_prod_loss, index_of_process_ozmix,             &
      &  index_of_process_temp, index_of_process_overhead_ozone
