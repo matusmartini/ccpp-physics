@@ -154,12 +154,24 @@ if(SCHEMES_OPENMP_OFF)
   list(REMOVE_ITEM SCHEMES ${SCHEMES_OPENMP_OFF})
 endif()
 
-# Assign standard floating point precision flags to all remaining schemes and caps
-SET_PROPERTY(SOURCE ${SCHEMES} ${CAPS}
+# For CAPS, remove bounds checks with Intel LLVM (ifx) - needed for oneapi@2025
+# and possibly other versions to avoid compilation being killed
+if (${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM")
+  string(REPLACE "-check bounds" "-check nobounds" CMAKE_Fortran_FLAGS_CAPS "${CMAKE_Fortran_FLAGS}")
+else()
+  set(CMAKE_Fortran_FLAGS_CAPS "${CMAKE_Fortran_FLAGS}")
+endif()
+
+# Assign standard floating point precision flags to all remaining schemes
+SET_PROPERTY(SOURCE ${SCHEMES}
              APPEND_STRING PROPERTY COMPILE_FLAGS " ${CMAKE_Fortran_FLAGS_PHYSICS} ${OpenMP_Fortran_FLAGS}")
 
+# Assign modified standard floating point precision flags to all caps
+SET_PROPERTY(SOURCE ${CAPS}
+             PROPERTY COMPILE_FLAGS "${CMAKE_Fortran_FLAGS_CAPS} ${CMAKE_Fortran_FLAGS_PHYSICS} ${OpenMP_Fortran_FLAGS}")
+
 # Lower optimization for certain schemes when compiling with Intel in Release mode
-if(CMAKE_BUILD_TYPE STREQUAL "Release" AND ${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel")
+if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel" OR ${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM"))
   # Define a list of schemes that need lower optimization with Intel in Release mode
   set(SCHEME_NAMES_LOWER_OPTIMIZATION module_sf_mynn.F90
                                       cu_gf_deep.F90
@@ -175,7 +187,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" AND ${CMAKE_Fortran_COMPILER_ID} STREQUAL
 endif()
 
 # No optimization for certain schemes when compiling with Intel in Release mode
-if(CMAKE_BUILD_TYPE STREQUAL "Release" AND ${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel")
+if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel" OR ${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM"))
   # Define a list of schemes that can't be optimized with Intel in Release mode
   set(SCHEME_NAMES_NO_OPTIMIZATION GFS_typedefs.F90)
   foreach(SCHEME_NAME IN LISTS SCHEME_NAMES_NO_OPTIMIZATION)
