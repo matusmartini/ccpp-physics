@@ -300,6 +300,13 @@
 
     module GFS_diagtoscreen
 
+      use GFS_typedefs,          only: GFS_control_type, GFS_statein_type,  &
+                                       GFS_stateout_type, GFS_sfcprop_type, &
+                                       GFS_coupling_type, GFS_grid_type,    &
+                                       GFS_tbd_type, GFS_cldprop_type,      &
+                                       GFS_radtend_type, GFS_diag_type
+      use CCPP_typedefs,         only: GFS_interstitial_type
+
       use print_var_chksum, only: print_var
 
       implicit none
@@ -313,70 +320,70 @@
 !> \section arg_table_GFS_diagtoscreen_init Argument Table
 !! \htmlinclude GFS_diagtoscreen_init.html
 !!
-      subroutine GFS_diagtoscreen_init (Model, Data, Interstitial, errmsg, errflg)
-
-         use GFS_typedefs,  only: GFS_control_type, GFS_data_type
-         use CCPP_typedefs, only: GFS_interstitial_type
+      subroutine GFS_diagtoscreen_init (Model, Statein, Stateout, Sfcprop, Coupling,     &
+                                        Grid, Tbd, Cldprop, Radtend, Diag, Interstitial, &
+                                        errmsg, errflg)
 
          implicit none
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:,:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
+         type(GFS_statein_type),      intent(in)  :: Statein
+         type(GFS_stateout_type),     intent(in)  :: Stateout
+         type(GFS_sfcprop_type),      intent(in)  :: Sfcprop
+         type(GFS_coupling_type),     intent(in)  :: Coupling
+         type(GFS_grid_type),         intent(in)  :: Grid
+         type(GFS_tbd_type),          intent(in)  :: Tbd
+         type(GFS_cldprop_type),      intent(in)  :: Cldprop
+         type(GFS_radtend_type),      intent(in)  :: Radtend
+         type(GFS_diag_type),         intent(in)  :: Diag
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
-
-         !--- local variables
-         integer :: i
 
          ! Initialize CCPP error handling variables
          errmsg = ''
          errflg = 0
 
-         associate ( instance => Model%ccpp_instance )
-         do i=1,size(Data(:,instance))
-           call GFS_diagtoscreen_run (Model, data(i,instance)%Statein, data(i,instance)%Stateout, data(i,instance)%Sfcprop,    &
-                                      data(i,instance)%Coupling, data(i,instance)%Grid, data(i,instance)%Tbd, data(i,instance)%Cldprop, &
-                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,instance),            &
-                                      size(Interstitial(:,instance)), i, errmsg, errflg)
-         end do
-         end associate
+         call GFS_diagtoscreen_run (Model, Statein, Stateout, Sfcprop, &
+                                    Coupling, Grid, Tbd, Cldprop,      &
+                                    Radtend, Diag, Interstitial(1),    &
+                                    size(Interstitial), -999, errmsg, errflg)
 
       end subroutine GFS_diagtoscreen_init
 
 !> \section arg_table_GFS_diagtoscreen_timestep_init Argument Table
 !! \htmlinclude GFS_diagtoscreen_timestep_init.html
 !!
-      subroutine GFS_diagtoscreen_timestep_init (Model, Data, Interstitial, errmsg, errflg)
-
-         use GFS_typedefs,  only: GFS_control_type, GFS_data_type
-         use CCPP_typedefs, only: GFS_interstitial_type
+      subroutine GFS_diagtoscreen_timestep_init (Model, Statein, Stateout, Sfcprop, Coupling,     &
+                                                 Grid, Tbd, Cldprop, Radtend, Diag, Interstitial, &
+                                                 errmsg, errflg)
 
          implicit none
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:,:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
+         type(GFS_statein_type),      intent(in)  :: Statein
+         type(GFS_stateout_type),     intent(in)  :: Stateout
+         type(GFS_sfcprop_type),      intent(in)  :: Sfcprop
+         type(GFS_coupling_type),     intent(in)  :: Coupling
+         type(GFS_grid_type),         intent(in)  :: Grid
+         type(GFS_tbd_type),          intent(in)  :: Tbd
+         type(GFS_cldprop_type),      intent(in)  :: Cldprop
+         type(GFS_radtend_type),      intent(in)  :: Radtend
+         type(GFS_diag_type),         intent(in)  :: Diag
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
-
-         !--- local variables
-         integer :: i
 
          ! Initialize CCPP error handling variables
          errmsg = ''
          errflg = 0
 
-         associate ( instance => Model%ccpp_instance )
-         do i=1,size(Data(:,instance))
-           call GFS_diagtoscreen_run (Model, data(i,instance)%Statein, data(i,instance)%Stateout, data(i,instance)%Sfcprop,    &
-                                      data(i,instance)%Coupling, data(i,instance)%Grid, data(i,instance)%Tbd, data(i,instance)%Cldprop, &
-                                      data(i,instance)%Radtend, data(i,instance)%Intdiag, interstitial(1,instance),            &
-                                      size(interstitial(:,instance)), i, errmsg, errflg)
-         end do
-         end associate
+         call GFS_diagtoscreen_run (Model, Statein, Stateout, Sfcprop, &
+                                    Coupling, Grid, Tbd, Cldprop,      &
+                                    Radtend, Diag, Interstitial(1),    &
+                                    size(Interstitial), -999, errmsg, errflg)
 
       end subroutine GFS_diagtoscreen_timestep_init
 
@@ -393,12 +400,6 @@
 #ifdef _OPENMP
          use omp_lib
 #endif
-         use GFS_typedefs,          only: GFS_control_type, GFS_statein_type,  &
-                                          GFS_stateout_type, GFS_sfcprop_type, &
-                                          GFS_coupling_type, GFS_grid_type,    &
-                                          GFS_tbd_type, GFS_cldprop_type,      &
-                                          GFS_radtend_type, GFS_diag_type
-         use CCPP_typedefs,         only: GFS_interstitial_type
 
          implicit none
 
@@ -961,6 +962,14 @@
 
     module GFS_interstitialtoscreen
 
+      use GFS_typedefs,          only: GFS_control_type, GFS_statein_type,  &
+                                       GFS_stateout_type, GFS_sfcprop_type, &
+                                       GFS_coupling_type, GFS_grid_type,    &
+                                       GFS_tbd_type, GFS_cldprop_type,      &
+                                       GFS_radtend_type, GFS_diag_type
+      use CCPP_typedefs,         only: GFS_interstitial_type
+
+
       use print_var_chksum, only: print_var
 
       implicit none
@@ -974,17 +983,24 @@
 !> \section arg_table_GFS_interstitialtoscreen_init Argument Table
 !! \htmlinclude GFS_interstitialtoscreen_init.html
 !!
-      subroutine GFS_interstitialtoscreen_init (Model, Data, Interstitial, errmsg, errflg)
-
-         use GFS_typedefs,  only: GFS_control_type, GFS_data_type
-         use CCPP_typedefs, only: GFS_interstitial_type
+      subroutine GFS_interstitialtoscreen_init (Model, Statein, Stateout, Sfcprop, Coupling,     &
+                                                Grid, Tbd, Cldprop, Radtend, Diag, Interstitial, &
+                                                errmsg, errflg)
 
          implicit none
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:,:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
+         type(GFS_statein_type),      intent(in)  :: Statein
+         type(GFS_stateout_type),     intent(in)  :: Stateout
+         type(GFS_sfcprop_type),      intent(in)  :: Sfcprop
+         type(GFS_coupling_type),     intent(in)  :: Coupling
+         type(GFS_grid_type),         intent(in)  :: Grid
+         type(GFS_tbd_type),          intent(in)  :: Tbd
+         type(GFS_cldprop_type),      intent(in)  :: Cldprop
+         type(GFS_radtend_type),      intent(in)  :: Radtend
+         type(GFS_diag_type),         intent(in)  :: Diag
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
 
@@ -995,31 +1011,35 @@
          errmsg = ''
          errflg = 0
 
-         associate ( instance => Model%ccpp_instance )
-         do i=1,size(interstitial(:,instance))
-           call GFS_interstitialtoscreen_run (Model, data(1,instance)%Statein, data(1,instance)%Stateout, data(1,instance)%Sfcprop,    &
-                                              data(1,instance)%Coupling, data(1,instance)%Grid, data(1,instance)%Tbd, data(1,instance)%Cldprop, &
-                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, interstitial(i,instance),            &
-                                              size(interstitial(:,instance)), -999, errmsg, errflg)
+         do i=1,size(Interstitial)
+           call GFS_interstitialtoscreen_run (Model, Statein, Stateout, Sfcprop, Coupling,        &
+                                              Grid, Tbd, Cldprop, Radtend, Diag, Interstitial(i), &
+                                              size(Interstitial), -999, errmsg, errflg)
          end do
-         end associate
 
       end subroutine GFS_interstitialtoscreen_init
 
 !> \section arg_table_GFS_interstitialtoscreen_timestep_init Argument Table
 !! \htmlinclude GFS_interstitialtoscreen_timestep_init.html
 !!
-      subroutine GFS_interstitialtoscreen_timestep_init (Model, Data, Interstitial, errmsg, errflg)
-
-         use GFS_typedefs,  only: GFS_control_type, GFS_data_type
-         use CCPP_typedefs, only: GFS_interstitial_type
+      subroutine GFS_interstitialtoscreen_timestep_init (Model, Statein, Stateout, Sfcprop, Coupling,     &
+                                                         Grid, Tbd, Cldprop, Radtend, Diag, Interstitial, &
+                                                         errmsg, errflg)
 
          implicit none
 
          !--- interface variables
          type(GFS_control_type),      intent(in)  :: Model
-         type(GFS_data_type),         intent(in)  :: Data(:,:)
-         type(GFS_interstitial_type), intent(in)  :: Interstitial(:,:)
+         type(GFS_statein_type),      intent(in)  :: Statein
+         type(GFS_stateout_type),     intent(in)  :: Stateout
+         type(GFS_sfcprop_type),      intent(in)  :: Sfcprop
+         type(GFS_coupling_type),     intent(in)  :: Coupling
+         type(GFS_grid_type),         intent(in)  :: Grid
+         type(GFS_tbd_type),          intent(in)  :: Tbd
+         type(GFS_cldprop_type),      intent(in)  :: Cldprop
+         type(GFS_radtend_type),      intent(in)  :: Radtend
+         type(GFS_diag_type),         intent(in)  :: Diag
+         type(GFS_interstitial_type), intent(in)  :: Interstitial(:)
          character(len=*),            intent(out) :: errmsg
          integer,                     intent(out) :: errflg
 
@@ -1030,14 +1050,12 @@
          errmsg = ''
          errflg = 0
 
-         associate ( instance => Model%ccpp_instance )
-         do i=1,size(interstitial(:,instance))
-           call GFS_interstitialtoscreen_run (Model, data(1,instance)%Statein, data(1,instance)%Stateout, data(1,instance)%Sfcprop,    &
-                                              data(1,instance)%Coupling, data(1,instance)%Grid, data(1,instance)%Tbd, data(1,instance)%Cldprop, &
-                                              data(1,instance)%Radtend, data(1,instance)%Intdiag, interstitial(i,instance),            &
-                                              size(interstitial(:,instance)), -999, errmsg, errflg)
+
+         do i=1,size(Interstitial)
+           call GFS_interstitialtoscreen_run (Model, Statein, Stateout, Sfcprop, Coupling,        &
+                                              Grid, Tbd, Cldprop, Radtend, Diag, Interstitial(i), &
+                                              size(Interstitial), -999, errmsg, errflg)
          end do
-         end associate
 
       end subroutine GFS_interstitialtoscreen_timestep_init
 
@@ -1054,14 +1072,6 @@
 #ifdef _OPENMP
          use omp_lib
 #endif
-         use machine,               only: kind_phys
-         use GFS_typedefs,          only: GFS_control_type, GFS_statein_type,  &
-                                          GFS_stateout_type, GFS_sfcprop_type, &
-                                          GFS_coupling_type, GFS_grid_type,    &
-                                          GFS_tbd_type, GFS_cldprop_type,      &
-                                          GFS_radtend_type, GFS_diag_type
-         use CCPP_typedefs,         only: GFS_interstitial_type
-
          implicit none
 
          !--- interface variables
@@ -1491,7 +1501,6 @@
 !!
       subroutine GFS_abort_run (Model, blkno, errmsg, errflg)
 
-         use machine,               only: kind_phys
          use GFS_typedefs,          only: GFS_control_type
 
          implicit none
