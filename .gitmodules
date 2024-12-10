@@ -1,3 +1,9 @@
 [submodule "physics/rte-rrtmgp"]
   path = physics/rte-rrtmgp
-  url = https://github.com/dustinswales/rte-rrtmgp
+  url = https://github.nrlmry.navy.mil/NEPTUNE/rte-rrtmgp
+  # Todo: switch to main branch from official rte-rrtmgp
+  # repository, then delete automatic mirroring of dtc/ccpp
+  # from Dustin Swales' fork, and freeze the dtc/ccpp branch
+  # in the NRL Enterprise GitHub.
+  #branch = main
+  branch = dtc/ccpp
