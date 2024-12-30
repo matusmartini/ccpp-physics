@@ -93,6 +93,8 @@
 !> This module sets up astronomy quantities for solar radiation calculations.
       module module_radiation_astronomy  
 !
+      use iso_fortran_env,   only : real32, real64
+      use mpi
       use physparam,         only : isolar, solar_file, kind_phys
       use physcons,          only : con_solr, con_solr_old, con_pi
       use module_iounitdef,  only : NIRADSF
@@ -152,7 +154,7 @@
 !!\param me         print message control flag
 !>\section sol_init_gen sol_init General Algorithm
       subroutine sol_init                                               &
-     &     ( me ) !  ---  inputs
+     &     ( mpicomm, mpirank, mpiroot ) !  ---  inputs
 !  ---  outputs: ( none )
 
 !  ===================================================================  !
@@ -189,16 +191,17 @@
       implicit none
 
 !  ---  input:
-      integer,  intent(in) :: me
+      integer,  intent(in) :: mpicomm, mpirank, mpiroot
 
 !  ---  output: ( none )
 
 !  ---  local:
       logical :: file_exist
+      integer :: ierr
 !
 !===>  ...  begin here
 !
-      if ( me == 0 ) print *, VTAGAST    !print out version tag
+      if (mpirank==mpiroot) print *, VTAGAST    !print out version tag
 
 !  ---  initialization
       isolflg = isolar
@@ -209,26 +212,30 @@
 
       if ( isolar == 0 ) then
         solc0   = con_solr_old
-        if ( me == 0 ) then
+        if (mpirank==mpiroot) then
           print *,' - Using old fixed solar constant =', solc0
         endif
       elseif ( isolar == 10 ) then
-        if ( me == 0 ) then
+        if (mpirank==mpiroot) then
           print *,' - Using new fixed solar constant =', solc0
         endif
       elseif ( isolar == 1 ) then        ! noaa ann-mean tsi in absolute scale
         solar_fname(15:26) = 'noaa_a0.txt'
 
-        if ( me == 0 ) then
+        if (mpirank==mpiroot) then
           print *,' - Using NOAA annual mean TSI table in ABS scale',   &
      &            ' with cycle approximation (old values)!'
         endif
 
-        inquire (file=solar_fname, exist=file_exist)
+        if ( mpirank == mpiroot ) then
+          inquire (file=solar_fname, exist=file_exist)
+        endif
+        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
+     &                 ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
-          if ( me == 0 ) then
+          if (mpirank==mpiroot) then
             print *,'   Requested solar data file "',solar_fname,       &
      &              '" not found!'
             print *,'   Using the default solar constant value =',solc0,&
@@ -238,16 +245,20 @@
       elseif ( isolar == 2 ) then        ! noaa ann-mean tsi in tim scale
         solar_fname(15:26) = 'noaa_an.txt'
 
-        if ( me == 0 ) then
+        if (mpirank==mpiroot) then
           print *,' - Using NOAA annual mean TSI table in TIM scale',   &
      &            ' with cycle approximation (new values)!'
         endif
 
-        inquire (file=solar_fname, exist=file_exist)
+        if ( mpirank == mpiroot ) then
+          inquire (file=solar_fname, exist=file_exist)
+        endif
+        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
+     &                 ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
-          if ( me == 0 ) then
+          if (mpirank==mpiroot) then
             print *,'   Requested solar data file "',solar_fname,       &
      &              '" not found!'
             print *,'   Using the default solar constant value =',solc0,&
@@ -257,16 +268,20 @@
       elseif ( isolar == 3 ) then        ! cmip5 ann-mean tsi in tim scale
         solar_fname(15:26) = 'cmip_an.txt'
 
-        if ( me == 0 ) then
+        if (mpirank==mpiroot) then
           print *,' - Using CMIP5 annual mean TSI table in TIM scale',  &
      &            ' with cycle approximation'
         endif
 
-        inquire (file=solar_fname, exist=file_exist)
+        if ( mpirank == mpiroot ) then
+          inquire (file=solar_fname, exist=file_exist)
+        endif
+        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
+     &                 ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
-          if ( me == 0 ) then
+          if (mpirank==mpiroot) then
             print *,'   Requested solar data file "',solar_fname,       &
      &              '" not found!'
             print *,'   Using the default solar constant value =',solc0,&
@@ -276,16 +291,20 @@
       elseif ( isolar == 4 ) then        ! cmip5 mon-mean tsi in tim scale
         solar_fname(15:26) = 'cmip_mn.txt'
 
-        if ( me == 0 ) then
+        if (mpirank==mpiroot) then
           print *,' - Using CMIP5 monthly mean TSI table in TIM scale', &
      &            ' with cycle approximation'
         endif
 
-        inquire (file=solar_fname, exist=file_exist)
+        if ( mpirank == mpiroot ) then
+          inquire (file=solar_fname, exist=file_exist)
+        endif
+        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
+     &                 ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
-          if ( me == 0 ) then
+          if (mpirank==mpiroot) then
             print *,'   Requested solar data file "',solar_fname,       &
      &              '" not found!'
             print *,'   Using the default solar constant value =',solc0,&
@@ -295,7 +314,7 @@
       else                               ! selection error
         isolflg = 10
 
-        if ( me == 0 ) then
+        if (mpirank==mpiroot) then
           print *,' - !!! ERROR in selection of solar constant data',   &
      &            ' source, ISOL =',isolar
           print *,'   Using the default solar constant value =',solc0,  &
@@ -325,7 +344,8 @@
 !>\section gen_sol_update sol_update General Algorithm
 !-----------------------------------
       subroutine sol_update                                             &
-     &     ( jdate,kyear,deltsw,deltim,lsol_chg, me,                    &     !  ---  inputs
+     &     ( jdate,kyear,deltsw,deltim,lsol_chg,                        &     !  ---  inputs
+     &       mpicomm,mpirank,mpiroot,                                   &     !  ---  inputs
      &       slag, sdec, cdec, solcon                                   &     !  ---  outputs
      &      )
 
@@ -378,7 +398,8 @@
       implicit none
 
 !  ---  input:
-      integer, intent(in) :: jdate(:), kyear, me
+      integer, intent(in) :: jdate(:), kyear
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
       logical, intent(in) :: lsol_chg
 
       real (kind=kind_phys), intent(in) :: deltsw, deltim
@@ -400,6 +421,7 @@
 
       logical :: file_exist
       character :: cline*60
+      integer :: ierr
 !
 !===>  ...  begin here
 !
@@ -419,15 +441,14 @@
           endif
         else                           ! need to read in new data
           iyr_sav = iyear
-
+          iyr = iyear 
+          if (mpirank == mpiroot) then
 !  --- ...  check to see if the solar constant data file existed
-
-          inquire (file=solar_fname, exist=file_exist)
-          if ( .not. file_exist ) then
+            inquire (file=solar_fname, exist=file_exist)
+            if ( .not. file_exist ) then
             print *,' !!! ERROR! Can not find solar constant file!!!'
-            call ccpp_external_abort("radiation_astronomy.f:sol_update")
-          else
-            iyr = iyear
+            call ccpp_external_abort("radiation_astronomy.f:sol_upd")
+            endif
 
             close(NIRADSF)
             open (NIRADSF,file=solar_fname,form='formatted',            &
@@ -437,12 +458,24 @@
             read (NIRADSF, * ) iyr1,iyr2,icy1,icy2,smean,cline(1:60)
 !           read (NIRADSF, 24) iyr1,iyr2,icy1,icy2,smean,cline
 ! 24        format(4i5,f8.2,a60)
+            
+            print *,'  Updating solar constant with cycle approx'
+            print *,'   Opened solar constant data file: ',solar_fname
+!check      print *, iyr1, iyr2, icy1, icy2, smean, cline
+          endif
 
-            if ( me == 0 ) then
-              print *,'  Updating solar constant with cycle approx'
-              print *,'   Opened solar constant data file: ',solar_fname
-!check        print *, iyr1, iyr2, icy1, icy2, smean, cline
-            endif
+          call mpi_bcast(iyr1, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
+          call mpi_bcast(iyr2, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
+          call mpi_bcast(icy1, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
+          call mpi_bcast(icy2, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
+          if (kind(smean)==kind(real32)) then
+            call mpi_bcast(smean, 1, MPI_REAL, mpiroot, mpicomm, ierr)
+          else if (kind(smean)==kind(real64)) then
+            call mpi_bcast(smean, 1, MPI_DOUBLE_PRECISION, mpiroot,     &
+     &                     mpicomm, ierr)
+          endif
+          call mpi_bcast(cline, 60, MPI_CHARACTER, mpiroot,             &
+     &                   mpicomm, ierr)
 
 !  --- ...  check if there is a upper year limit put on the data table
 
@@ -485,7 +518,7 @@
                 iyr = iyr + icy
               enddo Lab_dowhile1
 
-              if ( me == 0 ) then
+              if ( mpirank == mpiroot ) then
                 print *,'   *** Year',iyear,' out of table range!',     &
      &                  iyr1, iyr2
                 print *,'       Using the closest-cycle year (',iyr,')'
@@ -496,7 +529,7 @@
                 iyr = iyr - icy
               enddo Lab_dowhile2
 
-              if ( me == 0 ) then
+              if ( mpirank == mpiroot ) then
                 print *,'   *** Year',iyear,' out of table range!',     &
      &                  iyr1, iyr2
                 print *,'       Using the closest-cycle year (',iyr,')'
@@ -510,12 +543,23 @@
               Lab_dowhile3 : do while ( i >= iyr1 )
 !               read (NIRADSF,26) jyr, solc1
 ! 26            format(i4,f10.4)
-                read (NIRADSF,*) jyr, solc1
+                if (mpirank == mpiroot) then
+                  read (NIRADSF,*) jyr, solc1
+                end if
+                call mpi_bcast(jyr, 1, MPI_INTEGER, mpiroot, mpicomm,   &
+     &                         ierr)
+                if (kind(solc1)==kind(real32)) then
+                  call mpi_bcast(solc1, 1, MPI_REAL, mpiroot, mpicomm,  &
+     &                           ierr)
+                else if (kind(solc1)==kind(real64)) then
+                  call mpi_bcast(solc1, 1, MPI_DOUBLE_PRECISION,        &
+     &                           mpiroot, mpicomm, ierr)
+                endif
 
                 if ( i == iyr .and. iyr == jyr ) then
                   solc0  = smean + solc1
 
-                  if (me == 0) then
+                  if (mpirank == 0) then
                     print *,' CHECK: Solar constant data used for year',&
      &                       iyr, solc1, solc0
                   endif
@@ -530,7 +574,18 @@
               Lab_dowhile4 : do while ( i >= iyr1 )
 !               read (NIRADSF,26) jyr, smon(:)
 ! 26            format(i4,12f10.4)
-                read (NIRADSF,*) jyr, smon(1:12)
+                if (mpirank == mpiroot) then
+                  read (NIRADSF,*) jyr, smon(1:12)
+                end if
+                call mpi_bcast(jyr, 1, MPI_INTEGER, mpiroot, mpicomm,   &
+     &                         ierr)
+                if (kind(smon)==kind(real32)) then
+                  call mpi_bcast(smon, 12, MPI_REAL, mpiroot, mpicomm,  &
+     &                           ierr)
+                else if (kind(smon)==kind(real64)) then
+                  call mpi_bcast(smon, 12, MPI_DOUBLE_PRECISION,        &
+     &                           mpiroot, mpicomm, ierr)
+                endif
 
                 if ( i == iyr .and. iyr == jyr ) then
                   do nn = 1, 12
@@ -538,7 +593,7 @@
                   enddo
                   solc0  = smean + smon(imon)
 
-                  if (me == 0) then
+                  if (mpirank == 0) then
                     print *,' CHECK: Solar constant data used for year',&
      &                      iyr,' and month',imon
                   endif
@@ -550,8 +605,7 @@
               enddo   Lab_dowhile4
             endif    ! end if_isolflg_block
 
-            close ( NIRADSF )
-          endif      ! end if_file_exist_block
+            if (mpirank==mpiroot) close ( NIRADSF )
 
         endif    ! end if_iyr_sav_block
       endif   ! end if_lsol_chg_block
@@ -594,7 +648,7 @@
 
 !  --- ...  diagnostic print out
 
-      if (me == 0) then
+      if (mpirank == mpiroot) then
 
 !> -# Call prtime()
         call prtime                                                     &
@@ -622,7 +676,7 @@
       nstp = max(6, nswr)
       anginc = pid12 * dtswh / float(nstp)
 
-      if ( me == 0 ) then
+      if ( mpirank == mpiroot ) then
         print *,'   for cosz calculations: nswr,deltim,deltsw,dtswh =', &
      &          nswr,deltim,deltsw,dtswh,'  anginc,nstp =',anginc,nstp
       endif
