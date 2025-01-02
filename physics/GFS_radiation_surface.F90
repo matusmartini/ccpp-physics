@@ -17,14 +17,16 @@
 !> \section arg_table_GFS_radiation_surface_init Argument Table
 !! \htmlinclude GFS_radiation_surface_init.html
 !!
-      subroutine GFS_radiation_surface_init (me, ialb, iems, errmsg, errflg)
+      subroutine GFS_radiation_surface_init (mpicomm, mpirank, mpiroot, &
+        ialb, iems, errmsg, errflg)
 
       use physparam,                only: ialbflg, iemsflg
       use module_radiation_surface, only: sfc_init
 
       implicit none
 
-      integer,                              intent(in)  :: me, ialb, iems
+      integer,                              intent(in)  :: mpicomm, mpirank, mpiroot
+      integer,                              intent(in)  :: ialb, iems
       character(len=*),                     intent(out) :: errmsg
       integer,                              intent(out) :: errflg
 
@@ -35,13 +37,13 @@
       ialbflg= ialb                     ! surface albedo control flag
       iemsflg= iems                     ! surface emissivity control flag
 
-      if ( me == 0 ) then
+      if ( mpirank==mpiroot ) then
         print *,'In GFS_radiation_surface_init, before calling sfc_init'
         print *,'ialb=',ialb,' iems=',iems
       end if
 
       ! Call surface initialization routine
-      call sfc_init ( me, errmsg, errflg )
+      call sfc_init ( mpicomm, mpirank, mpiroot, errmsg, errflg )
 
       end subroutine GFS_radiation_surface_init
 
