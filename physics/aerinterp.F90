@@ -56,7 +56,6 @@ contains
               return
            endif
         enddo
-      endif
 !
 !! ===================================================================
 !! fetch dim spec and lat/lon from m01 data set
