@@ -93,8 +93,7 @@
 !> This module sets up astronomy quantities for solar radiation calculations.
       module module_radiation_astronomy  
 !
-      use iso_fortran_env,   only : real32, real64
-      use mpi
+      use mpiutil,           only : ccpp_bcast
       use physparam,         only : isolar, solar_file, kind_phys
       use physcons,          only : con_solr, con_solr_old, con_pi
       use module_iounitdef,  only : NIRADSF
@@ -230,8 +229,7 @@
         if ( mpirank == mpiroot ) then
           inquire (file=solar_fname, exist=file_exist)
         endif
-        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
-     &                 ierr)
+        call ccpp_bcast(file_exist, mpiroot, mpicomm, ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
@@ -253,8 +251,7 @@
         if ( mpirank == mpiroot ) then
           inquire (file=solar_fname, exist=file_exist)
         endif
-        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
-     &                 ierr)
+        call ccpp_bcast(file_exist, mpiroot, mpicomm, ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
@@ -276,8 +273,7 @@
         if ( mpirank == mpiroot ) then
           inquire (file=solar_fname, exist=file_exist)
         endif
-        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
-     &                 ierr)
+        call ccpp_bcast(file_exist, mpiroot, mpicomm, ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
@@ -299,8 +295,7 @@
         if ( mpirank == mpiroot ) then
           inquire (file=solar_fname, exist=file_exist)
         endif
-        call mpi_bcast(file_exist, 1, MPI_LOGICAL, mpiroot, mpicomm,    &
-     &                 ierr)
+        call ccpp_bcast(file_exist, mpiroot, mpicomm, ierr)
         if ( .not. file_exist ) then
           isolflg = 10
 
@@ -464,18 +459,15 @@
 !check      print *, iyr1, iyr2, icy1, icy2, smean, cline
           endif
 
-          call mpi_bcast(iyr1, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
-          call mpi_bcast(iyr2, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
-          call mpi_bcast(icy1, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
-          call mpi_bcast(icy2, 1, MPI_INTEGER, mpiroot, mpicomm, ierr)
-          if (kind(smean)==kind(real32)) then
-            call mpi_bcast(smean, 1, MPI_REAL, mpiroot, mpicomm, ierr)
-          else if (kind(smean)==kind(real64)) then
-            call mpi_bcast(smean, 1, MPI_DOUBLE_PRECISION, mpiroot,     &
-     &                     mpicomm, ierr)
-          endif
-          call mpi_bcast(cline, 60, MPI_CHARACTER, mpiroot,             &
-     &                   mpicomm, ierr)
+          ! Prevent warnings for potentially uninitialized data
+          file_exist = .true.
+          cline = ''
+
+          call ccpp_bcast(iyr1,  mpiroot, mpicomm, ierr)
+          call ccpp_bcast(iyr2,  mpiroot, mpicomm, ierr)
+          call ccpp_bcast(icy1,  mpiroot, mpicomm, ierr)
+          call ccpp_bcast(icy2,  mpiroot, mpicomm, ierr)
+          call ccpp_bcast(smean, mpiroot, mpicomm, ierr)
 
 !  --- ...  check if there is a upper year limit put on the data table
 
@@ -546,15 +538,8 @@
                 if (mpirank == mpiroot) then
                   read (NIRADSF,*) jyr, solc1
                 end if
-                call mpi_bcast(jyr, 1, MPI_INTEGER, mpiroot, mpicomm,   &
-     &                         ierr)
-                if (kind(solc1)==kind(real32)) then
-                  call mpi_bcast(solc1, 1, MPI_REAL, mpiroot, mpicomm,  &
-     &                           ierr)
-                else if (kind(solc1)==kind(real64)) then
-                  call mpi_bcast(solc1, 1, MPI_DOUBLE_PRECISION,        &
-     &                           mpiroot, mpicomm, ierr)
-                endif
+                call ccpp_bcast(jyr,   mpiroot, mpicomm, ierr)
+                call ccpp_bcast(solc1, mpiroot, mpicomm, ierr)
 
                 if ( i == iyr .and. iyr == jyr ) then
                   solc0  = smean + solc1
@@ -577,15 +562,8 @@
                 if (mpirank == mpiroot) then
                   read (NIRADSF,*) jyr, smon(1:12)
                 end if
-                call mpi_bcast(jyr, 1, MPI_INTEGER, mpiroot, mpicomm,   &
-     &                         ierr)
-                if (kind(smon)==kind(real32)) then
-                  call mpi_bcast(smon, 12, MPI_REAL, mpiroot, mpicomm,  &
-     &                           ierr)
-                else if (kind(smon)==kind(real64)) then
-                  call mpi_bcast(smon, 12, MPI_DOUBLE_PRECISION,        &
-     &                           mpiroot, mpicomm, ierr)
-                endif
+                call ccpp_bcast(jyr,  mpiroot, mpicomm, ierr)
+                call ccpp_bcast(smon, mpiroot, mpicomm, ierr)
 
                 if ( i == iyr .and. iyr == jyr ) then
                   do nn = 1, 12

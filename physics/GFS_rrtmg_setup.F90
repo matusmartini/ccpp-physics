@@ -535,17 +535,17 @@ module GFS_rrtmg_setup
 !! call module_radsw_main::rswinit()
 !     Initialization
 
-      call sol_init ( mpicomm, mpirank, mpiroot )     !  --- ...  astronomy initialization routine
+      call sol_init ( mpicomm, mpirank, mpiroot )       !  --- ...  astronomy initialization routine
 
-      call aer_init ( NLAY, mpirank )                 !  --- ...  aerosols initialization routine
+      call aer_init ( NLAY, mpicomm, mpirank, mpiroot ) !  --- ...  aerosols initialization routine
 
-      call gas_init ( mpirank )                       !  --- ...  co2 and other gases initialization routine
+      call gas_init ( mpicomm, mpirank, mpiroot )       !  --- ...  co2 and other gases initialization routine
 
-      call cld_init ( si, NLAY, imp_physics, mpirank) !  --- ...  cloud initialization routine
+      call cld_init ( si, NLAY, imp_physics, mpirank)   !  --- ...  cloud initialization routine
 
-      call rlwinit ( mpirank )                        !  --- ...  lw radiation initialization routine
+      call rlwinit ( mpirank )                          !  --- ...  lw radiation initialization routine
 
-      call rswinit ( mpirank )                        !  --- ...  sw radiation initialization routine
+      call rswinit ( mpirank )                          !  --- ...  sw radiation initialization routine
 !
       return
 !
@@ -716,7 +716,7 @@ module GFS_rrtmg_setup
 !> -# Call module_radiation_aerosols::aer_update(), monthly update, no
 !! time interpolation
       if ( lmon_chg ) then
-        call aer_update ( iyear, imon, mpicomm )
+        call aer_update ( iyear,imon,mpicomm,mpirank,mpiroot )
       endif
 
 !> -# Call co2 and other gases update routine:
@@ -728,7 +728,7 @@ module GFS_rrtmg_setup
         lco2_chg = .false.
       endif
 
-      call gas_update ( kyear,kmon,kday,khour,loz1st,lco2_chg, mpicomm )
+      call gas_update ( kyear,kmon,kday,khour,loz1st,lco2_chg,mpirank )
 
       if ( loz1st ) loz1st = .false.
 
