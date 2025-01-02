@@ -728,7 +728,8 @@ module GFS_rrtmg_setup
         lco2_chg = .false.
       endif
 
-      call gas_update ( kyear,kmon,kday,khour,loz1st,lco2_chg,mpirank )
+      call gas_update ( kyear,kmon,kday,khour,loz1st,lco2_chg,          &
+     &                  mpicomm,mpirank,mpiroot )
 
       if ( loz1st ) loz1st = .false.
 

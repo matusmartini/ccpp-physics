@@ -21,6 +21,10 @@ module mpiutil
      procedure :: bcast_r64d2
      procedure :: bcast_r32d3
      procedure :: bcast_r64d3
+     procedure :: bcast_r32d4
+     procedure :: bcast_r64d4
+     procedure :: bcast_r32d5
+     procedure :: bcast_r64d5
      procedure :: bcast_ld0
   end interface ccpp_bcast
 
@@ -147,6 +151,46 @@ contains
          call ccpp_external_abort("mpiutil.F90:bcast_r64d3")
       end if
    end subroutine bcast_r64d3
+
+   subroutine bcast_r32d4(arr, root, comm, ierr)
+      real(kind=real32), intent(inout) :: arr(:,:,:,:)
+      integer, intent(in) :: root, comm
+      integer, intent(out) :: ierr
+      call MPI_BCAST(arr, size(arr), MPI_REAL, root, comm, ierr)
+      if (ierr/=MPI_SUCCESS) then
+         call ccpp_external_abort("mpiutil.F90:bcast_r32d4")
+      end if
+   end subroutine bcast_r32d4
+
+   subroutine bcast_r64d4(arr, root, comm, ierr)
+      real(kind=real64), intent(inout) :: arr(:,:,:,:)
+      integer, intent(in) :: root, comm
+      integer, intent(out) :: ierr
+      call MPI_BCAST(arr, size(arr), MPI_DOUBLE_PRECISION, root, comm, ierr)
+      if (ierr/=MPI_SUCCESS) then
+         call ccpp_external_abort("mpiutil.F90:bcast_r64d4")
+      end if
+   end subroutine bcast_r64d4
+
+   subroutine bcast_r32d5(arr, root, comm, ierr)
+      real(kind=real32), intent(inout) :: arr(:,:,:,:,:)
+      integer, intent(in) :: root, comm
+      integer, intent(out) :: ierr
+      call MPI_BCAST(arr, size(arr), MPI_REAL, root, comm, ierr)
+      if (ierr/=MPI_SUCCESS) then
+         call ccpp_external_abort("mpiutil.F90:bcast_r32d5")
+      end if
+   end subroutine bcast_r32d5
+
+   subroutine bcast_r64d5(arr, root, comm, ierr)
+      real(kind=real64), intent(inout) :: arr(:,:,:,:,:)
+      integer, intent(in) :: root, comm
+      integer, intent(out) :: ierr
+      call MPI_BCAST(arr, size(arr), MPI_DOUBLE_PRECISION, root, comm, ierr)
+      if (ierr/=MPI_SUCCESS) then
+         call ccpp_external_abort("mpiutil.F90:bcast_r64d5")
+      end if
+   end subroutine bcast_r64d5
 
    subroutine bcast_ld0(arr, root, comm, ierr)
       logical, intent(inout) :: arr

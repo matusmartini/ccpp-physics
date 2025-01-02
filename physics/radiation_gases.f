@@ -454,8 +454,6 @@
             endif
           endif read_and_broadcast_co2_v1
 
-          call ccpp_bcast(co2g1,   mpiroot, mpicomm, ierr)
-          call ccpp_bcast(co2g2,   mpiroot, mpicomm, ierr)
           call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
           if ( ico2flg == 2 ) then
             call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
@@ -522,8 +520,6 @@
               allocate( co2cyc_sav(IMXCO2,JMXCO2,12) )
             endif read_and_broadcast_co2_v2
 
-            call ccpp_bcast(co2g1,      mpiroot, mpicomm, ierr)
-            call ccpp_bcast(co2g2,      mpiroot, mpicomm, ierr)
             call ccpp_bcast(gco2cyc,    mpiroot, mpicomm, ierr)
             call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
 
@@ -550,7 +546,8 @@
 !>\section gen_gas_update gas_update General Algorithm
 !-----------------------------------
       subroutine gas_update                                             &
-     &     ( iyear, imon, iday, ihour, loz1st, ldoco2, me )!  ---  inputs
+     &     ( iyear, imon, iday, ihour, loz1st, ldoco2,                  &
+     &       mpicomm, mpirank, mpiroot )!  ---  inputs
 !  ---  outputs: ( none )
 
 !  ===================================================================  !
@@ -612,7 +609,8 @@
       implicit none
 
 !  ---  inputs:
-      integer, intent(in) :: iyear, imon, iday, ihour, me
+      integer, intent(in) :: iyear, imon, iday, ihour
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
 
       logical, intent(in) :: loz1st, ldoco2
 
@@ -630,6 +628,7 @@
       logical    :: file_exist, lextpl, change
       character  :: cline*100, cform*8, cfile1*26
       data  cform  / '(24f7.2)' /       !! data format in IMXCO2*f7.2
+      integer :: ierr
 !
 !===>  ...  begin here
 !
@@ -690,69 +689,71 @@
 
       Lab_if_idyr : if ( idyr < MINYEAR .and. ictmflg > 0 ) then
 
-        if ( me == 0 ) then
+        read_and_broadcast_co2_v1: if ( mpirank==mpiroot ) then
           print *,'   Requested CO2 data year',iyear,' earlier than',   &
      &            MINYEAR
           print *,'   Which is the earliest monthly observation',       &
      &            ' data available.'
           print *,'   Thus, historical global mean data is used'
-        endif
 
 !  --- ... check to see if requested co2 data file existed
 
-        inquire (file=co2gbl_file, exist=file_exist)
-        if ( .not. file_exist ) then
-          print *,'   Requested co2 data file "',co2gbl_file,           &
-     &            '" not found - Stopped in subroutine gas_update!!'
-          call ccpp_external_abort("radiation_gases.f:gas_update")
-        else
-          close(NICO2CN)
-          open (NICO2CN,file=co2gbl_file,form='formatted',status='old')
-          rewind NICO2CN
+          inquire (file=co2gbl_file, exist=file_exist)
+          if ( .not. file_exist ) then
+            print *,'   Requested co2 data file "',co2gbl_file,         &
+     &              '" not found - Stopped in subroutine gas_update!!'
+            call ccpp_external_abort("radiation_gases.f:gas_update")
+          else
+            close(NICO2CN)
+            open(NICO2CN,file=co2gbl_file,form='formatted',status='old')
+            rewind NICO2CN
 
-          read (NICO2CN, 24) iyr1, iyr2, cline
-  24      format(i4,4x,i4,a48)
+            read (NICO2CN, 24) iyr1, iyr2, cline
+  24        format(i4,4x,i4,a48)
 
-          if ( me == 0 ) then
             print *,'   Opened co2 data file: ',co2gbl_file
 !check      print *, iyr1, iyr2, cline(1:48)
-          endif
 
-          if ( idyr < iyr1 ) then
-            iyr = iyr1
-!check      if ( me == 0 ) then
-!             print *,'   Using earlist available co2 data, year=',iyr1
-!check      endif
-          endif
-
-          i = iyr2
-          Lab_dowhile1 : do while ( i >= iyr1 )
-!           read (NICO2CN,26) jyr, co2g1, co2g2
-! 26        format(i4,4x,2f7.2)
-            read (NICO2CN, *) jyr, co2g1, co2g2
-
-            if ( i == iyr .and. iyr == jyr ) then
-              co2_glb = (co2g1+co2g2) * 0.5e-6
-              if ( ico2flg == 2 ) then
-                do j = 1, JMXCO2
-                  do i = 1, IMXCO2
-                    co2vmr_sav(i,j,1:6)  = co2g1 * 1.0e-6
-                    co2vmr_sav(i,j,7:12) = co2g2 * 1.0e-6
-                  enddo
-                enddo
-              endif
-
-              if ( me == 0 ) print *,'   Co2 data for year',iyear,      &
-     &                               co2_glb
-              exit Lab_dowhile1
-            else
-!check        if ( me == 0 ) print *,'   Skip co2 data for year',i
-              i = i - 1
+            if ( idyr < iyr1 ) then
+              iyr = iyr1
+!check        if ( me == 0 ) then
+!               print *,'   Using earlist available co2 data, year=',iyr1
+!check        endif
             endif
-          enddo  Lab_dowhile1
 
-          close ( NICO2CN )
-        endif   ! end if_file_exist_block
+            i = iyr2
+            Lab_dowhile1 : do while ( i >= iyr1 )
+!             read (NICO2CN,26) jyr, co2g1, co2g2
+! 26          format(i4,4x,2f7.2)
+              read (NICO2CN, *) jyr, co2g1, co2g2
+
+              if ( i == iyr .and. iyr == jyr ) then
+                co2_glb = (co2g1+co2g2) * 0.5e-6
+                if ( ico2flg == 2 ) then
+                  do j = 1, JMXCO2
+                    do i = 1, IMXCO2
+                      co2vmr_sav(i,j,1:6)  = co2g1 * 1.0e-6
+                      co2vmr_sav(i,j,7:12) = co2g2 * 1.0e-6
+                    enddo
+                  enddo
+                endif
+
+                print *,'   Co2 data for year',iyear, co2_glb
+                exit Lab_dowhile1
+              else
+!check          if ( me == 0 ) print *,'   Skip co2 data for year',i
+                i = i - 1
+              endif
+            enddo  Lab_dowhile1
+
+            close ( NICO2CN )
+          endif   ! end if_file_exist_block
+        endif read_and_broadcast_co2_v1
+
+        call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
+        if ( ico2flg == 2 ) then
+          call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
+        endif
 
       else  Lab_if_idyr
 
@@ -763,112 +764,97 @@
   34    format(i4.4)
 
 !  --- ... check to see if requested co2 data file existed
+        read_and_broadcast_co2_v2: if ( mpirank==mpiroot ) then
+          inquire (file=cfile1, exist=file_exist)
+          if ( .not. file_exist ) then
 
-        inquire (file=cfile1, exist=file_exist)
-        if ( .not. file_exist ) then
-
-          Lab_if_ictm : if ( ictmflg  > 10 ) then    ! specified year of data not found
-            if ( me == 0 ) then
+            Lab_if_ictm : if ( ictmflg  > 10 ) then    ! specified year of data not found
               print *,'   Specified co2 data for year',idyr,            &
      &               ' not found !!  Need to change namelist ICTM !!'
               print *,'   *** Stopped in subroutine gas_update !!'
-            endif
-            call ccpp_external_abort("radiation_gases.f:gas_update1")
-          else Lab_if_ictm                        ! looking for latest available data
-            if ( me == 0 ) then
+              call ccpp_external_abort("radiation_gases.f:gas_update1")
+            else Lab_if_ictm                        ! looking for latest available data
               print *,'   Requested co2 data for year',idyr,            &
      &              ' not found, check for other available data set'
-            endif
 
-            Lab_dowhile2 : do while ( iyr >= MINYEAR )
-              iyr = iyr - 1
-              write(cfile1(19:22),34) iyr
+              Lab_dowhile2 : do while ( iyr >= MINYEAR )
+                iyr = iyr - 1
+                write(cfile1(19:22),34) iyr
 
-              inquire (file=cfile1, exist=file_exist)
-              if ( me == 0 ) then
+                inquire (file=cfile1, exist=file_exist)
                 print *,' Looking for CO2 file ',cfile1
-              endif
 
-              if ( file_exist ) then
-                exit Lab_dowhile2
-              endif
-            enddo   Lab_dowhile2
+                if ( file_exist ) then
+                  exit Lab_dowhile2
+                endif
+              enddo   Lab_dowhile2
 
-            if ( .not. file_exist ) then
-              if ( me == 0 ) then
-                print *,'   Can not find co2 data source file'
-                print *,'   *** Stopped in subroutine gas_update !!'
+              if ( .not. file_exist ) then
+               print *,'   Can not find co2 data source file'
+               print *,'   *** Stopped in subroutine gas_update !!'
+               call ccpp_external_abort("radiation_gases.f:gas_update2")
               endif
-              call ccpp_external_abort("radiation_gases.f:gas_update2")
-            endif
-          endif  Lab_if_ictm
-        endif   ! end if_file_exist_block
+            endif  Lab_if_ictm
+          endif   ! end if_file_exist_block
 
 !  --- ...  read in co2 2-d data for the requested month
 
-        close(NICO2CN)
-        open (NICO2CN,file=cfile1,form='formatted',status='old')
-        rewind NICO2CN
-        read (NICO2CN, 36) iyr, cline, co2g1, co2g2
-  36    format(i4,a94,f7.2,16x,f5.2)
+          close(NICO2CN)
+          open (NICO2CN,file=cfile1,form='formatted',status='old')
+          rewind NICO2CN
+          read (NICO2CN, 36) iyr, cline, co2g1, co2g2
+  36      format(i4,a94,f7.2,16x,f5.2)
 
-        if ( me == 0 ) then
           print *,'   Opened co2 data file: ',cfile1
           print *, iyr, cline(1:94), co2g1,'  GROWTH RATE =', co2g2
-        endif
 
 !  --- ...  add growth rate if needed
-        if ( lextpl ) then
-!         rate = co2g2 * (iyear - iyr)   ! rate from early year
-!         rate = 1.60  * (iyear - iyr)   ! avg rate over long period
-          rate = 2.00  * (iyear - iyr)   ! avg rate for recent period
-        else
-          rate = 0.0
-        endif
+          if ( lextpl ) then
+!           rate = co2g2 * (iyear - iyr)   ! rate from early year
+!           rate = 1.60  * (iyear - iyr)   ! avg rate over long period
+            rate = 2.00  * (iyear - iyr)   ! avg rate for recent period
+          else
+            rate = 0.0
+          endif
 
-        co2_glb = (co2g1 + rate) * 1.0e-6
-        if ( me == 0 ) then
+          co2_glb = (co2g1 + rate) * 1.0e-6
           print *,'   Global annual mean CO2 data for year',            &
      &              iyear, co2_glb
-        endif
 
-        if ( ictmflg == -2 ) then     ! need to calc ic time annual mean first
+          if ( ictmflg == -2 ) then     ! need to calc ic time annual mean first
 
-          if ( ico2flg == 1 ) then
-            if ( me==0 ) then
+            if ( ico2flg == 1 ) then
               print *,' CHECK: Monthly deviations of climatology ',     &
      &                'to be superimposed on global annual mean'
               print *, gco2cyc
-            endif
-          elseif ( ico2flg == 2 ) then
-            co2ann(:,:) = 0.0
+            elseif ( ico2flg == 2 ) then
+              co2ann(:,:) = 0.0
 
-            do imo = 1, 12
-              read (NICO2CN,cform) co2dat
-!check        print cform, co2dat
+              do imo = 1, 12
+                read (NICO2CN,cform) co2dat
+!check          print cform, co2dat
+
+                do j = 1, JMXCO2
+                  do i = 1, IMXCO2
+                    co2ann(i,j) = co2ann(i,j) + co2dat(i,j)
+                  enddo
+                enddo
+              enddo
 
               do j = 1, JMXCO2
                 do i = 1, IMXCO2
-                  co2ann(i,j) = co2ann(i,j) + co2dat(i,j)
+                  co2ann(i,j) = co2ann(i,j) * 1.0e-6 / float(12)
                 enddo
               enddo
-            enddo
 
-            do j = 1, JMXCO2
-              do i = 1, IMXCO2
-                co2ann(i,j) = co2ann(i,j) * 1.0e-6 / float(12)
-              enddo
-            enddo
-
-            do imo = 1, 12
-              do j = 1, JMXCO2
-                do i = 1, IMXCO2
-                  co2vmr_sav(i,j,imo) = co2ann(i,j)+co2cyc_sav(i,j,imo)
+              do imo = 1, 12
+                do j = 1, JMXCO2
+                  do i = 1, IMXCO2
+                   co2vmr_sav(i,j,imo) = co2ann(i,j)+co2cyc_sav(i,j,imo)
+                  enddo
                 enddo
               enddo
-            enddo
 
-            if ( me==0 ) then
               print *,' CHECK: Sample of 2-d annual mean of CO2 ',      &
      &                'data used for year:',iyear
               print *, co2ann(1,:)
@@ -878,39 +864,41 @@
                 print *,'        Month =',imo
                 print *, co2vmr_sav(1,:,imo)
               enddo
-            endif
-          endif   ! endif_icl2flg_block
+            endif   ! endif_icl2flg_block
 
-        else                  ! no need to calc ic time annual mean first
+          else                  ! no need to calc ic time annual mean first
 
-          if ( ico2flg == 2 ) then      ! directly save monthly data
-            do imo = 1, 12
-              read (NICO2CN,cform) co2dat
-!check        print cform, co2dat
+            if ( ico2flg == 2 ) then      ! directly save monthly data
+              do imo = 1, 12
+                read (NICO2CN,cform) co2dat
+!check          print cform, co2dat
 
-              do j = 1, JMXCO2
-                do i = 1, IMXCO2
-                  co2vmr_sav(i,j,imo) = (co2dat(i,j) + rate) * 1.0e-6
+                do j = 1, JMXCO2
+                  do i = 1, IMXCO2
+                    co2vmr_sav(i,j,imo) = (co2dat(i,j) + rate) * 1.0e-6
+                  enddo
                 enddo
               enddo
-            enddo
 
-            if ( me == 0 ) then
               print *,' CHECK: Sample of selected months of CO2 ',      &
      &                'data used for year:',iyear
               do imo = 1, 12, 3
                 print *,'        Month =',imo
                 print *, co2vmr_sav(1,:,imo)
               enddo
-            endif
-          endif   ! endif_ico2flg_block
+            endif   ! endif_ico2flg_block
 
-          do imo = 1, 12
-            gco2cyc(imo) = 0.0
-          enddo
-        endif   ! endif_ictmflg_block
-        close ( NICO2CN )
-
+            do imo = 1, 12
+              gco2cyc(imo) = 0.0
+            enddo
+          endif   ! endif_ictmflg_block
+          close ( NICO2CN )
+        endif read_and_broadcast_co2_v2
+        call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
+        if ( ictmflg == -2 ) then
+          call ccpp_bcast(gco2cyc,    mpiroot, mpicomm, ierr)
+          call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
+        endif
       endif  Lab_if_idyr
 
       return
