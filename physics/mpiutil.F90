@@ -1,8 +1,7 @@
 module mpiutil
 
   use iso_fortran_env, only : real32, real64
-  use mpi, only: MPI_SUCCESS, MPI_BCAST
-  use mpi, only: MPI_INTEGER, MPI_REAL, MPI_DOUBLE_PRECISION, MPI_LOGICAL
+  use mpi
 
   implicit none
 
@@ -70,7 +69,6 @@ contains
    end subroutine bcast_i32d3
 
    subroutine bcast_r32d0(arr, root, comm, ierr)
-      use mpi, only: MPI_SUCCESS, MPI_BCAST, MPI_REAL
       real(kind=real32), intent(inout) :: arr
       integer, intent(in) :: root, comm
       integer, intent(out) :: ierr
