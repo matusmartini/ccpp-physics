@@ -529,19 +529,6 @@
         call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
       endif
 
-! DH* TODO REMOVE BEFORE MERGING
-!      print '(a,2i6)',"DHX ico2flg, ictmflg:",ico2flg,ictmflg
-!      print '(a,e16.7)',"DHX co2_glb:",co2_glb
-!      print '(a,2e16.7)',"DHX gco2cyc:",minval(gco2cyc),maxval(gco2cyc)
-!      if (allocated(co2vmr_sav)) then
-!      print '(a,2e16.7)',"DHX co2vmr_sav:",minval(co2vmr_sav),          &
-!     &                                     maxval(co2vmr_sav)
-!      endif
-!      if (allocated(co2cyc_sav)) then
-!      print '(a,2e16.7)',"DHX co2cyc_sav:",minval(co2cyc_sav),          &
-!     &                                     maxval(co2cyc_sav)
-!      endif
-! *DH
       return
 !
 !...................................
@@ -915,19 +902,6 @@
         call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
       endif
 
-! DH* TODO REMOVE BEFORE MERGING
-!      print '(a,2i6)',"DHY ico2flg, ictmflg:",ico2flg,ictmflg
-!      print '(a,i6,e16.7)',"DHY iyear, co2_glb:",iyear,co2_glb
-!      print '(a,2e16.7)',"DHY gco2cyc:",minval(gco2cyc),maxval(gco2cyc)
-!      if (allocated(co2vmr_sav)) then
-!      print '(a,2e16.7)',"DHY co2vmr_sav:",minval(co2vmr_sav),          &
-!     &                                     maxval(co2vmr_sav)
-!      endif
-!      if (allocated(co2cyc_sav)) then
-!      print '(a,2e16.7)',"DHY co2cyc_sav:",minval(co2cyc_sav),          &
-!     &                                     maxval(co2cyc_sav)
-!      endif
-! *DH
       return
 !
 !...................................
