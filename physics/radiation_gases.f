@@ -454,11 +454,6 @@
             endif
           endif read_and_broadcast_co2_v1
 
-          call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
-          if ( ico2flg == 2 ) then
-            call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
-          endif
-
         else   lab_ictm                           ! input from observed data
           if ( ico2flg == 1 ) then
             if ( mpirank==mpiroot ) then
@@ -519,15 +514,34 @@
             else
               allocate( co2cyc_sav(IMXCO2,JMXCO2,12) )
             endif read_and_broadcast_co2_v2
-
-            call ccpp_bcast(gco2cyc,    mpiroot, mpicomm, ierr)
-            call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
-
           endif
 
         endif   lab_ictm
       endif   lab_ico2
 
+      ! Broadcast all necessary fields
+      call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(gco2cyc, mpiroot, mpicomm, ierr)
+      if (allocated(co2vmr_sav)) then
+        call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
+      endif
+      if (allocated(co2cyc_sav)) then
+        call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
+      endif
+
+! DH* TODO REMOVE BEFORE MERGING
+!      print '(a,2i6)',"DHX ico2flg, ictmflg:",ico2flg,ictmflg
+!      print '(a,e16.7)',"DHX co2_glb:",co2_glb
+!      print '(a,2e16.7)',"DHX gco2cyc:",minval(gco2cyc),maxval(gco2cyc)
+!      if (allocated(co2vmr_sav)) then
+!      print '(a,2e16.7)',"DHX co2vmr_sav:",minval(co2vmr_sav),          &
+!     &                                     maxval(co2vmr_sav)
+!      endif
+!      if (allocated(co2cyc_sav)) then
+!      print '(a,2e16.7)',"DHX co2cyc_sav:",minval(co2cyc_sav),          &
+!     &                                     maxval(co2cyc_sav)
+!      endif
+! *DH
       return
 !
 !...................................
@@ -750,11 +764,6 @@
           endif   ! end if_file_exist_block
         endif read_and_broadcast_co2_v1
 
-        call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
-        if ( ico2flg == 2 ) then
-          call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
-        endif
-
       else  Lab_if_idyr
 
 !  --- ...  set up input data file name
@@ -894,13 +903,31 @@
           endif   ! endif_ictmflg_block
           close ( NICO2CN )
         endif read_and_broadcast_co2_v2
-        call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
-        if ( ictmflg == -2 ) then
-          call ccpp_bcast(gco2cyc,    mpiroot, mpicomm, ierr)
-          call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
-        endif
       endif  Lab_if_idyr
 
+      ! Broadcast all necessary fields
+      call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(gco2cyc, mpiroot, mpicomm, ierr)
+      if (allocated(co2vmr_sav)) then
+        call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
+      endif
+      if (allocated(co2cyc_sav)) then
+        call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
+      endif
+
+! DH* TODO REMOVE BEFORE MERGING
+!      print '(a,2i6)',"DHY ico2flg, ictmflg:",ico2flg,ictmflg
+!      print '(a,i6,e16.7)',"DHY iyear, co2_glb:",iyear,co2_glb
+!      print '(a,2e16.7)',"DHY gco2cyc:",minval(gco2cyc),maxval(gco2cyc)
+!      if (allocated(co2vmr_sav)) then
+!      print '(a,2e16.7)',"DHY co2vmr_sav:",minval(co2vmr_sav),          &
+!     &                                     maxval(co2vmr_sav)
+!      endif
+!      if (allocated(co2cyc_sav)) then
+!      print '(a,2e16.7)',"DHY co2cyc_sav:",minval(co2cyc_sav),          &
+!     &                                     maxval(co2cyc_sav)
+!      endif
+! *DH
       return
 !
 !...................................
