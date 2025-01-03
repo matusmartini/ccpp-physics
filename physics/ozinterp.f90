@@ -5,6 +5,8 @@
 !! This module contains subroutines of reading and interpolating ozone coefficients.
 module ozinterp
 
+   use mpiutil, only: ccpp_bcast
+
    implicit none
 
    private
@@ -13,20 +15,25 @@ module ozinterp
 
 contains
 
-      SUBROUTINE read_o3data (ntoz, me, master)
+      SUBROUTINE read_o3data (ntoz, mpicomm, mpirank, mpiroot)
       use machine,  only: kind_phys
       use ozne_def
 !--- in/out
       integer, intent(in) :: ntoz
-      integer, intent(in) :: me
-      integer, intent(in) :: master
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
 !--- locals
-      integer :: i, n, k
+      integer :: i, n, k, ierr
       real(kind=4), allocatable, dimension(:) :: oz_lat4, oz_pres4
       real(kind=4), allocatable, dimension(:) :: oz_time4, tempin
       real(kind=4) :: blatc4
 
       if (ntoz <= 0) then      ! Diagnostic ozone
+        ! DH* Add guard to prevent using this block without modifying
+        ! the reading of the input files. To use this with NEPTUNE, we
+        ! need to read with mpiroot and broadcast to the other tasks
+        ! (or be more sophisticated, but don't read with all tasks).
+        call ccpp_external_abort("ozinterp.f90:read_o3data")
+        ! *DH
         rewind (kozc)
         read (kozc,end=101) latsozc, levozc, timeozc, blatc4
   101   if (levozc  < 10 .or. levozc > 100) then
@@ -45,53 +52,67 @@ contains
         return
       endif
 
-      open(unit=kozpl,file='global_o3prdlos.f77', form='unformatted', convert='big_endian')
+      read_and_broadcast_1: if (mpirank==mpiroot) then
+        open(unit=kozpl,file='global_o3prdlos.f77', form='unformatted', convert='big_endian')
 
 !--- read in indices
 !---
-      read (kozpl) oz_coeff, latsozp, levozp, timeoz
-      if (me == master) then
+        read (kozpl) oz_coeff, latsozp, levozp, timeoz
         write(*,*) 'Reading in o3data from global_o3prdlos.f77 '
         write(*,*) '      oz_coeff = ', oz_coeff
         write(*,*) '       latsozp = ', latsozp
         write(*,*) '        levozp = ', levozp
         write(*,*) '        timeoz = ', timeoz
-      endif
+      endif read_and_broadcast_1
+      
+      call ccpp_bcast(oz_coeff, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(latsozp,  mpiroot, mpicomm, ierr)
+      call ccpp_bcast(levozp,   mpiroot, mpicomm, ierr)
+      call ccpp_bcast(timeoz,   mpiroot, mpicomm, ierr)
 
+      if ( .not. allocated(oz_lat)  ) allocate(oz_lat(latsozp))
+      if ( .not. allocated(oz_pres) ) allocate(oz_pres(levozp))
+      if ( .not. allocated(oz_time) ) allocate(oz_time(timeoz+1))
+      if ( .not. allocated(ozplin)  ) allocate(ozplin(latsozp,levozp,oz_coeff,timeoz))
+
+      read_and_broadcast_2: if (mpirank==mpiroot) then
 !--- read in data
 !---   oz_lat   -  latitude of data        (-90 to 90)
 !---   oz_pres  -  vertical pressure level (mb)
 !---   oz_time  -  time coordinate         (days)
 !---
-      if ( .not. allocated(oz_lat)  ) allocate(oz_lat(latsozp))
-      if ( .not. allocated(oz_pres) ) allocate(oz_pres(levozp))
-      if ( .not. allocated(oz_time) ) allocate(oz_time(timeoz+1))
-      allocate (oz_lat4(latsozp), oz_pres4(levozp),oz_time4(timeoz+1))
-      rewind (kozpl)
-      read (kozpl) oz_coeff, latsozp, levozp, timeoz, oz_lat4, oz_pres4, oz_time4
-      oz_pres(:) = oz_pres4(:)
+        allocate (oz_lat4(latsozp), oz_pres4(levozp),oz_time4(timeoz+1))
+        rewind (kozpl)
+        read (kozpl) oz_coeff, latsozp, levozp, timeoz, oz_lat4, oz_pres4, oz_time4
+        oz_pres(:) = oz_pres4(:)
 !---  convert pressure levels from mb to ln(Pa)
-      oz_pres(:) = log(100.0*oz_pres(:))
-      oz_lat(:)  = oz_lat4(:)
-      oz_time(:) = oz_time4(:)
-      deallocate (oz_lat4, oz_pres4, oz_time4)
+        oz_pres(:) = log(100.0*oz_pres(:))
+        oz_lat(:)  = oz_lat4(:)
+        oz_time(:) = oz_time4(:)
+        deallocate (oz_lat4, oz_pres4, oz_time4)
 
 !--- read in ozplin which is in order of (lattitudes, ozone levels, coeff number, time)
 !--- assume latitudes is on a uniform gaussian grid
 !---
-      allocate (tempin(latsozp))
-      if ( .not. allocated(ozplin) ) allocate (ozplin(latsozp,levozp,oz_coeff,timeoz))
-      DO i=1,timeoz
-        DO n=1,oz_coeff
-          DO k=1,levozp
-            READ(kozpl) tempin
-            ozplin(:,k,n,i) = tempin(:)
+        allocate (tempin(latsozp))
+        DO i=1,timeoz
+          DO n=1,oz_coeff
+            DO k=1,levozp
+              READ(kozpl) tempin
+              ozplin(:,k,n,i) = tempin(:)
+            ENDDO
           ENDDO
         ENDDO
-      ENDDO
-      deallocate (tempin)
+        deallocate (tempin)
 
-      close(kozpl)
+        close(kozpl)
+
+      end if read_and_broadcast_2
+
+      call ccpp_bcast(oz_lat,   mpiroot, mpicomm, ierr)
+      call ccpp_bcast(oz_pres,  mpiroot, mpicomm, ierr)
+      call ccpp_bcast(oz_time,  mpiroot, mpicomm, ierr)
+      call ccpp_bcast(ozplin,   mpiroot, mpicomm, ierr)
 
       END SUBROUTINE read_o3data
 !

@@ -48,7 +48,8 @@ module GFS_rrtmg_setup
           icliq_sw, crick_proof, ccnorm,                      &
           imp_physics,                                        &
           norad_precip, idate, iflip,                         &
-          do_RRTMGP, me, ltp, lextop, errmsg, errflg)
+          do_RRTMGP, mpicomm, mpirank, mpiroot,               &
+          ltp, lextop, errmsg, errflg)
 ! =================   subprogram documentation block   ================ !
 !                                                                       !
 ! subprogram:   GFS_rrtmg_setup_init - a subprogram to initialize radiation !
@@ -170,7 +171,9 @@ module GFS_rrtmg_setup
       integer, intent(in) :: idate(:)
       integer, intent(in) :: iflip
       logical, intent(in) :: do_RRTMGP
-      integer, intent(in) :: me
+      integer, intent(in) :: mpicomm
+      integer, intent(in) :: mpirank
+      integer, intent(in) :: mpiroot
       integer, intent(in) :: ltp
       logical, intent(in) :: lextop
       character(len=*), intent(out) :: errmsg
@@ -230,7 +233,7 @@ module GFS_rrtmg_setup
         ipsd0 = 17*idate(1)+43*idate(2)+37*idate(3)+23*idate(4)
       endif
 
-      if ( me == 0 ) then
+      if ( mpirank == mpiroot ) then
         print *,'  In rad_initialize (GFS_rrtmg_setup_init), before calling radinit'
         print *,' si =',si
         print *,' levr=',levr,' ictm=',ictm,' isol=',isol,' ico2=',ico2,&
@@ -238,18 +241,18 @@ module GFS_rrtmg_setup
         print *,' np3d=',num_p3d,' ntoz=',ntoz,                         &
      &          ' iovr=',iovr,' isubc_sw=',isubc_sw,                    &
      &          ' isubc_lw=',isubc_lw,' icliq_sw=',icliq_sw,            &
-     &          ' iflip=',iflip,'  me=',me
+     &          ' iflip=',iflip,'  me=',mpirank
         print *,' crick_proof=',crick_proof,                            &
      &          ' ccnorm=',ccnorm,' norad_precip=',norad_precip
       endif
 
       call radinit                                                      &
 !  ---  inputs:
-     &     ( si, levr, imp_physics, me, ltp, lextop )
+     &     ( si, levr, imp_physics, mpicomm, mpirank, mpiroot, ltp, lextop )
 !  ---  outputs:
 !          ( none )
 
-      if ( me == 0 ) then
+      if ( mpirank == mpiroot ) then
         print *,'  Radiation sub-cloud initial seed =',ipsd0,           &
      &          ' IC-idate =',idate
         print *,' return from rad_initialize (GFS_rrtmg_setup_init) - after calling radinit'
@@ -264,8 +267,9 @@ module GFS_rrtmg_setup
 !> \section arg_table_GFS_rrtmg_setup_timestep_init Argument Table
 !! \htmlinclude GFS_rrtmg_setup_timestep_init.html
 !!
-   subroutine GFS_rrtmg_setup_timestep_init (      &
-          idate, jdate, deltsw, deltim, lsswr, me, &
+   subroutine GFS_rrtmg_setup_timestep_init (  &
+          idate, jdate, deltsw, deltim, lsswr, &
+          mpicomm, mpirank, mpiroot,           &
           slag, sdec, cdec, solcon, errmsg, errflg)
 
       implicit none
@@ -276,7 +280,9 @@ module GFS_rrtmg_setup
       real(kind=kind_phys), intent(in)  :: deltsw
       real(kind=kind_phys), intent(in)  :: deltim
       logical,              intent(in)  :: lsswr
-      integer,              intent(in)  :: me
+      integer,              intent(in)  :: mpicomm
+      integer,              intent(in)  :: mpirank
+      integer,              intent(in)  :: mpiroot
       real(kind=kind_phys), intent(out) :: slag
       real(kind=kind_phys), intent(out) :: sdec
       real(kind=kind_phys), intent(out) :: cdec
@@ -295,8 +301,8 @@ module GFS_rrtmg_setup
       errmsg = ''
       errflg = 0
 
-      call radupdate(idate,jdate,deltsw,deltim,lsswr,me, &
-                     slag,sdec,cdec,solcon)
+      call radupdate(idate,jdate,deltsw,deltim,lsswr, &
+                     mpicomm,mpirank,mpiroot,slag,sdec,cdec,solcon)
 
    end subroutine GFS_rrtmg_setup_timestep_init
 
@@ -326,7 +332,7 @@ module GFS_rrtmg_setup
 ! Private functions
 
 
-   subroutine radinit( si, NLAY, imp_physics, me, ltp, lextop )
+   subroutine radinit( si, NLAY, imp_physics, mpicomm, mpirank, mpiroot, ltp, lextop )
 !...................................
 
 !  ---  inputs:
@@ -439,7 +445,8 @@ module GFS_rrtmg_setup
       implicit none
 
 !  ---  inputs:
-      integer, intent(in) :: NLAY, me, imp_physics, ltp
+      integer, intent(in) :: NLAY, imp_physics, ltp
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
       logical, intent(in) :: lextop 
 
       real (kind=kind_phys), intent(in) :: si(:)
@@ -458,7 +465,7 @@ module GFS_rrtmg_setup
       iyear0 = 0
       monthd = 0
 
-      if (me == 0) then
+      if (mpirank == mpiroot) then
 !       print *,' NEW RADIATION PROGRAM STRUCTURES -- SEP 01 2004'
         print *,' NEW RADIATION PROGRAM STRUCTURES BECAME OPER. ',      &
      &          '  May 01 2007'
@@ -528,17 +535,17 @@ module GFS_rrtmg_setup
 !! call module_radsw_main::rswinit()
 !     Initialization
 
-      call sol_init ( me )          !  --- ...  astronomy initialization routine
+      call sol_init ( mpicomm, mpirank, mpiroot )       !  --- ...  astronomy initialization routine
 
-      call aer_init ( NLAY, me )    !  --- ...  aerosols initialization routine
+      call aer_init ( NLAY, mpicomm, mpirank, mpiroot ) !  --- ...  aerosols initialization routine
 
-      call gas_init ( me )          !  --- ...  co2 and other gases initialization routine
+      call gas_init ( mpicomm, mpirank, mpiroot )       !  --- ...  co2 and other gases initialization routine
 
-      call cld_init ( si, NLAY, imp_physics, me) !  --- ...  cloud initialization routine
+      call cld_init ( si, NLAY, imp_physics, mpirank)   !  --- ...  cloud initialization routine
 
-      call rlwinit ( me )           !  --- ...  lw radiation initialization routine
+      call rlwinit ( mpirank )                          !  --- ...  lw radiation initialization routine
 
-      call rswinit ( me )           !  --- ...  sw radiation initialization routine
+      call rswinit ( mpirank )                          !  --- ...  sw radiation initialization routine
 !
       return
 !
@@ -565,8 +572,8 @@ module GFS_rrtmg_setup
 !! \param solcon         solar constant adjusted by sun-earth distance \f$(W/m^2)\f$
 !> \section gen_radupdate General Algorithm
 !-----------------------------------
-      subroutine radupdate( idate,jdate,deltsw,deltim,lsswr, me,        &
-     &                      slag,sdec,cdec,solcon)
+      subroutine radupdate( idate,jdate,deltsw,deltim,lsswr, &
+     &                      mpicomm,mpirank,mpiroot,slag,sdec,cdec,solcon)
 !...................................
 
 ! =================   subprogram documentation block   ================ !
@@ -634,7 +641,8 @@ module GFS_rrtmg_setup
       implicit none
 
 !  ---  inputs:
-      integer, intent(in) :: idate(:), jdate(:), me
+      integer, intent(in) :: idate(:), jdate(:)
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
       logical, intent(in) :: lsswr
 
       real (kind=kind_phys), intent(in) :: deltsw, deltim
@@ -697,7 +705,8 @@ module GFS_rrtmg_setup
 
         call sol_update                                                 &
 !  ---  inputs:
-     &     ( jdate,kyear,deltsw,deltim,lsol_chg, me,                    &
+     &     ( jdate,kyear,deltsw,deltim,lsol_chg,                        &
+     &       mpicomm,mpirank,mpiroot,                                   &
 !  ---  outputs:
      &       slag,sdec,cdec,solcon                                      &
      &     )
@@ -707,7 +716,7 @@ module GFS_rrtmg_setup
 !> -# Call module_radiation_aerosols::aer_update(), monthly update, no
 !! time interpolation
       if ( lmon_chg ) then
-        call aer_update ( iyear, imon, me )
+        call aer_update ( iyear,imon,mpicomm,mpirank,mpiroot )
       endif
 
 !> -# Call co2 and other gases update routine:
@@ -719,7 +728,8 @@ module GFS_rrtmg_setup
         lco2_chg = .false.
       endif
 
-      call gas_update ( kyear,kmon,kday,khour,loz1st,lco2_chg, me )
+      call gas_update ( kyear,kmon,kday,khour,loz1st,lco2_chg,          &
+     &                  mpicomm,mpirank,mpiroot )
 
       if ( loz1st ) loz1st = .false.
 

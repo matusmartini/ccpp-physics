@@ -128,6 +128,7 @@
       module module_radiation_aerosols   !
 !........................................!
 !
+      use mpiutil,  only: ccpp_bcast
       use physparam,only : iaermdl, iaerflg, lalw1bd, aeros_file,       &
      &                     ivflip, kind_phys, kind_io4, kind_io8
       use physcons, only : con_pi, con_rd, con_g, con_t0c, con_c,       &
@@ -498,7 +499,7 @@
 !>\section gen_al General Algorithm
 !-----------------------------------
       subroutine aer_init                                               &
-     &     ( NLAY, me ) !  ---  inputs
+     &     ( NLAY, mpicomm, mpirank, mpiroot ) !  ---  inputs
 !  ---  outputs: ( to module variables )
 
 !  ==================================================================  !
@@ -541,7 +542,7 @@
 !  ==================================================================  !
 
 !  ---  inputs:
-      integer,  intent(in) :: NLAY, me
+      integer,  intent(in) :: NLAY, mpicomm, mpirank, mpiroot
 
 !  ---  output: ( none )
 
@@ -562,7 +563,7 @@
 
 !> -# Call wrt_aerlog() to write aerosol parameter configuration to output logs.
 
-      if ( me == 0 ) then
+      if ( mpirank == mpiroot ) then
 
         call wrt_aerlog      ! write aerosol param info to log file
 !  ---  inputs:   (in scope variables)
@@ -626,7 +627,7 @@
 
           call clim_aerinit                                             &
 !  ---  inputs:
-     &     ( solfwv, eirfwv, me                                         &
+     &     ( solfwv, eirfwv, mpicomm, mpirank, mpiroot                  &
 !  ---  outputs:
      &     )
 
@@ -634,12 +635,12 @@
 
           call gocart_aerinit                                           &
 !  ---  inputs:
-     &     ( solfwv, eirfwv, me                                         &
+     &     ( solfwv, eirfwv, mpirank                                    &
 !  ---  outputs:
      &     )
 
         else
-          if ( me == 0 ) then
+          if ( mpirank == mpiroot ) then
             print *,'  !!! ERROR in aerosol model scheme selection',    &
      &              ' iaermdl =',iaermdl
             call ccpp_external_abort("radiation_aerosols.f:aer_init")
@@ -909,7 +910,7 @@
 !!
 !!\section gen_clim_aerinit General Algorithm
       subroutine clim_aerinit                                           &
-     &     ( solfwv, eirfwv, me                                         &          ! ---  inputs
+     &     ( solfwv, eirfwv, mpicomm, mpirank, mpiroot                  &          ! ---  inputs
      &     )                                                           !  ---  outputs
 
 !  ==================================================================  !
@@ -960,7 +961,7 @@
       real (kind=kind_phys), dimension(:) :: solfwv        ! one wvn sol flux
       real (kind=kind_phys), dimension(:) :: eirfwv        ! one wvn ir flux
 
-      integer,  intent(in) :: me
+      integer,  intent(in) :: mpicomm, mpirank, mpiroot
 
 !  ---  output: ( none )
 
@@ -984,7 +985,7 @@
 !  --- ...  invoke tropospheric aerosol initialization
 
 !> - call set_aercoef() to invoke tropospheric aerosol initialization.
-      call set_aercoef
+      call set_aercoef(mpicomm, mpirank, mpiroot)
 !  ---  inputs:   (in-scope variables, module constants)
 !  ---  outputs:  (module variables)
 
@@ -998,7 +999,7 @@
 !! corresponding SW radiation spectral bands.
 !!\section det_set_aercoef General Algorithm
 !--------------------------------
-      subroutine set_aercoef
+      subroutine set_aercoef(mpicomm, mpirank, mpiroot)
 !................................
 !  ---  inputs:   (in-scope variables, module constants)
 !  ---  outputs:  (module variables)
@@ -1074,7 +1075,8 @@
 !                                                                      !
 !  ==================================================================  !
 !
-!  ---  inputs:  ( none )
+!  ---  inputs:  ( mpicomm, mpirank, mpiroot )
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
 !  ---  output: ( none )
 
 !  ---  locals:
@@ -1086,38 +1088,41 @@
 
       logical :: file_exist
       character :: cline*80
+      integer :: ierr
 !
 !===>  ...  begin here
 !
 !> -# Reading climatological aerosols optical data from aeros_file,
 !! including:
 
-      inquire (file=aeros_file, exist=file_exist)
+      if (mpirank==mpiroot) then
+        inquire (file=aeros_file, exist=file_exist)
 
-      if ( file_exist ) then
-        close (NIAERCM)
-        open  (unit=NIAERCM,file=aeros_file,status='OLD',               &
-     &        action='read',form='FORMATTED')
-        rewind (NIAERCM)
-      else
-        print *,'    Requested aerosol data file "',aeros_file,         &
-     &          '" not found!'
-        print *,'    *** Stopped in subroutine aero_init !!'
-            call ccpp_external_abort("radiation_aerosols.f:set_aercoef")
-      endif     ! end if_file_exist_block
+        if ( file_exist ) then
+          close (NIAERCM)
+          open  (unit=NIAERCM,file=aeros_file,status='OLD',             &
+     &          action='read',form='FORMATTED')
+          rewind (NIAERCM)
+        else
+          print *,'    Requested aerosol data file "',aeros_file,       &
+     &            '" not found!'
+          print *,'    *** Stopped in subroutine aero_init !!'
+           call ccpp_external_abort("radiation_aerosols.f:set_aercoef")
+        endif     ! end if_file_exist_block
 
 !  --- ...  skip monthly global distribution
 
-      do m = 1, 12
-        read (NIAERCM,12) cline
-  12    format(a80/)
-
-        do j = 1, JMXAE
-          do i = 1, IMXAE
-            read(NIAERCM,*) id
+        do m = 1, 12
+          read (NIAERCM,12) cline
+  12      format(a80/)
+        
+          do j = 1, JMXAE
+            do i = 1, IMXAE
+              read(NIAERCM,*) id
+            enddo
           enddo
-        enddo
-      enddo   ! end do_m_block
+        enddo   ! end do_m_block
+      endif
 
 !  --- ...  aloocate and input aerosol optical data
 
@@ -1133,60 +1138,76 @@
         allocate ( extstra(            NSWLWBD) )
       endif
 
+      if (mpirank==mpiroot) then
 !>  - ending wave num for 61 aerosol spectral bands
-      read(NIAERCM,21) cline
-  21  format(a80)
-      read(NIAERCM,22) iendwv(:)
-  22  format(13i6)
+        read(NIAERCM,21) cline
+  21    format(a80)
+        read(NIAERCM,22) iendwv(:)
+  22    format(13i6)
 
 !>  - atmos scale height for 5 domains, 7 profs
-      read(NIAERCM,21) cline
-      read(NIAERCM,24) haer(:,:)
-  24  format(20f4.1)
+        read(NIAERCM,21) cline
+        read(NIAERCM,24) haer(:,:)
+  24    format(20f4.1)
 
 !>  - reference pressure for 5 domains, 7 profs
-      read(NIAERCM,21) cline
-      read(NIAERCM,26) prsref(:,:)
-  26  format(10f7.2)
+        read(NIAERCM,21) cline
+        read(NIAERCM,26) prsref(:,:)
+  26    format(10f7.2)
 
 !>  - rh independent ext coef for 61 bands, 6 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhidext0(:,:)
-  28  format(8e10.3)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhidext0(:,:)
+  28    format(8e10.3)
 
 !>  - rh independent sca coef for 61 bands, 6 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhidsca0(:,:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhidsca0(:,:)
 
 !>  - rh independent ssa coef for 61 bands, 6 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhidssa0(:,:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhidssa0(:,:)
 
 !>  - rh independent asy coef for 61 bands, 6 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhidasy0(:,:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhidasy0(:,:)
 
 !>  - rh dependent ext coef for 61 bands, 8 rh lev, 4 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhdpext0(:,:,:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhdpext0(:,:,:)
 
 !>  - rh dependent sca coef for 61 bands, 8 rh lev, 4 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhdpsca0(:,:,:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhdpsca0(:,:,:)
 
 !>  - rh dependent ssa coef for 61 bands, 8 rh lev, 4 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhdpssa0(:,:,:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhdpssa0(:,:,:)
 
 !>  - rh dependent asy coef for 61 bands, 8 rh lev, 4 species
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) rhdpasy0(:,:,:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) rhdpasy0(:,:,:)
 
 !>  - stratospheric background aeros for 61 bands
-      read(NIAERCM,21) cline
-      read(NIAERCM,28) straext0(:)
+        read(NIAERCM,21) cline
+        read(NIAERCM,28) straext0(:)
 
-      close (NIAERCM)
+        close (NIAERCM)
+      endif
+
+      ! Broadcast data
+      call ccpp_bcast(iendwv,   mpiroot, mpicomm, ierr)
+      call ccpp_bcast(haer,     mpiroot, mpicomm, ierr)
+      call ccpp_bcast(prsref,   mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhidext0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhidsca0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhidssa0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhidasy0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhdpext0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhdpsca0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhdpssa0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(rhdpasy0, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(straext0, mpiroot, mpicomm, ierr)
 
 !> -# Convert pressure reference level (in mb) to sigma reference level
 !!    assume an 1000mb reference surface pressure.
@@ -1704,7 +1725,7 @@
 !>\section gen_aer_upd General Algorithm
 !-----------------------------------
       subroutine aer_update                                             &
-     &     ( iyear, imon, me ) !  ---  inputs:
+     &     ( iyear, imon, mpicomm, mpirank, mpiroot ) !  ---  inputs:
 !  ---  outputs: ( to module variables )
 
 !  ==================================================================  !
@@ -1731,7 +1752,7 @@
 !  ==================================================================  !
 
 !  ---  inputs:
-      integer,  intent(in) :: iyear, imon, me
+      integer,  intent(in) :: iyear, imon, mpicomm, mpirank, mpiroot
 
 !  ---  output: ( none )
 
@@ -1750,14 +1771,14 @@
       if ( lalwflg .or. laswflg ) then
 
         if ( iaermdl == 0 .or. iaermdl==5 ) then    ! opac-climatology scheme
-        call trop_update
+        call trop_update(mpicomm, mpirank, mpiroot)
         endif
 
       endif
 
 !> -# Call volc_update() to update yearly stratospheric volcanic aerosol data.
       if ( lavoflg ) then
-        call volc_update
+        call volc_update(mpicomm, mpirank, mpiroot)
       endif
 
 
@@ -1768,8 +1789,7 @@
 !> This subroutine updates the monthly global distribution of aerosol
 !! profiles in five degree horizontal resolution.
 !--------------------------------
-      subroutine trop_update
-      use mpi  ! neptune kludge, 20210414
+      subroutine trop_update(mpicomm, mpirank, mpiroot)
 !................................
 !  ---  inputs:    (in scope variables, module variables)
 !  ---  outputs:   (module variables)
@@ -1806,8 +1826,9 @@
 !                                                                      !
 !  ==================================================================  !
 
-!  ---  inputs: ( none )
+!  ---  inputs: ( mpicomm, mpirank, mpiroot )
 !  ---  output: ( none )
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
 
 !  ---  locals:
 !     real (kind=kind_io8)  :: cmix(NXC), denn, tem
@@ -1818,11 +1839,7 @@
       logical :: file_exist
 
       character :: cline*80, ctyp*3
-      ! neptune kludge, 20210414
-      integer, external :: neptune_communicator, neptune_mpi_rank
-      logical           :: read_and_broadcast = .false.
-      integer           :: mp_comm, ierr, real_datatype
-      ! end neptune kludge, 20210414
+      integer           :: ierr
 !
 !===>  ...  begin here
 !
@@ -1844,113 +1861,77 @@
 
 !  --- ...  reading climatological aerosols data
 
-      ! neptune kludge, 20210414
-      mp_comm = neptune_communicator()
-      if ( kind_phys == 4 ) then
-        real_datatype = MPI_REAL
-      else
-        real_datatype = MPI_DOUBLE_PRECISION
-      endif
-      if ( mp_comm .ne. -1 ) read_and_broadcast = .true.
-      if ( .not. read_and_broadcast .or. neptune_mpi_rank().eq.0 ) then
-      ! end neptune kludge, 20210414
+      read_and_broadcast: if (mpirank==mpiroot) then
+        inquire (file=aeros_file, exist=file_exist)
 
-      inquire (file=aeros_file, exist=file_exist)
-
-      if ( file_exist ) then
-        close(NIAERCM)
-        open (unit=NIAERCM,file=aeros_file,status='OLD',                &
-     &        action='read',form='FORMATTED')
-        rewind (NIAERCM)
-
-        if ( me == 0 ) then
+        if ( file_exist ) then
+          close(NIAERCM)
+          open (unit=NIAERCM,file=aeros_file,status='OLD',              &
+     &          action='read',form='FORMATTED')
+          rewind (NIAERCM)
           print *,'   Opened aerosol data file: ',aeros_file
-        endif
-      else
-        print *,'    Requested aerosol data file "',aeros_file,         &
-     &          '" not found!'
-        print *,'    *** Stopped in subroutine trop_update !!'
-        call ccpp_external_abort("radiation_aerosols.f:trop_update")
-      endif      ! end if_file_exist_block
+
+        else
+          print *,'    Requested aerosol data file "',aeros_file,       &
+     &              '" not found!'
+          print *,'    *** Stopped in subroutine trop_update !!'
+          call ccpp_external_abort("radiation_aerosols.f:trop_update")
+        endif      ! end if_file_exist_block
 
 !  --- ...  loop over 12 month global distribution
 
-      Lab_do_12mon : do m = 1, 12
+        Lab_do_12mon : do m = 1, 12
 
-        read(NIAERCM,12) cline
-  12    format(a80/)
+          read(NIAERCM,12) cline
+  12      format(a80/)
 
-        if ( m /= imon ) then
-!         if ( me == 0 ) print *,'  *** Skipped ',cline
+          if ( m /= imon ) then
+!           if ( me == 0 ) print *,'  *** Skipped ',cline
 
-          do j = 1, JMXAE
-            do i = 1, IMXAE
-              read(NIAERCM,*) id
-            enddo
-          enddo
-        else
-          if ( me == 0 ) print *,'  --- Reading ',cline
-
-          do j = 1, JMXAE
-            do i = 1, IMXAE
-              read(NIAERCM,14) (idxc(k),cmix(k),k=1,NXC),kprf,denn,nc,  &
-     &                         ctyp
-  14          format(5(i2,e11.4),i2,f8.2,i3,1x,a3)
-
-              kprfg(i,j)     = kprf
-              denng(1,i,j)   = denn       ! num density of 1st layer
-              if ( kprf >= 6 ) then
-                denng(2,i,j) = cmix(NXC)  ! num density of 2dn layer
-              else
-                denng(2,i,j) = f_zero
-              endif
-
-              tem = f_one
-              do k = 1, NXC-1
-                idxcg(k,i,j) = idxc(k)    ! component index
-                cmixg(k,i,j) = cmix(k)    ! component mixing ratio
-                tem          = tem - cmix(k)
+            do j = 1, JMXAE
+              do i = 1, IMXAE
+                read(NIAERCM,*) id
               enddo
-              idxcg(NXC,i,j) = idxc(NXC)
-              cmixg(NXC,i,j) = tem        ! to make sure all add to 1.
             enddo
-          enddo
+          else
+            if ( mpirank==mpiroot ) print *,'  --- Reading ',cline
 
-          close (NIAERCM)
-          exit  Lab_do_12mon
-        endif     ! end if_m_block
+            do j = 1, JMXAE
+              do i = 1, IMXAE
+                read(NIAERCM,14) (idxc(k),cmix(k),k=1,NXC),kprf,denn,nc,&
+     &                           ctyp
+  14            format(5(i2,e11.4),i2,f8.2,i3,1x,a3)
 
-      enddo  Lab_do_12mon
-      endif  ! read_and_broadcast  (first) neptune kludge, 20210414
+                kprfg(i,j)     = kprf
+                denng(1,i,j)   = denn       ! num density of 1st layer
+                if ( kprf >= 6 ) then
+                  denng(2,i,j) = cmix(NXC)  ! num density of 2dn layer
+                else
+                  denng(2,i,j) = f_zero
+                endif
 
-      ! neptune kludge, 20210414
-      if ( read_and_broadcast ) then
-        call mpi_bcast(kprfg,size(kprfg),MPI_INTEGER,0,mp_comm,ierr )
-        if ( ierr .ne. MPI_SUCCESS ) then
-          write(0,*)'radiation_aerosols.f: error bcasting kprfg'
-          call mpi_abort( mp_comm, 90210, ierr )
-        endif
+                tem = f_one
+                do k = 1, NXC-1
+                  idxcg(k,i,j) = idxc(k)    ! component index
+                  cmixg(k,i,j) = cmix(k)    ! component mixing ratio
+                  tem          = tem - cmix(k)
+                enddo
+                idxcg(NXC,i,j) = idxc(NXC)
+                cmixg(NXC,i,j) = tem        ! to make sure all add to 1.
+              enddo
+            enddo
 
-        call mpi_bcast( denng,size(denng),real_datatype,0,mp_comm,ierr )
-        if ( ierr .ne. MPI_SUCCESS ) then
-          write(0,*)'radiation_aerosols.f: error bcasting denng'
-          call mpi_abort( mp_comm, 90210, ierr )
-        endif
+            close (NIAERCM)
+            exit  Lab_do_12mon
+          endif     ! end if_m_block
+        
+        enddo  Lab_do_12mon
+      endif read_and_broadcast
 
-        call mpi_bcast( idxcg,size(idxcg),MPI_INTEGER,0,mp_comm,ierr )
-        if ( ierr .ne. MPI_SUCCESS ) then
-          write(0,*)'radiation_aerosols.f: error bcasting idxcg'
-          call mpi_abort( mp_comm, 90210, ierr )
-        endif
-
-        call mpi_bcast( cmixg,size(cmixg),real_datatype,0,mp_comm,ierr )
-        if ( ierr .ne. MPI_SUCCESS ) then
-          write(0,*)'radiation_aerosols.f: error bcasting cmixg'
-          call mpi_abort( mp_comm, 90210, ierr )
-        endif
-
-      endif ! read_and_broadcast (second) neptune kludge, 20210414
-      ! end neptune kludge, 20210414
+      call ccpp_bcast(kprfg, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(denng, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(idxcg, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(cmixg, mpiroot, mpicomm, ierr)
 
 !  --  check print
 
@@ -1974,7 +1955,7 @@
 !> This subroutine searches historical volcanic data sets to find and
 !! read in monthly 45-degree lat-zone band of optical depth.
 !--------------------------------
-      subroutine volc_update
+      subroutine volc_update(mpicomm, mpirank, mpiroot)
 !................................
 !  ---  inputs:    (in scope variables, module variables)
 !  ---  outputs:   (module variables)
@@ -2009,6 +1990,7 @@
 
 !  ---  inputs: (in-scope variables, module constants)
 !     integer :: iyear, imon, me, NIAERCM
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
 
 !  ---  output: (module variables)
 !     integer :: ivolae(:,:,:), kyrstr, kyrend, kyrsav, kmonsav
@@ -2019,6 +2001,7 @@
 
       character :: cline*80, volcano_file*32
       data volcano_file / 'volcanic_aerosols_1850-1859.txt ' /
+      integer :: ierr
 !
 !===>  ...  begin here
 !
@@ -2041,49 +2024,51 @@
 !           allocate ( ivolae(12,4,10) )   ! for 12-mon,4-lat_zone,10-year
 !         endif
           ivolae(:,:,:) = 1            ! set as lowest value
-          if ( me == 0 ) then
+          if ( mpirank==mpiroot ) then
             print *,'   Request volcanic date out of range,',           &
      &              ' optical depth set to lowest value'
           endif
         else
           write(volcano_file(19:27),60) kyrstr,kyrend
   60      format(i4.4,'-',i4.4)
+          read_and_broadcast: if (mpirank==mpiroot) then
+            inquire (file=volcano_file, exist=file_exist)
+            if ( file_exist ) then
+              close(NIAERCM)
+              open (unit=NIAERCM,file=volcano_file,status='OLD',        &
+     &              action='read',form='FORMATTED')
 
-          inquire (file=volcano_file, exist=file_exist)
-          if ( file_exist ) then
-            close(NIAERCM)
-            open (unit=NIAERCM,file=volcano_file,status='OLD',          &
-     &            action='read',form='FORMATTED')
-
-            read(NIAERCM,62) cline
-  62        format(a80)
+              read(NIAERCM,62) cline
+  62          format(a80)
 
 !  ---  check print
-            if ( me == 0 ) then
               print *,'   Opened volcanic data file: ',volcano_file
               print *, cline
-            endif
 
-            do k = 1, 10
-              do j = 1, 4
-                read(NIAERCM,64) (ivolae(i,j,k),i=1,12)
-  64            format(12i5)
+              do k = 1, 10
+                do j = 1, 4
+                  read(NIAERCM,64) (ivolae(i,j,k),i=1,12)
+  64              format(12i5)
+                enddo
               enddo
-            enddo
 
-            close (NIAERCM)
-          else
-            print *,'   Requested volcanic data file "',                &
-     &              volcano_file,'" not found!'
-            print *,'   *** Stopped in subroutine VOLC_AERINIT !!'
-            call ccpp_external_abort("radiation_aerosols.f:volc_update")
-          endif   ! end if_file_exist_block
-
+              close (NIAERCM)
+            else
+              print *,'   Requested volcanic data file "',              &
+     &                volcano_file,'" not found!'
+              print *,'   *** Stopped in subroutine VOLC_AERINIT !!'
+              call ccpp_external_abort("radiation_aerosols.f:volc_upd.")
+            endif   ! end if_file_exist_block
+          endif read_and_broadcast
+          ! Prevent warnings for potentially unused variables
+          file_exist = .true.
+          cline = ''
+          call ccpp_bcast(ivolae, mpiroot, mpicomm, ierr)
         endif   ! end if_iyear_block
       endif   ! end if_kyrstr_block
 
 !  ---  check print
-      if ( me == 0 ) then
+      if ( mpirank==mpiroot ) then
         k = mod(kyrsav,10) + 1
         print *,' CHECK: Sample Volcanic data used for month, year:',   &
      &           imon, iyear
@@ -3524,6 +3509,12 @@
 !
 !  --- ...  invoke gocart aerosol initialization
 
+      ! DH* Add guard to prevent using this routine without modifying
+      ! the reading of the input files. To use this with NEPTUNE, we
+      ! need to read with mpiroot and broadcast to the other tasks
+      ! (or be more sophisticated, but don't read with all tasks).
+      call ccpp_external_abort("radiation_aerosols.f:gocart_aerinit")
+      ! *DH
 
       if (KCM /= ntrcaerm ) then
         print *, 'ERROR in # of gocart aer species',KCM

@@ -15,13 +15,14 @@ module aerinterp
 
 contains
 
-      SUBROUTINE read_aerdata (me, master, iflip, idate, errmsg, errflg)
+      SUBROUTINE read_aerdata (mpicomm, mpirank, mpiroot, iflip, idate, errmsg, errflg)
       use machine, only: kind_phys, kind_io4, kind_io8
+      use mpiutil, only: ccpp_bcast
       use aerclm_def
       use netcdf
 
 !--- in/out
-      integer, intent(in) :: me, master, iflip, idate(4)
+      integer, intent(in) :: mpicomm, mpirank, mpiroot, iflip, idate(4)
       character(len=*), intent(inout) :: errmsg
       integer, intent(inout) :: errflg
 
@@ -30,56 +31,58 @@ contains
       integer      :: i, j, k, n, ii, imon, klev
       character    :: fname*50, mn*2, vname*10
       logical      :: file_exist
+      integer      :: ierr
 
       integer, allocatable  :: invardims(:)
 !
 !! ===================================================================
-      if (me == master) then
+      read_and_broadcast_1: if (mpirank==mpiroot) then
          if ( iflip == 0 )  then             ! data from toa to sfc
           print *, "GFS is top-down"
          else
           print *, "GFS is bottom-up"
          endif
-      endif
 !
 !! ===================================================================
 !! check if all necessary files exist
 !! ===================================================================
-      do imon = 1, 12
-         write(mn,'(i2.2)') imon
-         fname=trim("aeroclim.m"//mn//".nc")
-         inquire (file = fname, exist = file_exist)
-         if (.not. file_exist) then
-            errmsg = 'Error in read_aerdata: file ' // trim(fname) // ' not found'
-            errflg = 1
-            return
-         endif
-      enddo
+        do imon = 1, 12
+           write(mn,'(i2.2)') imon
+           fname=trim("aeroclim.m"//mn//".nc")
+           inquire (file = fname, exist = file_exist)
+           if (.not. file_exist) then
+              errmsg = 'Error in read_aerdata: file ' // trim(fname) // ' not found'
+              errflg = 1
+              return
+           endif
+        enddo
 !
 !! ===================================================================
 !! fetch dim spec and lat/lon from m01 data set
 !! ===================================================================
-      fname=trim("aeroclim.m"//'01'//".nc")
-      call nf_open(fname , nf90_NOWRITE, ncid)
+        fname=trim("aeroclim.m"//'01'//".nc")
+        call nf_open(fname , nf90_NOWRITE, ncid)
 
-      vname =  trim(specname(1))
-      call nf_inq_varid(ncid, vname, varid)
-      call nf_inq_varndims(ncid, varid, ndims)
+        vname =  trim(specname(1))
+        call nf_inq_varid(ncid, vname, varid)
+        call nf_inq_varndims(ncid, varid, ndims)
 
-      if(.not. allocated(invardims)) allocate(invardims(3))
-      call nf_inq_vardimid(ncid,varid,invardims)
-      call nf_inq_dimlen(ncid, invardims(1), dim1)
-      call nf_inq_dimlen(ncid, invardims(2), dim2)
-      call nf_inq_dimlen(ncid, invardims(3), dim3)
+        if(.not. allocated(invardims)) allocate(invardims(3))
+        call nf_inq_vardimid(ncid,varid,invardims)
+        call nf_inq_dimlen(ncid, invardims(1), dim1)
+        call nf_inq_dimlen(ncid, invardims(2), dim2)
+        call nf_inq_dimlen(ncid, invardims(3), dim3)
 
 ! specify latsaer, lonsaer, hmx
-      lonsaer = dim1
-      latsaer = dim2
-      levsw = dim3
+        lonsaer = dim1
+        latsaer = dim2
+        levsw = dim3
+        print *, 'MERRA2 dim: ',dim1, dim2, dim3
+      endif read_and_broadcast_1
 
-      if(me==master) then
-         print *, 'MERRA2 dim: ',dim1, dim2, dim3
-      endif
+      call ccpp_bcast(lonsaer, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(latsaer, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(levsw,   mpiroot, mpicomm, ierr)
 
 ! allocate arrays
 
@@ -89,20 +92,26 @@ contains
       endif
 
 ! construct lat/lon array
-      call nf_inq_varid(ncid, 'lat', varid)
-      call nf_get_var(ncid, varid, aer_lat)
-      call nf_inq_varid(ncid, 'lon', varid)
-      call nf_get_var(ncid, varid, aer_lon)
-      call nf_close(ncid)
+      read_and_broadcast_2: if (mpirank==mpiroot) then
+        call nf_inq_varid(ncid, 'lat', varid)
+        call nf_get_var(ncid, varid, aer_lat)
+        call nf_inq_varid(ncid, 'lon', varid)
+        call nf_get_var(ncid, varid, aer_lon)
+        call nf_close(ncid)
+      endif read_and_broadcast_2
+
+      call ccpp_bcast(aer_lat, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(aer_lon, mpiroot, mpicomm, ierr)
+
       END SUBROUTINE read_aerdata
 !
 !**********************************************************************
-      SUBROUTINE read_aerdataf ( me, master, iflip, idate, FHOUR, errmsg, errflg)
+      SUBROUTINE read_aerdataf (mpicomm, mpirank, mpiroot, iflip, idate, FHOUR, errmsg, errflg)
       use machine, only: kind_phys, kind_io4, kind_io8
       use aerclm_def
 
 !--- in/out
-      integer, intent(in) :: me, master, iflip, idate(4)
+      integer, intent(in) :: mpicomm, mpirank, mpiroot, iflip, idate(4)
       character(len=*), intent(inout) :: errmsg
       integer, intent(inout) :: errflg
       real(kind=kind_phys), intent(in) :: fhour
@@ -115,8 +124,6 @@ contains
       integer jdow, jdoy, jday
       real(4) rinc4(5)
       integer w3kindreal,w3kindint      
-
-      integer, allocatable  :: invardims(:)
 !
       if (.not. allocated(aerin)) then
         allocate(aerin(iamin:iamax,jamin:jamax,levsaer,ntrcaerm,timeaer))
@@ -157,8 +164,8 @@ contains
       n1 = n2 - 1
       if (n2 > 12) n2 = n2 -12
 !! ===================================================================
-      call read_netfaer(n1, iflip, 1)
-      call read_netfaer(n2, iflip, 2)
+      call read_netfaer(mpicomm, mpirank, mpiroot, n1, iflip, 1)
+      call read_netfaer(mpicomm, mpirank, mpiroot, n2, iflip, 2)
 !! ===================================================================
       n1sv=n1
       n2sv=n2
@@ -223,7 +230,8 @@ contains
 !**********************************************************************
 !**********************************************************************
 !
-      SUBROUTINE aerinterpol( me,master,nthrds,npts,IDATE,FHOUR,iflip, jindx1,jindx2, &
+      SUBROUTINE aerinterpol(mpicomm,mpirank,mpiroot,nthrds,npts, &
+                             IDATE,FHOUR,iflip, jindx1,jindx2, &
                              ddy,iindx1,iindx2,ddx,lev,prsl,aerout)
 !
       use machine, only: kind_phys, kind_io4, kind_io8
@@ -238,7 +246,8 @@ contains
 !
 
       integer  JINDX1(npts), JINDX2(npts), iINDX1(npts), iINDX2(npts)
-      integer  me,idate(4), master, nthrds
+      integer  mpicomm, mpirank, mpiroot
+      integer  idate(4), nthrds
       integer  IDAT(8),JDAT(8)
 !
       real(kind=kind_phys) DDY(npts), ddx(npts),ttt
@@ -286,7 +295,7 @@ contains
 !     need to read a new month 
       if (n1.ne.n1sv) then
 #ifdef DEBUG
-        if (me == master) write(*,*)"read in a new month MERRA2", n2
+        if (mpirank==mpiroot) write(*,*)"read in a new month MERRA2", n2
 #endif
         DO ii = 1, ntrcaerm
           do j = jamin, jamax
@@ -298,7 +307,7 @@ contains
           enddo       !j-loop (lat)
         ENDDO         ! ii-loop (ntracaerm)
 !! ===================================================================
-        call read_netfaer(n2, iflip, 2)
+        call read_netfaer(mpicomm, mpirank, mpiroot, n2, iflip, 2)
         n1sv=n1
         n2sv=n2
       end if
@@ -390,83 +399,92 @@ contains
       RETURN
       END SUBROUTINE aerinterpol
 
-      subroutine read_netfaer(nf, iflip,nt)
+      subroutine read_netfaer(mpicomm, mpirank, mpiroot, nf, iflip,nt)
       use machine, only: kind_phys, kind_io4, kind_io8
+      use mpiutil, only: ccpp_bcast
       use aerclm_def
       use netcdf
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
       integer, intent(in) :: iflip, nf, nt
       integer      :: ncid, varid, i,j,k,ii,klev
       character    :: fname*50, mn*2, vname*10
       real(kind=kind_io4),allocatable,dimension(:,:,:) :: buff
       real(kind=kind_io4),allocatable,dimension(:,:,:,:):: buffx
       real(kind=kind_io4),allocatable,dimension(:,:)   :: pres_tmp
+      integer :: ierr
       
 !! ===================================================================
-      allocate (buff(lonsaer, latsaer, levsw))
-      allocate (pres_tmp(lonsaer, levsw))
-      allocate (buffx(lonsaer, latsaer, levsw, 1))
+      read_and_broadcast: if (mpirank==mpiroot) then
+        allocate (buff(lonsaer, latsaer, levsw))
+        allocate (pres_tmp(lonsaer, levsw))
+        allocate (buffx(lonsaer, latsaer, levsw, 1))
 
-      write(mn,'(i2.2)') nf 
-      fname=trim("aeroclim.m"//mn//".nc")
-      call nf_open(fname , nf90_NOWRITE, ncid)
+        write(mn,'(i2.2)') nf 
+        fname=trim("aeroclim.m"//mn//".nc")
+        call nf_open(fname , nf90_NOWRITE, ncid)
 
 ! ====> construct 3-d pressure array (Pa)
-      call nf_inq_varid(ncid, "DELP", varid)
-      call nf_get_var(ncid, varid, buff)
-
-      do j = jamin, jamax
-        do i = iamin, iamax
-! constract pres_tmp (top-down), note input is top-down
-          pres_tmp(i,1) = 0.
-          do k=2, levsw
-            pres_tmp(i,k) = pres_tmp(i,k-1)+buff(i,j,k)
-          enddo    !k-loop
-        enddo     !i-loop (lon)
-
-! extract pres_tmp to fill aer_pres (in  Pa)
-        do k = 1, levsaer
-          if ( iflip == 0 )  then             ! data from toa to sfc
-            klev = k
-          else                                ! data from sfc to top
-            klev = ( levsw - k ) + 1
-          endif
-          do i = iamin, iamax
-            aer_pres(i,j,k,nt)    = 1.d0*pres_tmp(i,klev)
-          enddo     !i-loop (lon)
-        enddo     !k-loop (lev)
-      enddo     !j-loop (lat)
-
-! ====> construct 4-d aerosol array (kg/kg)
-! merra2 data is top down
-! for GFS, iflip 0: toa to sfc; 1: sfc to toa
-      DO ii = 1, ntrcaerm
-        vname=trim(specname(ii))
-        call nf_inq_varid(ncid, vname, varid)
-        call nf_get_var(ncid, varid, buffx)
+        call nf_inq_varid(ncid, "DELP", varid)
+        call nf_get_var(ncid, varid, buff)
 
         do j = jamin, jamax
+          do i = iamin, iamax
+! constract pres_tmp (top-down), note input is top-down
+            pres_tmp(i,1) = 0.
+            do k=2, levsw
+              pres_tmp(i,k) = pres_tmp(i,k-1)+buff(i,j,k)
+            enddo    !k-loop
+          enddo     !i-loop (lon)
+
+! extract pres_tmp to fill aer_pres (in  Pa)
           do k = 1, levsaer
-! input is from toa to sfc
             if ( iflip == 0 )  then             ! data from toa to sfc
               klev = k
             else                                ! data from sfc to top
               klev = ( levsw - k ) + 1
             endif
             do i = iamin, iamax
-              aerin(i,j,k,ii,nt) = 1.d0*buffx(i,j,klev,1)
-              if(aerin(i,j,k,ii,nt) < 0 .or. aerin(i,j,k,ii,nt) > 1.)  then
-                aerin(i,j,k,ii,nt) = 1.e-15
-              endif
-            enddo   !i-loop (lon)
+              aer_pres(i,j,k,nt)    = 1.d0*pres_tmp(i,klev)
+            enddo     !i-loop (lon)
           enddo     !k-loop (lev)
-        enddo       !j-loop (lat)
+        enddo     !j-loop (lat)
 
-      ENDDO         ! ii-loop (ntracaerm)
+! ====> construct 4-d aerosol array (kg/kg)
+! merra2 data is top down
+! for GFS, iflip 0: toa to sfc; 1: sfc to toa
+        DO ii = 1, ntrcaerm
+          vname=trim(specname(ii))
+          call nf_inq_varid(ncid, vname, varid)
+          call nf_get_var(ncid, varid, buffx)
+
+          do j = jamin, jamax
+            do k = 1, levsaer
+! input is from toa to sfc
+              if ( iflip == 0 )  then             ! data from toa to sfc
+                klev = k
+              else                                ! data from sfc to top
+                klev = ( levsw - k ) + 1
+              endif
+              do i = iamin, iamax
+                aerin(i,j,k,ii,nt) = 1.d0*buffx(i,j,klev,1)
+                if(aerin(i,j,k,ii,nt) < 0 .or. aerin(i,j,k,ii,nt) > 1.)  then
+                  aerin(i,j,k,ii,nt) = 1.e-15
+                endif
+              enddo   !i-loop (lon)
+            enddo     !k-loop (lev)
+          enddo       !j-loop (lat)
+
+        ENDDO         ! ii-loop (ntracaerm)
 
 ! close the file
-      call nf_close(ncid)
-      deallocate (buff, pres_tmp)
-      deallocate (buffx)
+        call nf_close(ncid)
+        deallocate (buff, pres_tmp)
+        deallocate (buffx)
+      endif read_and_broadcast
+      
+      call ccpp_bcast(aer_pres, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(aerin,    mpiroot, mpicomm, ierr)
+
       return
       END SUBROUTINE read_netfaer
 

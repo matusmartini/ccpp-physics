@@ -7,6 +7,8 @@
 !! h2o coefficients.
 module h2ointerp
 
+   use mpiutil, only: ccpp_bcast
+
    implicit none
 
    private
@@ -15,15 +17,14 @@ module h2ointerp
 
 contains
 
-      subroutine read_h2odata (h2o_phys, me, master)
+      subroutine read_h2odata (h2o_phys, mpicomm, mpirank, mpiroot)
       use machine,  only: kind_phys
       use h2o_def
 !--- in/out
       logical, intent(in) :: h2o_phys
-      integer, intent(in) :: me
-      integer, intent(in) :: master
+      integer, intent(in) :: mpicomm, mpirank, mpiroot
 !--- locals
-      integer :: i, n, k
+      integer :: i, n, k, ierr
       real(kind=4), allocatable, dimension(:) :: h2o_lat4, h2o_pres4
       real(kind=4), allocatable, dimension(:) :: h2o_time4, tempin
 
@@ -32,57 +33,70 @@ contains
         levh2o    = 1 
         h2o_coeff = 1
         timeh2o   = 1
-
         return
       endif
 
-      open(unit=kh2opltc,file='global_h2oprdlos.f77', form='unformatted', convert='big_endian')
+      read_and_broadcast_1: if (mpirank==mpiroot) then
+        open(unit=kh2opltc,file='global_h2oprdlos.f77', form='unformatted', convert='big_endian')
 
 !--- read in indices
 !---
-      read (kh2opltc) h2o_coeff, latsh2o, levh2o, timeh2o
-      if (me == master) then
+        read (kh2opltc) h2o_coeff, latsh2o, levh2o, timeh2o
         write(*,*) 'Reading in h2odata from global_h2oprdlos.f77 '
         write(*,*) '     h2o_coeff = ', h2o_coeff
         write(*,*) '       latsh2o = ', latsh2o
         write(*,*) '        levh2o = ', levh2o
         write(*,*) '       timeh2o = ', timeh2o
-      endif
+      endif read_and_broadcast_1
 
+      call ccpp_bcast(h2o_coeff, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(latsh2o,   mpiroot, mpicomm, ierr)
+      call ccpp_bcast(levh2o,    mpiroot, mpicomm, ierr)
+      call ccpp_bcast(timeh2o,   mpiroot, mpicomm, ierr)
+
+      if ( .not.allocated(h2o_lat) ) allocate (h2o_lat(latsh2o))
+      if ( .not.allocated(h2o_pres)) allocate (h2o_pres(levh2o))
+      if ( .not.allocated(h2o_time)) allocate (h2o_time(timeh2o+1))
+      if ( .not.allocated(h2oplin) ) allocate (h2oplin(latsh2o,levh2o,h2o_coeff,timeh2o))
+
+      read_and_broadcast_2: if (mpirank==mpiroot) then
 !--- read in data
 !---   h2o_lat   -  latitude of data        (-90 to 90)
 !---   h2o_pres  -  vertical pressure level (mb)
 !---   h2o_time  -  time coordinate         (days)
 !---
-      if ( .not.allocated(h2o_lat) ) allocate (h2o_lat(latsh2o))
-      if ( .not.allocated(h2o_pres)) allocate (h2o_pres(levh2o))
-      if ( .not.allocated(h2o_time)) allocate (h2o_time(timeh2o+1))
-      allocate (h2o_lat4(latsh2o), h2o_pres4(levh2o),h2o_time4(timeh2o+1))
-      rewind (kh2opltc)
-      read (kh2opltc) h2o_coeff, latsh2o, levh2o, timeh2o, h2o_lat4, h2o_pres4, h2o_time4
-      h2o_pres(:) = h2o_pres4(:)
+        allocate (h2o_lat4(latsh2o), h2o_pres4(levh2o),h2o_time4(timeh2o+1))
+        rewind (kh2opltc)
+        read (kh2opltc) h2o_coeff, latsh2o, levh2o, timeh2o, h2o_lat4, h2o_pres4, h2o_time4
+        h2o_pres(:) = h2o_pres4(:)
 !---  convert pressure levels from mb to ln(Pa)
-      h2o_pres(:) = log(100.0*h2o_pres(:))
-      h2o_lat(:)  = h2o_lat4(:)
-      h2o_time(:) = h2o_time4(:)
-      deallocate (h2o_lat4, h2o_pres4, h2o_time4)
+        h2o_pres(:) = log(100.0*h2o_pres(:))
+        h2o_lat(:)  = h2o_lat4(:)
+        h2o_time(:) = h2o_time4(:)
+        deallocate (h2o_lat4, h2o_pres4, h2o_time4)
 
 !--- read in h2oplin which is in order of (lattitudes, water levels, coeff number, time)
 !--- assume latitudes is on a uniform gaussian grid
 !---
-      allocate (tempin(latsh2o))
-      if (.not.allocated(h2oplin)) allocate (h2oplin(latsh2o,levh2o,h2o_coeff,timeh2o))
-      DO i=1,timeh2o
-        do n=1,h2o_coeff
-          DO k=1,levh2o
-            READ(kh2opltc) tempin
-            h2oplin(:,k,n,i) = tempin(:)
-          ENDDO
-        enddo
-      ENDDO
-      deallocate (tempin)
+        allocate (tempin(latsh2o))
+        DO i=1,timeh2o
+          do n=1,h2o_coeff
+            DO k=1,levh2o
+              READ(kh2opltc) tempin
+              h2oplin(:,k,n,i) = tempin(:)
+            ENDDO
+          enddo
+        ENDDO
+        deallocate (tempin)
 
-      close(kh2opltc)
+        close(kh2opltc)
+
+      endif read_and_broadcast_2
+
+      call ccpp_bcast(h2o_lat,   mpiroot, mpicomm, ierr)
+      call ccpp_bcast(h2o_pres,  mpiroot, mpicomm, ierr)
+      call ccpp_bcast(h2o_time,  mpiroot, mpicomm, ierr)
+      call ccpp_bcast(h2oplin,   mpiroot, mpicomm, ierr)
 
       end subroutine read_h2odata
 !
