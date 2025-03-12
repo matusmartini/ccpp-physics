@@ -60,12 +60,6 @@
 
            !--- call to GFS_radupdate_run is now in GFS_rrtmg_setup_run
 
-!$OMP parallel num_threads(nthrds) default(none)        &
-!$OMP          private (nb,ix,i,j)                      &
-!$OMP          shared (lrseeds,isubc_lw,isubc_sw,ipsdlim,ipsd0,ipseed) &
-!$OMP          shared (cnx,cny,sec,numrdm,stat,isc,jsc)  &
-!$OMP          shared (icsdsw,icsdlw,jmap,imap,rseeds)
-
            !--- set up random seed index in a reproducible way for entire cubed-sphere face (lat-lon grid)
            if ((isubc_lw==2) .or. (isubc_sw==2)) then
              !NRL If random seeds supplied by NEPTUNE
@@ -88,8 +82,6 @@
                enddo
              end if !lrseeds
            endif  ! isubc_lw and isubc_sw
-
-!$OMP end parallel
 
            if (imp_physics == imp_physics_zhao_carr) then
              if (kdt == 1) then
