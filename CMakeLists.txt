@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.18)
 
 project(ccpp_physics
         VERSION 5.0.0
@@ -7,6 +7,8 @@ project(ccpp_physics
 #------------------------------------------------------------------------------
 set(PACKAGE "ccpp-physics")
 set(AUTHORS "Grant Firl" "Dustin Swales" "Dom Heinzeller" "Man Zhang" "Mike Kavulich")
+
+include(GNUInstallDirs)
 
 #------------------------------------------------------------------------------
 # Set MPI flags for Fortran with MPI F08 interface
@@ -72,46 +74,51 @@ else(CAPS)
 endif(CAPS)
 list(REMOVE_DUPLICATES CAPS)
 
+# Schemes and caps from the CCPP code generator use full paths with symlinks
+# resolved, we need to do the same here for the below logic to work
+get_filename_component(FULL_PATH_TO_CMAKELISTS CMakeLists.txt REALPATH BASE_DIR ${LOCAL_CURRENT_SOURCE_DIR})
+get_filename_component(LOCAL_CURRENT_SOURCE_DIR ${FULL_PATH_TO_CMAKELISTS} DIRECTORY)
+
 #------------------------------------------------------------------------------
 
 # List of files that need to be compiled without OpenMP
-set(SCHEMES_OPENMP_OFF ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_gas_optics.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_rrtmgp_constants.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_rrtmgp_util_reorder.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_gas_concentrations.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_rrtmgp_util_string.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/kernels/mo_gas_optics_kernels.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/kernels/mo_rrtmgp_util_reorder_kernels.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_gas_optics_rrtmgp.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/tests/mo_testing_io.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/tests/clear_sky_regression.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_rrtmgp_clr_all_sky.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_fluxes_byband.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/solar_variability/mo_solar_variability.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_heating_rates.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_fluxes_bygpoint.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_compute_bc.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/cloud_optics/mo_cloud_sampling.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/cloud_optics/mo_cloud_optics.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/mo_load_coefficients.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/rfmip-clear-sky/rrtmgp_rfmip_sw.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/rfmip-clear-sky/mo_rfmip_io.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/rfmip-clear-sky/rrtmgp_rfmip_lw.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/mo_simple_netcdf.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/all-sky/rrtmgp_allsky.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/all-sky/mo_load_cloud_coefficients.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/all-sky/mo_garand_atmos_io.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_config.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_source_functions.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_sw.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_fluxes.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_lw.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_util_array.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/kernels/mo_rte_solver_kernels.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/kernels/mo_optical_props_kernels.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/kernels/mo_fluxes_broadband_kernels.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_kind.F90
-                       ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_optical_props.F90)
+set(SCHEMES_OPENMP_OFF ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_gas_optics.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_rrtmgp_constants.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_rrtmgp_util_reorder.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_gas_concentrations.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_rrtmgp_util_string.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/kernels/mo_gas_optics_kernels.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/kernels/mo_rrtmgp_util_reorder_kernels.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/mo_gas_optics_rrtmgp.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/tests/mo_testing_io.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/tests/clear_sky_regression.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_rrtmgp_clr_all_sky.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_fluxes_byband.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/solar_variability/mo_solar_variability.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_heating_rates.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_fluxes_bygpoint.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/mo_compute_bc.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/cloud_optics/mo_cloud_sampling.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/extensions/cloud_optics/mo_cloud_optics.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/mo_load_coefficients.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/rfmip-clear-sky/rrtmgp_rfmip_sw.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/rfmip-clear-sky/mo_rfmip_io.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/rfmip-clear-sky/rrtmgp_rfmip_lw.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/mo_simple_netcdf.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/all-sky/rrtmgp_allsky.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/all-sky/mo_load_cloud_coefficients.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/examples/all-sky/mo_garand_atmos_io.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_config.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_source_functions.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_sw.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_fluxes.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_lw.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_util_array.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/kernels/mo_rte_solver_kernels.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/kernels/mo_optical_props_kernels.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/kernels/mo_fluxes_broadband_kernels.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_rte_kind.F90
+                       ${LOCAL_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rte/mo_optical_props.F90)
 
 # Remove files that need to be compiled without OpenMP from list
 # of files with standard compiler flags, and assign no-OpenMP flags
@@ -120,7 +127,6 @@ if(SCHEMES_OPENMP_OFF)
 endif()
 
 if(OPENMP)
-  # Compile all remaining schemes with OpenMP flags
   SET_PROPERTY(SOURCE ${SCHEMES}
                APPEND_STRING PROPERTY COMPILE_FLAGS "${OpenMP_Fortran_FLAGS}")
 endif()
@@ -138,37 +144,44 @@ endif()
 # Lower optimization for certain schemes when compiling with Intel in Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel" OR ${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM"))
   # Define a list of schemes that need lower optimization with Intel in Release mode
-  set(SCHEME_NAMES_LOWER_OPTIMIZATION
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics/module_sf_mynn.F90
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics/mynnedmf_wrapper.F90
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics/gcycle.F90
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics/module_mp_nssl_2mom.F90
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics/rte-rrtmgp/rrtmgp/kernels/mo_gas_optics_kernels.F90
-  )
+  set(SCHEME_NAMES_LOWER_OPTIMIZATION module_sf_mynn.F90
+                                      module_mp_nssl_2mom.F90
+                                      mynnedmf_wrapper.F90
+                                      gcycle.F90)
   foreach(SCHEME_NAME IN LISTS SCHEME_NAMES_LOWER_OPTIMIZATION)
-    SET_SOURCE_FILES_PROPERTIES(${SCHEME_NAME}
-                                APPEND_STRING PROPERTY COMPILE_FLAGS "-O1")
+    set(SCHEMES_TMP ${SCHEMES})
+    # Need to determine the name of the scheme with its path
+    list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
+    SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
+                                APPEND_STRING PROPERTY COMPILE_FLAGS
+                                "-O1")
   endforeach()
 endif()
 
 # No optimization for certain schemes when compiling with Intel in Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel" OR ${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM"))
   # Define a list of schemes that can't be optimized with Intel in Release mode
-  set(SCHEME_NAMES_NO_OPTIMIZATION
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics/aerinterp.F90
-    ${CMAKE_CURRENT_SOURCE_DIR}/physics/GFS_typedefs.F90
-  )
+  set(SCHEME_NAMES_NO_OPTIMIZATION aerinterp.F90
+                                   GFS_typedefs.F90)
   foreach(SCHEME_NAME IN LISTS SCHEME_NAMES_NO_OPTIMIZATION)
-    SET_SOURCE_FILES_PROPERTIES(${SCHEME_NAME}
+    set(SCHEMES_TMP ${SCHEMES})
+    # Need to determine the name of the scheme with its path
+    list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
+    SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
                                 APPEND_STRING PROPERTY COMPILE_FLAGS "-O0")
   endforeach()
 endif()
 
-if(${CMAKE_CURRENT_SOURCE_DIR}/physics/mersenne_twister.f IN_LIST SCHEMES)
-  if(${CMAKE_Fortran_COMPILER_ID} STREQUAL "GNU")
-    SET_SOURCE_FILES_PROPERTIES(${CMAKE_CURRENT_SOURCE_DIR}/physics/mersenne_twister.f
-                                APPEND_STRING PROPERTY COMPILE_FLAGS " -fno-range-check")
-  endif()
+if(${CMAKE_Fortran_COMPILER_ID} STREQUAL "GNU")
+  # Define a list of schemes that can't be compiled with GNU's range check
+  set(SCHEME_NAMES_NO_RANGE_CHECK mersenne_twister.f)
+  foreach(SCHEME_NAME IN LISTS SCHEME_NAMES_NO_RANGE_CHECK)
+    set(SCHEMES_TMP ${SCHEMES})
+    # Need to determine the name of the scheme with its path
+    list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
+    SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
+                                APPEND_STRING PROPERTY COMPILE_FLAGS "-fno-range-check")
+  endforeach()
 endif()
 
 #------------------------------------------------------------------------------
