@@ -193,24 +193,6 @@
          jamin=999
          jamax=-999
 
-!$OMP parallel num_threads(nthrds) default(none)                                    &
-!$OMP          shared (mpicomm,mpirank,mpiroot,ntoz,h2o_phys,im,nx,ny,levs,idate)   &
-!$OMP          shared (xlat_d,xlon_d,imap,jmap,errmsg,errflg)                       &
-!$OMP          shared (levozp,oz_coeff,oz_pres,ozpl)                                &
-!$OMP          shared (levh2o,h2o_coeff,h2o_pres,h2opl)                             &
-!$OMP          shared (iamin, iamax, jamin, jamax)                                  &
-!$OMP          shared (iaerclm,iaermdl,ntrcaer,aer_nm,iflip,iccn)                   &
-!$OMP          shared (jindx1_o3,jindx2_o3,ddy_o3,jindx1_h,jindx2_h,ddy_h)          &
-!$OMP          shared (jindx1_aer,jindx2_aer,ddy_aer,iindx1_aer,iindx2_aer,ddx_aer) &
-!$OMP          shared (jindx1_ci,jindx2_ci,ddy_ci,iindx1_ci,iindx2_ci,ddx_ci)       &
-!$OMP          shared (do_ugwp_v1,jindx1_tau,jindx2_tau,ddy_j1tau,ddy_j2tau)        &
-!$OMP          shared (isot,ivegsrc,nlunit,sncovr,sncovr_ice,lsm,lsm_ruc)           &
-!$OMP          shared (min_seaice,fice,landfrac,vtype,weasd,snupx,salp_data)        &
-!$OMP          private (ix,i,j,rsnow,vegtyp)
-
-!$OMP sections
-
-!$OMP section
 !> - Call read_o3data() to read ozone data
          call read_o3data (ntoz, mpicomm, mpirank, mpiroot)
 
@@ -230,7 +212,6 @@
             errflg = 1
          end if
 
-!$OMP section
 !> - Call read_h2odata() to read stratospheric water vapor data
          call read_h2odata (h2o_phys, mpicomm, mpirank, mpiroot)
 
@@ -250,7 +231,6 @@
             errflg = 1
          end if
 
-!$OMP section
 !> - Call read_aerdata() to read aerosol climatology, Anning added coupled
 !>  added coupled gocart and radiation option to initializing aer_nm
          if (iaerclm) then
@@ -269,7 +249,6 @@
            ntrcaer = 1
          endif
 
-!$OMP section
 !> - Call read_cidata() to read IN and CCN data
          if (iccn == 1) then
            call read_cidata (mpicomm, mpirank, mpiroot)
@@ -277,19 +256,28 @@
            ! hardcoded in module iccn_def.F and GFS_typedefs.F90
          endif
 
-!$OMP section
 !> - Call tau_amf dats for  ugwp_v1
          if (do_ugwp_v1) then
             call read_tau_amf(mpicomm, mpirank, mpiroot, errmsg, errflg)
          endif
 
-!$OMP section
 !> - Initialize soil vegetation (needed for sncovr calculation further down)
          call set_soilveg(mpirank, isot, ivegsrc, nlunit)
 
-!$OMP end sections
-
-! Need an OpenMP barrier here (implicit in "end sections")
+!$OMP parallel num_threads(nthrds) default(none)                                    &
+!$OMP          shared (mpicomm,mpirank,mpiroot,ntoz,h2o_phys,im,nx,ny,levs,idate)   &
+!$OMP          shared (xlat_d,xlon_d,imap,jmap,errmsg,errflg)                       &
+!$OMP          shared (levozp,oz_coeff,oz_pres,ozpl)                                &
+!$OMP          shared (levh2o,h2o_coeff,h2o_pres,h2opl)                             &
+!$OMP          shared (iamin, iamax, jamin, jamax)                                  &
+!$OMP          shared (iaerclm,iaermdl,ntrcaer,aer_nm,iflip,iccn)                   &
+!$OMP          shared (jindx1_o3,jindx2_o3,ddy_o3,jindx1_h,jindx2_h,ddy_h)          &
+!$OMP          shared (jindx1_aer,jindx2_aer,ddy_aer,iindx1_aer,iindx2_aer,ddx_aer) &
+!$OMP          shared (jindx1_ci,jindx2_ci,ddy_ci,iindx1_ci,iindx2_ci,ddx_ci)       &
+!$OMP          shared (do_ugwp_v1,jindx1_tau,jindx2_tau,ddy_j1tau,ddy_j2tau)        &
+!$OMP          shared (isot,ivegsrc,nlunit,sncovr,sncovr_ice,lsm,lsm_ruc)           &
+!$OMP          shared (min_seaice,fice,landfrac,vtype,weasd,snupx,salp_data)        &
+!$OMP          private (ix,i,j,rsnow,vegtyp)
 
 !$OMP sections
 
