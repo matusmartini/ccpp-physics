@@ -282,7 +282,7 @@
      &                             isubclw, icldflg, iovr,  ivflip
       use physcons,         only : con_g, con_cp, con_avgd, con_amd,    &
      &                             con_amw, con_amo3
-      use mersenne_twister, only : random_setseed, random_number,       &
+      use mersenne_twister_ccpp, only : random_setseed, random_number,  &
      &                             random_stat
       use machine,          only : kind_phys,                           &
      &                             im => kind_io4, rb => kind_phys,     &

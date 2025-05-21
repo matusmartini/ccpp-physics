@@ -21,7 +21,7 @@
 !!   #define PRINT_CHKSUM: mininmum, maximum and 32-bit Adler checksum for arrays
 !!
 
-#ifdef __GFORTRAN__
+#if defined(__GFORTRAN__) || defined (__flang__)
 #define PRINT_SUM
 #else
 #define PRINT_CHKSUM

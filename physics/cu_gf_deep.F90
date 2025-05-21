@@ -5776,7 +5776,7 @@ endif
     ! find a "reasonable" infinity...
     ! we compute this integral indeed
     ! \int_0^M dt t^{x-1} e^{-t}
-    ! where M is such that M^{x-1} e^{-M} ≤ \epsilon
+    ! where M is such that M^{x-1} e^{-M} <= \epsilon
     infty = 1.0e4
     do while ( intfuncgamma(infty, x) > small )
        infty = infty * 10.0

@@ -325,7 +325,7 @@ contains
          ddxy(j)  = DDX(j)*DDY(J)
       enddo
 
-#ifndef __GFORTRAN__
+#if ! defined(__GFORTRAN__) && ! defined(__flang__)
 !$OMP parallel num_threads(nthrds) default(none)             &
 !$OMP          shared(npts,ntrcaer,aerin,aer_pres,prsl)      &
 !$OMP          shared(ddx,ddy,jindx1,jindx2,iindx1,iindx2)   &
@@ -357,7 +357,7 @@ contains
                +TEMIY(j)*aer_pres(I1,J2,L,2)+temjx(j)*aer_pres(I2,J1,L,2))
         ENDDO
       ENDDO
-#ifndef __GFORTRAN__
+#if ! defined(__GFORTRAN__) && ! defined(__flang__)
 !$OMP end do
 
 ! don't flip, input is the same direction as GFS  (bottom-up)
@@ -390,7 +390,7 @@ contains
            endif
         ENDDO   !L-loop
       ENDDO     !J-loop
-#ifndef __GFORTRAN__
+#if ! defined(__GFORTRAN__) && ! defined(__flang__)
 !$OMP end do
 
 !$OMP end parallel
