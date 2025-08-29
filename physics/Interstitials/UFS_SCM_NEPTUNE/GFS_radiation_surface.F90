@@ -6,6 +6,9 @@
       module GFS_radiation_surface
 
       use machine,                   only: kind_phys
+#ifdef MPI
+      use mpi_f08
+#endif
 
       contains
 
@@ -23,7 +26,8 @@
 
       implicit none
 
-      integer,                              intent(in)  :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm),                       intent(in)  :: mpicomm
+      integer,                              intent(in)  :: mpirank, mpiroot
       integer,                              intent(in)  :: ialb, iems
       character(len=26),                    intent(in)  :: semis_file
       real(kind_phys),                      intent(in)  :: con_pi

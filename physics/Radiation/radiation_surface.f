@@ -108,6 +108,9 @@
       use machine,           only : kind_phys
       use module_iounitdef,  only : NIRADSF
       use surface_perturbation, only : ppfbet
+#ifdef MPI
+      use mpi_f08
+#endif
 !
       implicit   none
 !
@@ -174,7 +177,8 @@
       implicit none
 
 !  ---  inputs:
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       integer, intent(in) :: ialbflg, iemsflg
       real(kind=kind_phys), intent(in) :: con_pi
       character(len=26), intent(in) :: semis_file

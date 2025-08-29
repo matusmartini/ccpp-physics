@@ -6,6 +6,7 @@
 !! aerosol, IN&CCN and surface properties updates.
    module GFS_phys_time_vary
 
+      use mpi_f08
       use machine, only : kind_phys, kind_dbl_prec, kind_sngl_prec
 
       use mersenne_twister, only: random_setseed, random_number
@@ -98,7 +99,8 @@
          implicit none
 
          ! Interface variables
-         integer,              intent(in)    :: mpicomm, mpirank, mpiroot
+         type(MPI_Comm),       intent(in)    :: mpicomm
+         integer,              intent(in)    :: mpirank, mpiroot
          integer,              intent(in)    :: ntoz, iccn, iflip, im, nx, ny, levs, iaermdl
          logical,              intent(in)    :: h2o_phys, iaerclm, lsm_cold_start
          integer,              intent(in)    :: idate(:), iopt_lake, iopt_lake_clm, iopt_lake_flake
@@ -737,7 +739,8 @@
          implicit none
 
          ! Interface variables
-         integer,              intent(in)    :: mpicomm, mpirank, mpiroot, &
+         type(MPI_Comm),       intent(in)    :: mpicomm
+         integer,              intent(in)    :: mpirank, mpiroot, &
                                                 cnx, cny, isc, jsc, nrcm, im, levs, kdt, &
                                                 nsswr, imfdeepcnv, iccn, nscyc, ntoz, iflip
          integer,              intent(in)    :: idate(:)

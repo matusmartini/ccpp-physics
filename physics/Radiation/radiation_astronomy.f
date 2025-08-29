@@ -91,6 +91,9 @@
       use mpiutil,           only : ccpp_bcast
       use machine,           only : kind_phys 
       use module_iounitdef,  only : NIRADSF
+#ifdef MPI
+      use mpi_f08
+#endif
 !
       implicit   none
 !
@@ -182,7 +185,8 @@
       implicit none
 
 !  ---  input:
-      integer,  intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer,  intent(in) :: mpirank, mpiroot
       integer,  intent(in) :: isolar
       character(len=26), intent(in) :: solar_file
       real(kind=kind_phys), intent(in) :: con_solr, con_solr_old, con_pi
@@ -399,7 +403,8 @@
 
 !  ---  input:
       integer, intent(in) :: jdate(:), kyear
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       logical, intent(in) :: lsol_chg
 
       real (kind=kind_phys), intent(in) :: deltsw, deltim, con_pi

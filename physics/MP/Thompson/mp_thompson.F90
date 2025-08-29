@@ -14,6 +14,9 @@ module mp_thompson
       use module_mp_thompson, only : re_qc_min, re_qc_max, re_qi_min, re_qi_max, re_qs_min, re_qs_max
 
       use module_mp_thompson_make_number_concentrations, only: make_IceNumber, make_DropletNumber, make_RainNumber
+#ifdef MPI
+      use mpi_f08
+#endif
 
       implicit none
 
@@ -79,7 +82,7 @@ module mp_thompson
          real(kind_phys),           intent(in   ) :: phil(:,:)
          real(kind_phys),           intent(in   ) :: area(:)
          ! MPI information
-         integer,                   intent(in   ) :: mpicomm
+         type(MPI_Comm),            intent(in   ) :: mpicomm
          integer,                   intent(in   ) :: mpirank
          integer,                   intent(in   ) :: mpiroot
          ! Threading/blocking information
@@ -401,7 +404,7 @@ module mp_thompson
          integer,                   intent(in)    :: decfl
          ! MPI and block information
          integer,                   intent(in)    :: blkno
-         integer,                   intent(in)    :: mpicomm
+         type(MPI_Comm),            intent(in)    :: mpicomm
          integer,                   intent(in)    :: mpirank
          integer,                   intent(in)    :: mpiroot
          ! Extended diagnostic output

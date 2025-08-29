@@ -7,6 +7,9 @@
 !! aerosol data for MG microphysics.
 module aerinterp
 
+#ifdef MPI
+      use mpi_f08
+#endif
     implicit none
 
     private read_netfaer
@@ -42,7 +45,8 @@ contains
       use netcdf
 
 !--- in/out
-      integer, intent(in) :: mpicomm, mpirank, mpiroot, iflip, idate(4)
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot, iflip, idate(4)
       character(len=*), intent(inout) :: errmsg
       integer, intent(inout) :: errflg
 
@@ -165,7 +169,8 @@ contains
       use aerclm_def
 
 !--- in/out
-      integer, intent(in) :: mpicomm, mpirank, mpiroot, iflip, idate(4)
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot, iflip, idate(4)
       character(len=*), intent(inout) :: errmsg
       integer, intent(inout) :: errflg
       real(kind=kind_phys), intent(in) :: fhour
@@ -298,7 +303,8 @@ contains
 !
 
       integer  JINDX1(npts), JINDX2(npts), iINDX1(npts), iINDX2(npts)
-      integer  mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer  mpirank, mpiroot
       integer  idate(4), nthrds
       integer  IDAT(8),JDAT(8)
 !
@@ -449,7 +455,8 @@ contains
       use mpiutil, only: ccpp_bcast
       use aerclm_def
       use netcdf
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       integer, intent(in) :: iflip, nf, nt
       integer, intent(inout) :: errflg
       character(*), intent(inout) :: errmsg

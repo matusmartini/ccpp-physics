@@ -8,6 +8,9 @@
 module h2ointerp
 
    use mpiutil, only: ccpp_bcast
+#ifdef MPI
+      use mpi_f08
+#endif
 
    implicit none
 
@@ -23,7 +26,8 @@ contains
       use h2o_def
 !--- in/out
       logical, intent(in) :: h2o_phys
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
 !--- locals
       integer :: i, n, k, ierr
       real(kind=4), allocatable, dimension(:) :: h2o_lat4, h2o_pres4

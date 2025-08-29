@@ -8,6 +8,9 @@ module GFS_rrtmg_setup
 
    use machine, only:  kind_phys
    use module_ozphys, only: ty_ozphys
+#ifdef MPI
+   use mpi_f08
+#endif
    implicit none
 
    public GFS_rrtmg_setup_init, GFS_rrtmg_setup_timestep_init, GFS_rrtmg_setup_finalize
@@ -160,7 +163,7 @@ module GFS_rrtmg_setup
       integer, intent(in) :: idate(:)
       logical, intent(in) :: lcrick, lcnorm, lnoprec, do_RRTMGP, lalw1bd, &
            inc_minor_gas, lextop
-      integer, intent(in) :: mpicomm
+      type(MPI_Comm), intent(in) :: mpicomm
       integer, intent(in) :: mpirank
       integer, intent(in) :: mpiroot
       character(len=26),intent(in)  :: aeros_file, solar_file, co2usr_file,&
@@ -261,7 +264,7 @@ module GFS_rrtmg_setup
       real(kind=kind_phys), intent(in)  :: deltim
       real(kind=kind_phys), intent(in)  :: con_pi
       logical,              intent(in)  :: lsswr
-      integer,              intent(in)  :: mpicomm
+      type(MPI_Comm),       intent(in)  :: mpicomm
       integer,              intent(in)  :: mpirank
       integer,              intent(in)  :: mpiroot
       integer,              intent(in)  :: iaermdl, iaerflg, isol, ictm, ico2, ntoz
@@ -380,7 +383,8 @@ module GFS_rrtmg_setup
 
 !  ---  inputs:
       integer, intent(in) :: idate(:), jdate(:)
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       integer, intent(in) :: iaermdl, iaerflg, isol, ictm, ntoz, ico2
       type(ty_ozphys),intent(inout) :: ozphys
       logical, intent(in) :: lsswr
