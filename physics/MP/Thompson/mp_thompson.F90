@@ -7,6 +7,7 @@
 !> This module contains the aerosol-aware Thompson microphysics scheme.
 module mp_thompson
 
+      use mpi_f08
       use machine, only : kind_phys
 
       use module_mp_thompson, only : thompson_init, mp_gt_driver, thompson_finalize, calc_effectRad
@@ -14,9 +15,6 @@ module mp_thompson
       use module_mp_thompson, only : re_qc_min, re_qc_max, re_qi_min, re_qi_max, re_qs_min, re_qs_max
 
       use module_mp_thompson_make_number_concentrations, only: make_IceNumber, make_DropletNumber, make_RainNumber
-#ifdef MPI
-      use mpi_f08
-#endif
 
       implicit none
 
