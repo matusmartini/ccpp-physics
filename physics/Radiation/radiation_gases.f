@@ -115,13 +115,11 @@
 !> This module sets up constant gas rofiles, such as co2, ch4, n2o, o2, and those 
 !! of cfc gases.
       module module_radiation_gases      
+      use mpi_f08
       use mpiutil, only: ccpp_bcast
       use machine,           only : kind_phys, kind_io4
       use funcphys,          only : fpkapx
       use module_iounitdef,  only : NIO3CLM, NICO2CN
-#ifdef MPI
-      use mpi_f08
-#endif
 !
       implicit   none
 !

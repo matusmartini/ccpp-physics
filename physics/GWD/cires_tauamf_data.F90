@@ -4,9 +4,7 @@
 module cires_tauamf_data
 
   use machine, only: kind_phys
-#ifdef MPI
-      use mpi_f08
-#endif
+  use mpi_f08
 !...........................................................................................
 ! tabulated GW-sources: GRACILE/Ern et al., 2018 and/or Resolved GWs from C384-Annual run
 !...........................................................................................

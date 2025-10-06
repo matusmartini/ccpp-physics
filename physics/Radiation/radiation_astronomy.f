@@ -88,12 +88,10 @@
 !> This module sets up astronomy quantities for solar radiation calculations.
       module module_radiation_astronomy  
 !
+      use mpi_f08
       use mpiutil,           only : ccpp_bcast
       use machine,           only : kind_phys 
       use module_iounitdef,  only : NIRADSF
-#ifdef MPI
-      use mpi_f08
-#endif
 !
       implicit   none
 !

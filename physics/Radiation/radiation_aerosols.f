@@ -126,6 +126,7 @@
 !! radiation computations.
       module module_radiation_aerosols
 !
+      use mpi_f08
       use mpiutil,  only: ccpp_bcast
       use machine,  only : kind_phys, kind_io4, kind_io8
       use module_iounitdef,        only : NIAERCM
@@ -135,9 +136,6 @@
 !
       use funcphys,                     only : fpkap
       use aerclm_def,                   only : ntrcaerm
-#ifdef MPI
-      use mpi_f08
-#endif
 
 !
       implicit   none

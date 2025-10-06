@@ -8,9 +8,7 @@ module GFS_rrtmg_setup
 
    use machine, only:  kind_phys
    use module_ozphys, only: ty_ozphys
-#ifdef MPI
    use mpi_f08
-#endif
    implicit none
 
    public GFS_rrtmg_setup_init, GFS_rrtmg_setup_timestep_init, GFS_rrtmg_setup_finalize

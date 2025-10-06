@@ -6,9 +6,7 @@
       module GFS_radiation_surface
 
       use machine,                   only: kind_phys
-#ifdef MPI
       use mpi_f08
-#endif
 
       contains
 

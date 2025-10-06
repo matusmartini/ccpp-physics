@@ -7,9 +7,7 @@
 !! aerosol data for MG microphysics.
 module aerinterp
 
-#ifdef MPI
-      use mpi_f08
-#endif
+    use mpi_f08
     implicit none
 
     private read_netfaer

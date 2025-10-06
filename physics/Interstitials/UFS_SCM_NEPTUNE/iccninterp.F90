@@ -7,9 +7,7 @@
 !! IN and CCN data.
 module iccninterp
 
-#ifdef MPI
-      use mpi_f08
-#endif
+    use mpi_f08
     implicit none
 
     private

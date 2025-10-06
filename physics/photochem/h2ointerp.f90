@@ -7,10 +7,8 @@
 !! h2o coefficients.
 module h2ointerp
 
+   use mpi_f08
    use mpiutil, only: ccpp_bcast
-#ifdef MPI
-      use mpi_f08
-#endif
 
    implicit none
 

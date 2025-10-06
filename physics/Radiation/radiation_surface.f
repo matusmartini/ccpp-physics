@@ -104,13 +104,11 @@
 !! emissivity for LW radiation.  
       module module_radiation_surface
 !
+      use mpi_f08
       use mpiutil,           only : ccpp_bcast
       use machine,           only : kind_phys
       use module_iounitdef,  only : NIRADSF
       use surface_perturbation, only : ppfbet
-#ifdef MPI
-      use mpi_f08
-#endif
 !
       implicit   none
 !
