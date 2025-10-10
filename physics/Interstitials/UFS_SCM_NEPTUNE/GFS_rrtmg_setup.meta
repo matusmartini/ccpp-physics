@@ -239,7 +239,7 @@
   long_name = MPI communicator
   units = index
   dimensions = ()
-  type = integer
+  type = MPI_Comm
   intent = in
 [mpirank]
   standard_name = mpi_rank
@@ -460,7 +460,7 @@
   long_name = MPI communicator
   units = index
   dimensions = ()
-  type = integer
+  type = MPI_Comm
   intent = in
 [mpirank]
   standard_name = mpi_rank

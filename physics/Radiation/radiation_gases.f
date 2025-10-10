@@ -115,6 +115,7 @@
 !> This module sets up constant gas rofiles, such as co2, ch4, n2o, o2, and those 
 !! of cfc gases.
       module module_radiation_gases      
+      use mpi_f08
       use mpiutil, only: ccpp_bcast
       use machine,           only : kind_phys, kind_io4
       use funcphys,          only : fpkapx
@@ -233,7 +234,8 @@
       implicit none
 
 !  ---  inputs:
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       integer, intent(in) :: ictmflg, ico2flg
       character(len=26),intent(in) :: co2usr_file,co2cyc_file
       real(kind=kind_phys), intent(in) :: con_pi
@@ -493,7 +495,8 @@
 
 !  ---  inputs:
       integer, intent(in) :: iyear, imon, iday, ihour
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       integer, intent(in) :: ictmflg,ico2flg
       character(len=26),intent(in) :: co2dat_file, co2gbl_file
       logical, intent(in) :: ldoco2

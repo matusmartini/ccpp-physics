@@ -88,6 +88,7 @@
 !> This module sets up astronomy quantities for solar radiation calculations.
       module module_radiation_astronomy  
 !
+      use mpi_f08
       use mpiutil,           only : ccpp_bcast
       use machine,           only : kind_phys 
       use module_iounitdef,  only : NIRADSF
@@ -182,7 +183,8 @@
       implicit none
 
 !  ---  input:
-      integer,  intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer,  intent(in) :: mpirank, mpiroot
       integer,  intent(in) :: isolar
       character(len=26), intent(in) :: solar_file
       real(kind=kind_phys), intent(in) :: con_solr, con_solr_old, con_pi
@@ -399,7 +401,8 @@
 
 !  ---  input:
       integer, intent(in) :: jdate(:), kyear
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       logical, intent(in) :: lsol_chg
 
       real (kind=kind_phys), intent(in) :: deltsw, deltim, con_pi

@@ -104,6 +104,7 @@
 !! emissivity for LW radiation.  
       module module_radiation_surface
 !
+      use mpi_f08
       use mpiutil,           only : ccpp_bcast
       use machine,           only : kind_phys
       use module_iounitdef,  only : NIRADSF
@@ -174,7 +175,8 @@
       implicit none
 
 !  ---  inputs:
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       integer, intent(in) :: ialbflg, iemsflg
       real(kind=kind_phys), intent(in) :: con_pi
       character(len=26), intent(in) :: semis_file

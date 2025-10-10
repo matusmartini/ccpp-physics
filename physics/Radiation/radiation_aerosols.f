@@ -126,6 +126,7 @@
 !! radiation computations.
       module module_radiation_aerosols
 !
+      use mpi_f08
       use mpiutil,  only: ccpp_bcast
       use machine,  only : kind_phys, kind_io4, kind_io8
       use module_iounitdef,        only : NIAERCM
@@ -540,7 +541,8 @@
 !  ==================================================================  !
 
 !  ---  inputs:
-      integer,  intent(in) :: NLAY, mpicomm, mpirank, mpiroot
+      integer,  intent(in) :: NLAY, mpirank, mpiroot
+      type(MPI_Comm),   intent(in) :: mpicomm
       integer,          intent(in) :: iaermdl, iaerflg
       logical,          intent(in) :: lalw1bd
       character(len=26),intent(in) :: aeros_file
@@ -995,7 +997,8 @@
 !  ---  inputs:
       real (kind=kind_phys), dimension(:) :: solfwv        ! one wvn sol flux
       real (kind=kind_phys), dimension(:) :: eirfwv        ! one wvn ir flux
-      integer,  intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer,  intent(in) :: mpirank, mpiroot
       character(len=26), intent(in) :: aeros_file
 !  ---  output: (CCPP error handling)
       integer,          intent(out) :: errflg
@@ -1120,7 +1123,8 @@
 !                                                                      !
 !  ==================================================================  !
 !
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
       character(len=26),intent(in) :: aeros_file
 !  ---  output: (CCPP error handling)
       integer,          intent(out) :: errflg
@@ -1808,7 +1812,8 @@
 !  ==================================================================  !
 
 !  ---  inputs:
-      integer,  intent(in) :: iyear, imon, mpicomm, mpirank, mpiroot
+      integer,  intent(in) :: iyear, imon, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
       integer,  intent(in) :: iaermdl
       character(len=26),intent(in) :: aeros_file
 !  ---  output: (CCPP error-handling)
@@ -1891,7 +1896,8 @@
 !                                                                      !
 !  ==================================================================  !
 
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
 !  ---  inputs: (CCPP Interstitials)
       character(len=26),intent(in) :: aeros_file
 !  ---  output: (CCPP error handling)
@@ -2070,7 +2076,8 @@
 
 !  ---  inputs: (in-scope variables, module constants)
 !     integer :: iyear, imon, me, NIAERCM
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer,        intent(in) :: mpirank, mpiroot
 
 !  ---  output: (module variables)
 !     integer :: ivolae(:,:,:), kyrstr, kyrend, kyrsav, kmonsav

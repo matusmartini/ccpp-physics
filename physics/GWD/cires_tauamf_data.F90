@@ -4,6 +4,7 @@
 module cires_tauamf_data
 
   use machine, only: kind_phys
+  use mpi_f08
 !...........................................................................................
 ! tabulated GW-sources: GRACILE/Ern et al., 2018 and/or Resolved GWs from C384-Annual run
 !...........................................................................................
@@ -24,7 +25,8 @@ contains
   
     use netcdf
     use mpiutil, only: ccpp_bcast
-    integer, intent(in) ::  mpicomm, mpirank, mpiroot
+    type(MPI_Comm), intent(in) :: mpicomm
+    integer, intent(in) :: mpirank, mpiroot
     integer :: ncid,  iernc, vid, dimid, status         
     integer :: k
     

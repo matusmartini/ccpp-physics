@@ -7,6 +7,7 @@
 !! IN and CCN data.
 module iccninterp
 
+    use mpi_f08
     implicit none
 
     private
@@ -22,7 +23,8 @@ contains
       use iccn_def
       use netcdf
 !--- in/out
-      integer, intent(in) :: mpicomm, mpirank, mpiroot
+      type(MPI_Comm), intent(in) :: mpicomm
+      integer, intent(in) :: mpirank, mpiroot
 !--- locals
       integer :: ncerr
       integer :: i, n, k, ncid, varid,j,it

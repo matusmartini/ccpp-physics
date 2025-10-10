@@ -48,23 +48,17 @@
 ! to end the run correctly, even if running on multiple MPI tasks.
 ! Meant to replace bare stop statements.  JM, NRL 20220503
       subroutine ccpp_external_abort( str )
-#ifdef MPI
-      use mpi_f08
-#endif
+        use mpi_f08
 #ifdef __INTEL_COMPILER
-      use ifcore
+        use ifcore
 #endif
-      implicit none
-      integer          :: ierr
-      character(len=*) :: str
-      write(*,*)"call to ccpp_external_abort ",trim(str)
-      write(0,*)"call to ccpp_external_abort ",trim(str)
+        implicit none
+        integer          :: ierr
+        character(len=*) :: str
+        write(*,*)"call to ccpp_external_abort ",trim(str)
+        write(0,*)"call to ccpp_external_abort ",trim(str)
 #ifdef __INTEL_COMPILER
-      call tracebackqq("ccpp_external_abort",user_exit_code=-1)
+        call tracebackqq("ccpp_external_abort",user_exit_code=-1)
 #endif
-#ifdef MPI
-      call mpi_abort(MPI_COMM_WORLD,ierr)
-#else
-      stop "ccpp_external_abort"
-#endif
+        call mpi_abort(MPI_COMM_WORLD,ierr)
       end subroutine ccpp_external_abort
