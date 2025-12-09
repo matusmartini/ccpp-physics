@@ -1,11 +1,18 @@
 name: Basic checks for CCPP physics schemes
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - release/*
+      - neptune
+    types: [opened, synchronize, reopened]
 
 jobs:
   build:
 
-    runs-on: macos-latest
+    #runs-on: macos-latest
+    runs-on: ['self-hosted','neptune-org-atlantis']
 
     steps:
     - name: Checkout
@@ -18,4 +25,7 @@ jobs:
     #    #brew install autoconf automake coreutils gcc@9 libtool mpich gnu-sed wget
     #    brew install automake coreutils mpich gnu-sed
     - name: Check for ASCII encoding
-      run: ./tools/check_encoding.py
+      run: |
+        module use ${PWD}/modulefiles
+        module load atlantis/llvm-20.1.5
+        ./tools/check_encoding.py
