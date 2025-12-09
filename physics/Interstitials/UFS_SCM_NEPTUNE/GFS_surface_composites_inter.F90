@@ -18,7 +18,7 @@ contains
 !!
    subroutine GFS_surface_composites_inter_run (im, dry, icy, wet, semis_wat, semis_lnd, semis_ice, &
                                                 adjsfcdlw, gabsbdlw_lnd, gabsbdlw_ice, gabsbdlw_wat,&
-                                                adjsfcusw, adjsfcdsw, adjsfcnsw, use_lake_model, errmsg, errflg)
+                                                adjsfcusw, adjsfcdsw, adjsfcnsw, errmsg, errflg)
 
       implicit none
 
