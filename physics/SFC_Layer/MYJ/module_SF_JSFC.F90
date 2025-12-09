@@ -714,9 +714,8 @@
               print*,'PSIH1(1,2),RDZT=',PSIH1(K+1),PSIH1(K+2),RDZT
               print*,'ZSLU,ZSLT,RLMO,ZU,ZT=',ZSLU,ZSLT,RLMO,ZU,ZT
               print*,'A,B,DTHV,DU2,RIB=',A,B,DTHV,DU2,RIB
-              errflg = 1
-              errmsg = 'ERROR(SFCDIF): '
-              return
+              write(0,*)'ERROR(SFCDIF): '
+              call ccpp_external_abort(__FILE__)
             end if
 
 

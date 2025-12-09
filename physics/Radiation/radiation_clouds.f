@@ -320,10 +320,7 @@
          else
             print *,'  !!! ERROR in cloud microphysc specification!!!', &
      &              '  imp_physics (NP3D) =',imp_physics
-            errflg = 1
-            errmsg = 'ERROR(cld_init): cloud mp specification is not'// &
-     &       ' valid'
-            return
+            call ccpp_external_abort("radiation_clouds.f:cld_init2")
          endif
       endif
 !
