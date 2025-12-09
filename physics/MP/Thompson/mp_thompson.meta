@@ -153,6 +153,13 @@
   dimensions = ()
   type = logical
   intent = in
+[do_mp_cloud_tuning]
+  standard_name = do_mp_cloud_tuning
+  long_name = flag for gfs cloud tuning
+  units = flag
+  dimensions = ()
+  type = logical
+  intent = in
 [nc]
   standard_name = mass_number_concentration_of_cloud_liquid_water_particles_in_air
   long_name = cloud droplet number concentration
@@ -282,6 +289,13 @@
   kind = kind_phys
   intent = in
   optional = True
+[instance]
+  standard_name = ccpp_instance
+  long_name = argument to thompson mp so it knows which instance it is
+  units = index
+  dimensions = ()
+  type = integer
+  intent = in
 [errmsg]
   standard_name = ccpp_error_message
   long_name = error message for error handling in CCPP
@@ -782,6 +796,13 @@
   kind = kind_phys
   intent = inout
   optional = True
+[instance]
+  standard_name = ccpp_instance
+  long_name = argument to thompson mp so it knows which instance it is
+  units = index
+  dimensions = ()
+  type = integer
+  intent = in
 [errmsg]
   standard_name = ccpp_error_message
   long_name = error message for error handling in CCPP
@@ -802,6 +823,13 @@
 [ccpp-arg-table]
   name = mp_thompson_finalize
   type = scheme
+[instance]
+  standard_name = ccpp_instance
+  long_name = argument to thompson mp so it knows which instance it is
+  units = index
+  dimensions = ()
+  type = integer
+  intent = in
 [errmsg]
   standard_name = ccpp_error_message
   long_name = error message for error handling in CCPP

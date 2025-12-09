@@ -11,7 +11,7 @@ module mp_thompson
       use machine, only : kind_phys
 
       use module_mp_thompson, only : thompson_init, mp_gt_driver, thompson_finalize, calc_effectRad
-      use module_mp_thompson, only : naIN0, naIN1, naCCN0, naCCN1, eps, Nt_c_l, Nt_c_o
+      use module_mp_thompson, only : naIN0, naIN1, naCCN0, naCCN1, eps, Nt_c_l
       use module_mp_thompson, only : re_qc_min, re_qc_max, re_qi_min, re_qi_max, re_qs_min, re_qs_max
 
       use module_mp_thompson_make_number_concentrations, only: make_IceNumber, make_DropletNumber, make_RainNumber
@@ -22,7 +22,7 @@ module mp_thompson
 
       private
 
-      logical :: is_initialized = .False.
+      logical, dimension(100) :: is_initialized = .False.
 
       integer, parameter :: ext_ndiag3d = 37
 
@@ -37,10 +37,12 @@ module mp_thompson
                                   imp_physics_thompson, convert_dry_rho,   &
                                   spechum, qc, qr, qi, qs, qg, ni, nr,     &
                                   is_aerosol_aware,  merra2_aerosol_aware, &
+                                  do_mp_cloud_tuning,                      &
                                   nc, nwfa2d, nifa2d,                      &
                                   nwfa, nifa, tgrs, prsl, phil, area,      &
                                   aerfld, mpicomm, mpirank, mpiroot,       &
                                   threads, ext_diag, diag3d,               &
+                                  instance,                                &
                                   errmsg, errflg)
 
          implicit none
@@ -65,6 +67,7 @@ module mp_thompson
          ! Aerosols
          logical,                   intent(in   ) :: is_aerosol_aware
          logical,                   intent(in   ) :: merra2_aerosol_aware
+         logical,                   intent(in   ) :: do_mp_cloud_tuning
          real(kind_phys),           intent(inout), optional :: nc(:,:)
          real(kind_phys),           intent(inout), optional :: nwfa(:,:)
          real(kind_phys),           intent(inout), optional :: nifa(:,:)
@@ -84,6 +87,7 @@ module mp_thompson
          integer,                   intent(in   ) :: threads
          ! Extended diagnostics
          logical,                   intent(in   ) :: ext_diag
+         integer,                   intent(in   ) :: instance
          real(kind_phys),           intent(in   ), optional :: diag3d(:,:,:)
          ! CCPP error handling
          character(len=*),          intent(  out) :: errmsg
@@ -103,7 +107,7 @@ module mp_thompson
          errmsg = ''
          errflg = 0
 
-         if (is_initialized) return
+         if (is_initialized(instance)) return
 
          ! Consistency checks
          if (imp_physics/=imp_physics_thompson) then
@@ -129,13 +133,14 @@ module mp_thompson
          ! Call Thompson init
          call thompson_init(is_aerosol_aware_in=is_aerosol_aware,              &
                             merra2_aerosol_aware_in=merra2_aerosol_aware,      &
+                            do_mp_cloud_tuning=do_mp_cloud_tuning,             &
                             mpicomm=mpicomm, mpirank=mpirank, mpiroot=mpiroot, &
                             threads=threads, errmsg=errmsg, errflg=errflg)
          if (errflg /= 0) return
 
          ! For restart runs, the init is done here
          if (restart) then
-           is_initialized = .true.
+           is_initialized(instance) = .true.
            return
          end if
 
@@ -308,7 +313,7 @@ module mp_thompson
            end if
          end if
 
-         is_initialized = .true.
+         is_initialized(instance) = .true.
 
       end subroutine mp_thompson_init
 
@@ -339,6 +344,7 @@ module mp_thompson
                               spp_prt_list, spp_var_list,          &
                               spp_stddev_cutoff,                   &
                               cplchm, pfi_lsan, pfl_lsan,          &
+                              instance,                            &
                               errmsg, errflg)
 
          implicit none
@@ -403,6 +409,8 @@ module mp_thompson
          logical,                   intent(in)    :: ext_diag
          real(kind_phys), target,   intent(inout), optional :: diag3d(:,:,:)
          logical,                   intent(in)    :: reset_diag3d
+         ! Which instance
+         integer,                   intent(in   ) :: instance
 
          ! CCPP error handling
          character(len=*),          intent(  out) :: errmsg
@@ -507,7 +515,7 @@ module mp_thompson
 
          if (first_time_step .and. istep==1 .and. blkno==1) then
             ! Check initialization state
-            if (.not.is_initialized) then
+            if (.not.is_initialized(instance)) then
                write(errmsg, fmt='((a))') 'mp_thompson_run called before mp_thompson_init'
                errflg = 1
                return
@@ -916,10 +924,12 @@ module mp_thompson
 !> \section arg_table_mp_thompson_finalize Argument Table
 !! \htmlinclude mp_thompson_finalize.html
 !!
-      subroutine mp_thompson_finalize(errmsg, errflg)
+      subroutine mp_thompson_finalize(instance,errmsg, errflg)
 
          implicit none
 
+         ! Which instance
+         integer,                   intent(in   ) :: instance
          character(len=*),          intent(  out) :: errmsg
          integer,                   intent(  out) :: errflg
 
@@ -927,11 +937,11 @@ module mp_thompson
          errmsg = ''
          errflg = 0
 
-         if (.not.is_initialized) return
+         if (.not.is_initialized(instance)) return
 
          call thompson_finalize()
 
-         is_initialized = .false.
+         is_initialized(instance) = .false.
 
       end subroutine mp_thompson_finalize
 
