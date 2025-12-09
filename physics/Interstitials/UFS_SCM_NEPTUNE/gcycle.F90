@@ -227,9 +227,7 @@ contains
       inquire (file=trim(fn_nml),exist=exists)
       if (.not. exists) then
         write(6,*) 'gcycle:: namelist file: ',trim(fn_nml),' does not exist'
-        errflg = 1
-        errmsg = 'ERROR(gcycle): namelist file: ',trim(fn_nml),' does not exist.'
-        return
+        call ccpp_external_abort(__FILE__)
       else
         open (unit=nlunit, file=trim(fn_nml), action='READ', status='OLD', iostat=ios)
         rewind (nlunit)
