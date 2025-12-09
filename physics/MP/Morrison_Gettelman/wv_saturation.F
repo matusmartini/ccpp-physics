@@ -153,7 +153,7 @@
 
 
        write(*,*) "AHHH wv_sat"
-       STOP
+       call ccpp_external_abort("wv_saturation.F")
        end if
 !
 ! Begin building es table.
