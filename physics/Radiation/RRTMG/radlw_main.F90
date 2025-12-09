@@ -279,7 +279,7 @@
 !
       use physcons,         only : con_g, con_cp, con_avgd, con_amd,    &
      &                             con_amw, con_amo3
-      use mersenne_twister, only : random_setseed, random_number,       &
+      use mersenne_twister_ccpp, only : random_setseed, random_number,  &
      &                             random_stat
       use machine,          only : kind_phys,                           &
      &                             im => kind_io4, rb => kind_phys,     &
@@ -7625,9 +7625,7 @@
                return
 
             elseif(inflag .eq. 1) then
-                errflg = 1
-                errmsg = 'ERROR(rlwinit): INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA'
-                return
+                call ccpp_external_abort('INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA')
 !               cwp = ciwpmc(ig,lay) + clwpmc(ig,lay)
 !               taucmc(ig,lay) = abscld1 * cwp
 
