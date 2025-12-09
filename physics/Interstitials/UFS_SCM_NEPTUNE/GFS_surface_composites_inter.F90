@@ -30,7 +30,6 @@ contains
                                                            adjsfcdlw, adjsfcdsw, adjsfcnsw
       real(kind=kind_phys), dimension(:), intent(inout) :: gabsbdlw_lnd, gabsbdlw_ice, gabsbdlw_wat
       real(kind=kind_phys), dimension(:), intent(out)   :: adjsfcusw
-      integer, dimension(:), intent(in) :: use_lake_model
 
       ! CCPP error handling
       character(len=*), intent(out) :: errmsg
