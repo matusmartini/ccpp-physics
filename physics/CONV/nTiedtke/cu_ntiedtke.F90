@@ -22,17 +22,17 @@ module cu_ntiedtke
 
      real(kind=kind_phys),private :: rovcp,r5alvcp,r5alscp,ralvdcp,ralsdcp,ralfdcp
 
-      real(kind=kind_phys),parameter:: t13   = 0.333333333
-      real(kind=kind_phys),parameter:: tmelt = 273.16
-      real(kind=kind_phys),parameter:: c1es  = 610.78
-      real(kind=kind_phys),parameter:: c3les = 17.2693882
-      real(kind=kind_phys),parameter:: c3ies = 21.875
-      real(kind=kind_phys),parameter:: c4les = 35.86
-      real(kind=kind_phys),parameter:: c4ies = 7.66
+     real(kind=kind_phys),parameter:: t13   = 0.333333333
+     real(kind=kind_phys),parameter:: tmelt = 273.16
+     real(kind=kind_phys),parameter:: c1es  = 610.78
+     real(kind=kind_phys),parameter:: c3les = 17.2693882
+     real(kind=kind_phys),parameter:: c3ies = 21.875
+     real(kind=kind_phys),parameter:: c4les = 35.86
+     real(kind=kind_phys),parameter:: c4ies = 7.66
 
-      real(kind=kind_phys),parameter:: rtwat = tmelt
-      real(kind=kind_phys),parameter:: rtber = tmelt-5.
-      real(kind=kind_phys),parameter:: rtice = tmelt-23.
+     real(kind=kind_phys),parameter:: rtwat = tmelt
+     real(kind=kind_phys),parameter:: rtber = tmelt-5.
+     real(kind=kind_phys),parameter:: rtice = tmelt-23.
      parameter(         &
       rcpd=1.0/cpd,     &
       zrg=1.0/g,        &
@@ -50,26 +50,24 @@ module cu_ntiedtke
 
 !     momtrans: momentum transport method ( 1 = IFS40r1 method; 2 = new method )
 !     -------
-!
       integer,parameter:: momtrans = 2
-!     -------
-!
+
 !     entrdd: average turbulent entrainment & detrainment rate for downdrafts (Eq. 6.15 IFS Cy48r1)
 !     ------
-      real(kind=kind_phys),parameter:: entrdd  = 2.0e-4
-!
+      real(kind=kind_phys),parameter:: entrdd = 2.0e-4
+
 !     cmfcmax:   maximum massflux value allowed for updrafts etc
 !     -------
       real(kind=kind_phys),parameter:: cmfcmax = 1.0
-!
+
 !     cmfcmin:   minimum massflux value (for safety)
 !     -------
       real(kind=kind_phys),parameter:: cmfcmin = 1.e-10
-!
+
 !     cmfdeps:   fractional massflux for downdrafts at lfs
 !     -------
       real(kind=kind_phys),parameter:: cmfdeps = 0.30
-!
+
 !     zdnoprc:   deep cloud is thicker than this height (Unit:Pa)
 !     NRL changed from 2.0e4 to 1.5e4 as a result of NEPTUNE tuning experiments,
 !     see https://github.nrlmry.navy.mil/NEPTUNE/ccpp-physics/pull/28
@@ -78,21 +76,21 @@ module cu_ntiedtke
 
 !     cprcon:    coefficient from cloud water to rain water
 !     -------
-      real(kind=kind_phys),parameter:: cprcon  = 1.4e-3
-!
+      real(kind=kind_phys),parameter:: cprcon = 1.4e-3
+
 !     pgcoef:   0.7 to 1.0 is good depends on the basin
 !     -------
-      real(kind=kind_phys),parameter:: pgcoef  = 0.7
-!
+      real(kind=kind_phys),parameter:: pgcoef = 0.7
+
 !     entorg:   organized updraft entrainment scaling factor (Eq. 6.7 IFS Cy48r1)
 !     NRL changed from 1.75e-3 to 2.10e-3 as a result of NEPTUNE tuning experiments,
 !     see https://github.nrlmry.navy.mil/NEPTUNE/ccpp-physics/pull/28
 !     -------
-      real(kind=kind_phys),parameter:: entorg  = 2.10e-3 ! exp 2.4, 2.1, and 1.4, orig. 1.75
-!
+      real(kind=kind_phys),parameter:: entorg = 2.1e-3  ! exp 2.4, 2.1, and 1.4, orig. 1.75
+
 !     detturb:   turbulent detrainment scaling factor (Eq. 6.8 IFS Cy48r1)
 !     -------
-      real(kind=kind_phys),parameter:: detturb  = 0.75e-4
+      real(kind=kind_phys),parameter:: detturb = 0.75e-4
 
 !     isequil: representing equilibrium and nonequilibrium convection
 !     ( .false. [default]; .true. [experimental]. Ref. Bechtold et al. 2014 JAS )
@@ -100,7 +98,6 @@ module cu_ntiedtke
 !     When isequil = .true., the CAPE is relaxed toward to a value from PBL
 !     It can improve the diurnal precipitation over land.
 !     -------
-!
       logical,parameter:: isequil = .false.
 !
 !--------------------
@@ -202,47 +199,51 @@ contains
 !                      IFS documentation - cy33r1, cy37r2, cy38r1, cy40r1
 !
       implicit none
-! in&out variables
-      integer, intent(in)  ::  lq, km, ktrac
-      real(kind=kind_phys),     intent(in ) :: dt
-      integer, dimension( : ),   intent(in)  :: lmask
-      real(kind=kind_phys), dimension( : ),     intent(in ) :: evap, hfx, dx
-      real(kind=kind_phys), dimension( :, : ),     intent(inout) :: pu, pv, pt, pqv
-      real(kind=kind_phys), dimension( :, :),     intent(in )   :: tdi, qvdi, poz, prsl, pomg
-      real(kind=kind_phys), dimension( :, :), intent(in ), optional :: pqvf, ptf
-      real(kind=kind_phys), dimension( :, : ),   intent(in )   :: pzz, prsi
-      real(kind=kind_phys), dimension( :, :, : ),    intent(inout ) ::  clw
+!--- input arguments:
+      integer, intent(in) :: lq, km, ktrac
+      integer, intent(in), dimension(:) :: lmask
 
-      integer, dimension( : ),   intent(out)  :: kbot, ktop, kcnv
-      real(kind=kind_phys), dimension( : ),   intent(out)  :: zprecc
-      real(kind=kind_phys), dimension (:, :), intent(out), optional :: ud_mf
-      real(kind=kind_phys), dimension (:, :), intent(out) :: dd_mf, dt_mf, cnvw, cnvc
- 
+      real(kind=kind_phys), intent(in) :: dt
+      real(kind=kind_phys), dimension(:), intent(in) :: evap, hfx, dx
+      real(kind=kind_phys), dimension(:,:), intent(in) :: tdi, qvdi, poz, prsl, pomg
+      real(kind=kind_phys), dimension(:,:), intent(in), optional :: pqvf, ptf
+      real(kind=kind_phys), dimension(:,:),intent(in) :: pzz, prsi
+
+!--- inout arguments:
+      real(kind=kind_phys), dimension(:,:,:), intent(inout ) :: clw
+      real(kind=kind_phys), dimension(:,:), intent(inout) :: pu, pv, pt, pqv
+
+!--- output arguments:
+      real(kind=kind_phys), dimension(:), intent(out) :: zprecc
+      integer, dimension(:), intent(out) :: kbot, ktop, kcnv
+      real(kind=kind_phys), dimension (:,:), intent(out), optional :: ud_mf
+      real(kind=kind_phys), dimension (:,:), intent(out) :: dd_mf, dt_mf, cnvw, cnvc
+
 ! error messages
-      character(len=*), intent(out)    ::                                 errmsg
-      integer,          intent(out)    ::                                 errflg
- 
-! local variables
-      real(kind=kind_phys) pum1(lq,km),  pvm1(lq,km),  ztt(lq,km),                &
-     &     ptte(lq,km),    pqte(lq,km),  pvom(lq,km),  pvol(lq,km),               &
-     &     pverv(lq,km),   pgeo(lq,km),  pap(lq,km),   paph(lq,km+1)
-      real(kind=kind_phys) pqhfl(lq),      zqq(lq,km),                            &
-     &     prsfc(lq),      pssfc(lq),    pcte(lq,km),                             &
-     &     phhfl(lq),      pgeoh(lq,km+1)
-      real(kind=kind_phys) ztp1(lq,km),    zqp1(lq,km),  ztu(lq,km),   zqu(lq,km),&
-     &     zlu(lq,km),     zlude(lq,km), zmfu(lq,km),  zmfd(lq,km),  zmfude_rate(lq,km),&
-     &     zqsat(lq,km),   zrain(lq)
-      real(kind=kind_phys),allocatable ::  pcen(:,:,:),ptenc(:,:,:) 
+      character(len=*), intent(out) :: errmsg
+      integer,          intent(out) :: errflg
 
-      integer icbot(lq),   ictop(lq),     ktype(lq),   lndj(lq)
-      logical locum(lq)
-!
-      real(kind=kind_phys) ztmst,fliq,fice,ztc,zalf,tt
-      integer i,j,k,k1,n,km1,ktracer
-      real(kind=kind_phys) ztpp1
-      real(kind=kind_phys) zew,zqs,zcor
+! local variables
+      real(kind=kind_phys),allocatable ::  pcen(:,:,:),ptenc(:,:,:)
+      integer,dimension(lq):: lndj
+      logical,dimension(lq):: locum
+      integer:: i,j,k
+      integer:: k1,n,km1,ktracer
+      integer,dimension(lq):: icbot,ictop,ktype
+
+      real(kind=kind_phys):: ztmst,fliq,fice,ztc,zalf,tt
+      real(kind=kind_phys):: ztpp1,zew,zqs,zcor
       real(kind=kind_phys):: dxref
+
+      real(kind=kind_phys),dimension(lq):: pqhfl,prsfc,pssfc,phhfl,zrain
       real(kind=kind_phys),dimension(lq):: scale_fac,scale_fac2
+
+      real(kind=kind_phys),dimension(lq,km):: pum1,pvm1,ztt,ptte,pqte,pvom,pvol,pverv,pgeo
+      real(kind=kind_phys),dimension(lq,km):: zqq,pcte
+      real(kind=kind_phys),dimension(lq,km):: ztp1,zqp1,ztu,zqu,zlu,zlude,zmfu,zmfd,zqsat,zmfude_rate,pap
+      real(kind=kind_phys),dimension(lq,km+1):: pgeoh,paph
+
+!-----------------------------------------------------------------------------------------------------------------
 !
 ! Initialize CCPP error handling variables
    errmsg = ''
@@ -388,7 +389,7 @@ contains
       do k=1,km
         k1 = km-k+1
         do j=1,lq
-          pt(j,k)   = ztp1(j,k1)+(ptte(j,k1)-ztt(j,k1))*ztmst
+          pt(j,k) = ztp1(j,k1)+(ptte(j,k1)-ztt(j,k1))*ztmst
           pqv(j,k)  = zqp1(j,k1)+(pqte(j,k1)-zqq(j,k1))*ztmst
           ud_mf(j,k)= zmfu(j,k1)*ztmst
           dd_mf(j,k)= -zmfd(j,k1)*ztmst
@@ -588,7 +589,7 @@ contains
 !*         (a) determine cloud base values in 'cutypen',
 !              and the cumulus type 1 or 2
 !          -------------------------------------------
-      call cutypen &
+       call cutypen &
      &     ( klon,     klev,     klevp1,   klevm1,     pqen, &
      &      ztenh,    zqenh,     zqsenh,    zgeoh,     paph, &
      &      phhfl,    pqhfl,       pgeo,    pqsen,      pap, &
@@ -598,21 +599,21 @@ contains
 
 !*         (b) assign the first guess mass flux at cloud base
 !              ------------------------------------------
-      do jl=1,klon
-        zdhpbl(jl)=0.0
-        upbl(jl) = 0.0
-        idtop(jl)=0
-      end do
+       do jl=1,klon
+         zdhpbl(jl)=0.0
+         upbl(jl) = 0.0
+         idtop(jl)=0
+       end do
 
       !-----------------------------------------------
       ! Calculate moist static energy and kinetic
       ! energy within the subcloud layer for the
       ! environment
       !-----------------------------------------------
-      do jk=2,klev
-        do jl=1,klon
+       do jk=2,klev
+       do jl=1,klon
 
-          if(jk.ge.kcbot(jl) .and. ldcum(jl)) then
+         if(jk.ge.kcbot(jl) .and. ldcum(jl)) then
             ! sum subcloud layer moist static energy
             zdhpbl(jl) = zdhpbl(jl) + (alv*pqte(jl,jk)+cpd*ptte(jl,jk)) * (paph(jl,jk+1)-paph(jl,jk))
 
@@ -621,10 +622,10 @@ contains
               upbl(jl) = upbl(jl) + wspeed*(paph(jl,jk+1)-paph(jl,jk))
             end if
 
-          end if
+         end if
 
-        end do
-      end do
+       end do
+       end do
 
       !-----------------------------------------------
       ! Calculate first guess cloud base mass flux
@@ -634,42 +635,42 @@ contains
         if(ldcum(jl)) then
 
           ikb = kcbot(jl)
-          zmfmax = (paph(jl,ikb)-paph(jl,ikb-1))*zcons2
+           zmfmax = (paph(jl,ikb)-paph(jl,ikb-1))*zcons2
           !-----------------------------------------------
           ! Deep convection.
-          ! Initial updraft mass flux is 10% of its maximum 
+          ! Initial updraft mass flux is 10% of its maximum
           ! value, which is determined by the layer thickness
           ! and time step.
           !-----------------------------------------------
-          if(ktype(jl) == 1) then
+           if(ktype(jl) == 1) then
 
-            zmfub(jl)= 0.1*zmfmax
+             zmfub(jl)= 0.1*zmfmax
           !-----------------------------------------------
           ! Shallow convection.
           ! Initial updraft mass flux is determined by
           ! a balance of moist static energy in the
           ! boundary layer.
           !-----------------------------------------------
-          else if ( ktype(jl) == 2 ) then
+           else if ( ktype(jl) == 2 ) then
 
-            zqumqe = pqu(jl,ikb) + plu(jl,ikb) - zqenh(jl,ikb)
-            zdqmin = max(0.01*zqenh(jl,ikb),1.e-10)
-            zdh = cpd*(ptu(jl,ikb)-ztenh(jl,ikb)) + alv*zqumqe
+             zqumqe = pqu(jl,ikb) + plu(jl,ikb) - zqenh(jl,ikb)
+             zdqmin = max(0.01*zqenh(jl,ikb),1.e-10)
+             zdh = cpd*(ptu(jl,ikb)-ztenh(jl,ikb)) + alv*zqumqe
             !zdh = g*max(zdh,1.e5*zdqmin)
             zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
 
-            if ( zdhpbl(jl) > 0. ) then
+             if ( zdhpbl(jl) > 0. ) then
               zmfub(jl) = zdhpbl(jl) / zdh
-              zmfub(jl) = min(zmfub(jl),zmfmax)
-            else
-              zmfub(jl) = 0.1*zmfmax
-              ldcum(jl) = .false.
-            end if
+               zmfub(jl) = min(zmfub(jl),zmfmax)
+             else
+               zmfub(jl) = 0.1*zmfmax
+               ldcum(jl) = .false.
+             end if
 
             end if
 
         else
-          zmfub(jl) = 0.
+           zmfub(jl) = 0.
         end if
 
       end do
@@ -755,130 +756,130 @@ contains
 !       for deep convection (ktype=1)
 !
       do jl=1,klon
-        if(ldcum(jl) .and. ktype(jl) .eq. 1) then
-          ikb = kcbot(jl)
-          ikt = kctop(jl)
-          zheat(jl)=0.0
-          zcape(jl)=0.0
-          zcape1(jl)=0.0
-          zcape2(jl)=0.0
-          zmfub1(jl)=zmfub(jl)
+      if(ldcum(jl) .and. ktype(jl) .eq. 1) then
+        ikb = kcbot(jl)
+        ikt = kctop(jl)
+        zheat(jl)=0.0
+        zcape(jl)=0.0
+        zcape1(jl)=0.0
+        zcape2(jl)=0.0
+        zmfub1(jl)=zmfub(jl)
 
-          ztauc(jl)  = (zgeoh(jl,ikt)-zgeoh(jl,ikb)) / &
-                    ((2.+ min(15.0,wup(jl)))*g)
-          if(lndj(jl) .eq. 0) then
-            upbl(jl) = 2.+ upbl(jl)/(paph(jl,klev+1)-paph(jl,ikb))
-            ztaubl(jl) = (zgeoh(jl,ikb)-zgeoh(jl,klev+1))/(g*upbl(jl))
-            ztaubl(jl) = min(300., ztaubl(jl))
-          else
-            ztaubl(jl) = ztauc(jl)
-          end if
+        ztauc(jl)  = (zgeoh(jl,ikt)-zgeoh(jl,ikb)) / &
+                   ((2.+ min(15.0,wup(jl)))*g)
+        if(lndj(jl) .eq. 0) then
+          upbl(jl) = 2.+ upbl(jl)/(paph(jl,klev+1)-paph(jl,ikb))
+          ztaubl(jl) = (zgeoh(jl,ikb)-zgeoh(jl,klev+1))/(g*upbl(jl))
+          ztaubl(jl) = min(300., ztaubl(jl))
+        else
+          ztaubl(jl) = ztauc(jl)
         end if
+      end if
       end do
 
       do jk = 1 , klev
-        do jl = 1 , klon
-          llo1 = ldcum(jl) .and. ktype(jl) .eq. 1
-          if ( llo1 .and. jk <= kcbot(jl) .and. jk > kctop(jl) ) then
-            ikb = kcbot(jl)
-            zdz = pgeo(jl,jk-1)-pgeo(jl,jk)
-            zdp = pap(jl,jk)-pap(jl,jk-1)
-            zheat(jl) = zheat(jl) + ((pten(jl,jk-1)-pten(jl,jk)+zdz*rcpd) / &
-                        ztenh(jl,jk)+vtmpc1*(pqen(jl,jk-1)-pqen(jl,jk))) * &
-                        (g*(pmfu(jl,jk)+pmfd(jl,jk)))
-            zcape1(jl) = zcape1(jl) + ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk) + &
-                        vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))-plu(jl,jk))*zdp
-          end if
+      do jl = 1 , klon
+        llo1 = ldcum(jl) .and. ktype(jl) .eq. 1
+        if ( llo1 .and. jk <= kcbot(jl) .and. jk > kctop(jl) ) then
+          ikb = kcbot(jl)
+          zdz = pgeo(jl,jk-1)-pgeo(jl,jk)
+          zdp = pap(jl,jk)-pap(jl,jk-1)
+          zheat(jl) = zheat(jl) + ((pten(jl,jk-1)-pten(jl,jk)+zdz*rcpd) / &
+                      ztenh(jl,jk)+vtmpc1*(pqen(jl,jk-1)-pqen(jl,jk))) * &
+                      (g*(pmfu(jl,jk)+pmfd(jl,jk)))
+          zcape1(jl) = zcape1(jl) + ((ptu(jl,jk)-ztenh(jl,jk))/ztenh(jl,jk) + &
+                      vtmpc1*(pqu(jl,jk)-zqenh(jl,jk))-plu(jl,jk))*zdp
+        end if
 
-          if ( llo1 .and. jk >= kcbot(jl) ) then
-            if((paph(jl,klev+1)-paph(jl,kdpl(jl)))<50.e2) then
-              zdp = paph(jl,jk+1)-paph(jl,jk)
-              zcape2(jl) = zcape2(jl) + ztaubl(jl)* &
-                        ((1.+vtmpc1*pqen(jl,jk))*ptte(jl,jk)+vtmpc1*pten(jl,jk)*pqte(jl,jk))*zdp
-            end if
-          end if
-        end do
+        if ( llo1 .and. jk >= kcbot(jl) ) then
+        if((paph(jl,klev+1)-paph(jl,kdpl(jl)))<50.e2) then
+          zdp = paph(jl,jk+1)-paph(jl,jk)
+          zcape2(jl) = zcape2(jl) + ztaubl(jl)* &
+                     ((1.+vtmpc1*pqen(jl,jk))*ptte(jl,jk)+vtmpc1*pten(jl,jk)*pqte(jl,jk))*zdp
+        end if
+        end if
+      end do
       end do
 
       do jl=1,klon
-        if(ldcum(jl).and.ktype(jl).eq.1) then
-          ikb = kcbot(jl)
-          ikt = kctop(jl)
-          ztauc(jl) = max(ztmst,ztauc(jl))
-          ztauc(jl) = max(360.,ztauc(jl))
-          ztauc(jl) = min(10800.,ztauc(jl))
-          ztau = ztauc(jl) * scale_fac(jl)
-          if(isequil) then
-            zcape2(jl)= max(0.,zcape2(jl))
-            zcape(jl) = max(0.,min(zcape1(jl)-zcape2(jl),5000.))
-          else
-            zcape(jl) = max(0.,min(zcape1(jl),5000.))
-          end if
-          zheat(jl) = max(1.e-4,zheat(jl))
-          zmfub1(jl) = (zcape(jl)*zmfub(jl))/(zheat(jl)*ztau)
-          zmfub1(jl) = max(zmfub1(jl),0.001)
-          zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
-          zmfub1(jl)=min(zmfub1(jl),zmfmax)
-        end if
+       if(ldcum(jl).and.ktype(jl).eq.1) then
+           ikb = kcbot(jl)
+           ikt = kctop(jl)
+           ztauc(jl) = max(ztmst,ztauc(jl))
+           ztauc(jl) = max(360.,ztauc(jl))
+           ztauc(jl) = min(10800.,ztauc(jl))
+           ztau = ztauc(jl) * scale_fac(jl)
+           if(isequil) then
+             zcape2(jl)= max(0.,zcape2(jl))
+             zcape(jl) = max(0.,min(zcape1(jl)-zcape2(jl),5000.))
+           else
+             zcape(jl) = max(0.,min(zcape1(jl),5000.))
+           end if
+           zheat(jl) = max(1.e-4,zheat(jl))
+           zmfub1(jl) = (zcape(jl)*zmfub(jl))/(zheat(jl)*ztau)
+           zmfub1(jl) = max(zmfub1(jl),0.001)
+           zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
+           zmfub1(jl)=min(zmfub1(jl),zmfmax)
+       end if
       end do
       !
       !*  6.2   recalculate convective fluxes due to effect of
       !         downdrafts on boundary layer moist static energy budget (ktype=2)
       !--------------------------------------------------------
-      do jl=1,klon
+       do jl=1,klon
 
-        if(ldcum(jl) .and. ktype(jl) .eq. 2) then
+         if(ldcum(jl) .and. ktype(jl) .eq. 2) then
 
-          ikb=kcbot(jl)
+           ikb=kcbot(jl)
 
-          if(pmfd(jl,ikb).lt.0.0 .and. loddraf(jl)) then
-            zeps=-pmfd(jl,ikb)/max(zmfub(jl),cmfcmin)
-          else
-            zeps=0.
-          endif
+           if(pmfd(jl,ikb).lt.0.0 .and. loddraf(jl)) then
+              zeps=-pmfd(jl,ikb)/max(zmfub(jl),cmfcmin)
+           else
+              zeps=0.
+           endif
 
-          zqumqe=pqu(jl,ikb)+plu(jl,ikb)-  &
+           zqumqe=pqu(jl,ikb)+plu(jl,ikb)-  &
                   zeps*zqd(jl,ikb)-(1.-zeps)*zqenh(jl,ikb)
-          zdqmin=max(0.01*zqenh(jl,ikb),cmfcmin)
-          zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
+           zdqmin=max(0.01*zqenh(jl,ikb),cmfcmin)
+           zmfmax=(paph(jl,ikb)-paph(jl,ikb-1))*zcons2
           !  using moist static engergy closure instead of moisture closure
           zdh = cpd*(ptu(jl,ikb)-zeps*ztd(jl,ikb)- &
             (1.-zeps)*ztenh(jl,ikb))+alv*zqumqe
           !zdh=g*max(zdh,1.e5*zdqmin)
           zdh = g*max(zdh,0.75*cpd)  ! limiter updated to be consistent with IFS documentation
 
-          if(zdhpbl(jl).gt.0.)then
+           if(zdhpbl(jl).gt.0.)then
             zmfub1(jl) = zdhpbl(jl)/zdh
-          else
-            zmfub1(jl) = zmfub(jl)
-          end if
+           else
+             zmfub1(jl) = zmfub(jl)
+           end if
 
-          zmfub1(jl) = zmfub1(jl)/scale_fac2(jl)
-          zmfub1(jl) = min(zmfub1(jl),zmfmax)
-        end if
+           zmfub1(jl) = zmfub1(jl)/scale_fac2(jl)
+           zmfub1(jl) = min(zmfub1(jl),zmfmax)
+         end if
 
         !*  6.3   mid-level convection - nothing special
         !---------------------------------------------------------
-        if(ldcum(jl) .and. ktype(jl) .eq. 3 ) then
-          zmfub1(jl) = zmfub(jl)
-        end if
+         if(ldcum(jl) .and. ktype(jl) .eq. 3 ) then
+            zmfub1(jl) = zmfub(jl)
+         end if
 
-      end do
+       end do
 
       !*  6.4   scaling the downdraft mass flux
       !---------------------------------------------------------
-      do jk=1,klev
-      do jl=1,klon
+       do jk=1,klev
+       do jl=1,klon
         if( ldcum(jl) ) then
-            zfac=zmfub1(jl)/max(zmfub(jl),cmfcmin)
-            pmfd(jl,jk)=pmfd(jl,jk)*zfac
-            zmfds(jl,jk)=zmfds(jl,jk)*zfac
-            zmfdq(jl,jk)=zmfdq(jl,jk)*zfac
-            zdmfdp(jl,jk)=zdmfdp(jl,jk)*zfac
-            pmfdde_rate(jl,jk) = pmfdde_rate(jl,jk)*zfac
+           zfac=zmfub1(jl)/max(zmfub(jl),cmfcmin)
+           pmfd(jl,jk)=pmfd(jl,jk)*zfac
+           zmfds(jl,jk)=zmfds(jl,jk)*zfac
+           zmfdq(jl,jk)=zmfdq(jl,jk)*zfac
+           zdmfdp(jl,jk)=zdmfdp(jl,jk)*zfac
+           pmfdde_rate(jl,jk) = pmfdde_rate(jl,jk)*zfac
         end if
-      end do
-      end do
+       end do
+       end do
 
     !*  6.5   scaling the updraft mass flux
     ! --------------------------------------------------------
@@ -1112,24 +1113,24 @@ contains
       end do
 
       if(lmfdd) then
-        do jk = 3 , klev
-          ik = jk - 1
-          do jl = 1,klon
-            if ( ldcum(jl) ) then
-              if ( jk == idtop(jl) ) then
-                zud(jl,jk) = 0.5*(zuu(jl,jk)+puen(jl,ik))
-                zvd(jl,jk) = 0.5*(zvu(jl,jk)+pven(jl,ik))
-              else if ( jk > idtop(jl) ) then
-                zerate = -pmfd(jl,jk) + pmfd(jl,ik) + pmfdde_rate(jl,jk)
-                zmfa = 1./min(-cmfcmin,pmfd(jl,jk))
-                zud(jl,jk) = (zud(jl,ik)*pmfd(jl,ik) - &
-                  zerate*puen(jl,ik)+pmfdde_rate(jl,jk)*zud(jl,ik))*zmfa
-                zvd(jl,jk) = (zvd(jl,ik)*pmfd(jl,ik) - &
-                  zerate*pven(jl,ik)+pmfdde_rate(jl,jk)*zvd(jl,ik))*zmfa
-              end if
+      do jk = 3 , klev
+        ik = jk - 1
+        do jl = 1,klon
+          if ( ldcum(jl) ) then
+            if ( jk == idtop(jl) ) then
+              zud(jl,jk) = 0.5*(zuu(jl,jk)+puen(jl,ik))
+              zvd(jl,jk) = 0.5*(zvu(jl,jk)+pven(jl,ik))
+            else if ( jk > idtop(jl) ) then
+              zerate = -pmfd(jl,jk) + pmfd(jl,ik) + pmfdde_rate(jl,jk)
+              zmfa = 1./min(-cmfcmin,pmfd(jl,jk))
+              zud(jl,jk) = (zud(jl,ik)*pmfd(jl,ik) - &
+                zerate*puen(jl,ik)+pmfdde_rate(jl,jk)*zud(jl,ik))*zmfa
+              zvd(jl,jk) = (zvd(jl,ik)*pmfd(jl,ik) - &
+                zerate*pven(jl,ik)+pmfdde_rate(jl,jk)*zvd(jl,ik))*zmfa
             end if
-          end do
+          end if
         end do
+      end do
       end if
 !   --------------------------------------------------
 !   rescale massfluxes for stability in Momentum
@@ -1523,7 +1524,7 @@ contains
       ! the first level is klev
       !-----------------------------------------------------------
       do jk=1,klev
-        do jl=1,klon
+      do jl=1,klon
           plu(jl,jk)   = culu(jl,jk)  ! parcel liquid water
           ptu(jl,jk)   = cutu(jl,jk)  ! parcel temperature
           pqu(jl,jk)   = cuqu(jl,jk)  ! parcel specific humidity
@@ -1535,118 +1536,118 @@ contains
           vten(jl,jk)  = 0.0          ! environment virtual temperature
           zbuo(jl,jk)  = 0.0          ! parcel buoyancy
           abuoy(jl,jk) = 0.0
-        end do
+      end do
       end do
 
       do jl=1,klon
-        zqold(jl) = 0.
-        lldcum(jl) = .false.
-        loflag(jl) = .true.
+         zqold(jl) = 0.
+         lldcum(jl) = .false.
+         loflag(jl) = .true.
       end do
 
       ! check the levels from lowest level to second top level
       do jk=klevm1,2,-1
 
         ! define the variables at the first level
-        if(jk .eq. klevm1) then
+      if(jk .eq. klevm1) then
 
-          do jl=1,klon
+      do jl=1,klon
 
             rho = pap(jl,klev) / &
               (rd*(pten(jl,klev)*(1.+vtmpc1*pqen(jl,klev))))
-            hfx(jl) = hfx(jl)*rho*cpd
-            qfx(jl) = qfx(jl)*rho
-            part1 = 1.5*0.4*pgeo(jl,klev)/ &
+        hfx(jl) = hfx(jl)*rho*cpd
+        qfx(jl) = qfx(jl)*rho
+        part1 = 1.5*0.4*pgeo(jl,klev)/ &
               (rho*pten(jl,klev))
-            part2 = -hfx(jl)*rcpd-vtmpc1*pten(jl,klev)*qfx(jl)
-            root  = 0.001-part1*part2
-            
-            if(part2 .lt. 0.) then
-              conw  = 1.2*(root)**t13
-              deltt = max(1.5*hfx(jl)/(rho*cpd*conw),0.)
-              deltq = max(1.5*qfx(jl)/(rho*conw),0.)
-              kup(jl,klev)  = 0.5*(conw**2)
+        part2 = -hfx(jl)*rcpd-vtmpc1*pten(jl,klev)*qfx(jl)
+        root  = 0.001-part1*part2
+
+        if(part2 .lt. 0.) then
+           conw  = 1.2*(root)**t13
+           deltt = max(1.5*hfx(jl)/(rho*cpd*conw),0.)
+           deltq = max(1.5*qfx(jl)/(rho*conw),0.)
+           kup(jl,klev) = 0.5*(conw**2)
               pqu(jl,klev)  = pqenh(jl,klev) + deltq
               dhen(jl,klev) = pgeoh(jl,klev) + ptenh(jl,klev)*cpd
-              dh(jl,klev)   = dhen(jl,klev)  + deltt*cpd
-              ptu(jl,klev)  = (dh(jl,klev)-pgeoh(jl,klev))*rcpd
+           dh(jl,klev) = dhen(jl,klev)  + deltt*cpd
+          ptu(jl,klev) = (dh(jl,klev)-pgeoh(jl,klev))*rcpd
               vptu(jl,klev) = ptu(jl,klev)*(1.+vtmpc1*pqu(jl,klev))
               vten(jl,klev) = ptenh(jl,klev)*(1.+vtmpc1*pqenh(jl,klev))
               zbuo(jl,klev) = (vptu(jl,klev)-vten(jl,klev))/vten(jl,klev)
-              klab(jl,klev) = 1
-            else
-              loflag(jl) = .false.
-            end if
+          klab(jl,klev) = 1
+        else
+          loflag(jl) = .false.
+        end if
 
-          end do
+      end do
 
         end if  ! end if(jk .eq. klevm1)
 
-        is=0
-        do jl=1,klon
-          if(loflag(jl))then
+      is=0
+      do jl=1,klon
+         if(loflag(jl))then
             is=is+1
-          endif
-        enddo
+         endif
+      enddo
 
-        if(is.eq.0) exit
+      if(is.eq.0) exit
 
         ! the next levels, we use the variables at the first level as initial values
-        do jl=1,klon
-          if(loflag(jl)) then
+      do jl=1,klon
+      if(loflag(jl)) then
             !----------------------------------------
             ! Parcel entrainment rate for shallow convection.
-            ! Used to determine whether or not shallow 
-            ! convection is triggered. Final entrainment 
+            ! Used to determine whether or not shallow
+            ! convection is triggered. Final entrainment
             ! rate is calculated later.
             !----------------------------------------
             eta(jl) = 0.8 / (pgeo(jl,jk)*zrg) + 2.e-4
 
-            dz(jl)  = (pgeoh(jl,jk)-pgeoh(jl,jk+1))*zrg
+        dz(jl)  = (pgeoh(jl,jk)-pgeoh(jl,jk+1))*zrg
 
-            coef(jl)= 0.5*eta(jl)*dz(jl)
+        coef(jl)= 0.5*eta(jl)*dz(jl)
 
-            dhen(jl,jk) = pgeoh(jl,jk) + cpd*ptenh(jl,jk)
+        dhen(jl,jk) = pgeoh(jl,jk) + cpd*ptenh(jl,jk)
 
-            dh(jl,jk) = (coef(jl)*(dhen(jl,jk+1)+dhen(jl,jk))&
+        dh(jl,jk) = (coef(jl)*(dhen(jl,jk+1)+dhen(jl,jk))&
                       + (1.-coef(jl))*dh(jl,jk+1))/(1.+coef(jl))
 
-            pqu(jl,jk) =(coef(jl)*(pqenh(jl,jk+1)+pqenh(jl,jk))&
+        pqu(jl,jk) =(coef(jl)*(pqenh(jl,jk+1)+pqenh(jl,jk))&
                       + (1.-coef(jl))*pqu(jl,jk+1))/(1.+coef(jl))
 
-            ptu(jl,jk) = (dh(jl,jk)-pgeoh(jl,jk))*rcpd
+        ptu(jl,jk) = (dh(jl,jk)-pgeoh(jl,jk))*rcpd
 
-            zqold(jl) = pqu(jl,jk)
+        zqold(jl) = pqu(jl,jk)
 
-            zph(jl)=paph(jl,jk)
-            
-          end if
-        end do
+        zph(jl)=paph(jl,jk)
+
+      end if
+      end do
         ! check if the parcel is saturated
-        ik=jk
-        icall=1
-        
-        call cuadjtqn(klon,klev,ik,zph,ptu,pqu,loflag,icall)
+      ik=jk
+      icall=1
 
-        do jl=1,klon
-          if( loflag(jl) ) then
+      call cuadjtqn(klon,klev,ik,zph,ptu,pqu,loflag,icall)
 
-            zdq = max((zqold(jl) - pqu(jl,jk)),0.)
-            plu(jl,jk) = plu(jl,jk+1) + zdq
-            zlglac=zdq*((1.-foealfa(ptu(jl,jk))) - &
-                        (1.-foealfa(ptu(jl,jk+1))))
-            plu(jl,jk) = min(plu(jl,jk),5.e-3)
-            dh(jl,jk) =  pgeoh(jl,jk) + cpd*(ptu(jl,jk)+ralfdcp*zlglac)
+      do jl=1,klon
+        if( loflag(jl) ) then
+
+          zdq = max((zqold(jl) - pqu(jl,jk)),0.)
+          plu(jl,jk) = plu(jl,jk+1) + zdq
+          zlglac=zdq*((1.-foealfa(ptu(jl,jk))) - &
+                      (1.-foealfa(ptu(jl,jk+1))))
+          plu(jl,jk) = min(plu(jl,jk),5.e-3)
+          dh(jl,jk) =  pgeoh(jl,jk) + cpd*(ptu(jl,jk)+ralfdcp*zlglac)
             ! compute the updraft speed
-            vptu(jl,jk) = ptu(jl,jk)*(1.+vtmpc1*pqu(jl,jk)-plu(jl,jk))+&
-                          ralfdcp*zlglac
-            vten(jl,jk) = ptenh(jl,jk)*(1.+vtmpc1*pqenh(jl,jk))
-            zbuo(jl,jk) = (vptu(jl,jk) - vten(jl,jk))/vten(jl,jk)
-            abuoy(jl,jk)=(zbuo(jl,jk)+zbuo(jl,jk+1))*0.5*g
-            atop1 = 1.0 - 2.*coef(jl)
-            atop2 = 2.0*dz(jl)*abuoy(jl,jk)
-            abot =  1.0 + 2.*coef(jl)
-            kup(jl,jk)  = (atop1*kup(jl,jk+1) + atop2) / abot
+          vptu(jl,jk) = ptu(jl,jk)*(1.+vtmpc1*pqu(jl,jk)-plu(jl,jk))+&
+                        ralfdcp*zlglac
+          vten(jl,jk) = ptenh(jl,jk)*(1.+vtmpc1*pqenh(jl,jk))
+          zbuo(jl,jk) = (vptu(jl,jk) - vten(jl,jk))/vten(jl,jk)
+          abuoy(jl,jk)=(zbuo(jl,jk)+zbuo(jl,jk+1))*0.5*g
+          atop1 = 1.0 - 2.*coef(jl)
+          atop2 = 2.0*dz(jl)*abuoy(jl,jk)
+          abot =  1.0 + 2.*coef(jl)
+          kup(jl,jk)  = (atop1*kup(jl,jk+1) + atop2) / abot
 
             ! let's find the exact cloud base
             if( plu(jl,jk) > 0. .and. klab(jl,jk+1) == 1 ) then
@@ -1681,25 +1682,25 @@ contains
                 kcbot(jl) = jk
               end if
 
-            end if
+          end if
 
-            if(kup(jl,jk) .lt. 0.)then
-              loflag(jl) = .false.
-              if(plu(jl,jk+1) .gt. 0.) then
-                kctop(jl) = jk
-                lldcum(jl) = .true.
-              else
-                lldcum(jl) = .false.
-              end if
+          if(kup(jl,jk) .lt. 0.)then
+            loflag(jl) = .false.
+            if(plu(jl,jk+1) .gt. 0.) then
+              kctop(jl) = jk
+              lldcum(jl) = .true.
             else
-              if(plu(jl,jk) .gt. 0.)then
-                klab(jl,jk)=2
-              else
-                klab(jl,jk)=1
-              end if
+              lldcum(jl) = .false.
+            end if
+          else
+            if(plu(jl,jk) .gt. 0.)then
+              klab(jl,jk)=2
+            else
+              klab(jl,jk)=1
             end if
           end if
-        end do
+        end if
+      end do
 
       end do ! end all the levels
 
@@ -1710,7 +1711,7 @@ contains
 
         if(paph(jl,ikb) - paph(jl,ikt) > zdnoprc) lldcum(jl) = .false.
 
-        ! if shallow cumulus is found, define some properties 
+        ! if shallow cumulus is found, define some properties
         if(lldcum(jl)) then
             ktype(jl) = 2
             ldcum(jl) = .true.
@@ -1793,9 +1794,9 @@ contains
         is = 0
 
         do jl=1,klon
-          if(loflag(jl))then
+         if(loflag(jl))then
             is = is + 1
-          endif
+         endif
         enddo
 
         if(is.eq.0) exit
@@ -1803,23 +1804,23 @@ contains
         ! define the variables at the departure level
         if(jk .eq. levels) then
           do jl=1,klon
-            if(loflag(jl)) then
-              if((paph(jl,klev+1)-paph(jl,jk)) < 60.e2) then
+          if(loflag(jl)) then
+            if((paph(jl,klev+1)-paph(jl,jk)) < 60.e2) then
 
                 tmix = 0.
                 qmix = 0.
                 zmix = 0.
                 pmix = 0.
 
-                do nk=jk+2,jk,-1
-                  if(pmix < 50.e2) then
-                    dp = paph(jl,nk) - paph(jl,nk-1)
+              do nk=jk+2,jk,-1
+              if(pmix < 50.e2) then
+                dp = paph(jl,nk) - paph(jl,nk-1)
                     tmix = tmix + dp*ptenh(jl,nk)
                     qmix = qmix + dp*pqenh(jl,nk)
                     zmix = zmix + dp*pgeoh(jl,nk)
                     pmix = pmix + dp
-                  end if
-                end do
+              end if
+              end do
 
                 tmix = tmix / pmix
                 qmix = qmix / pmix
@@ -1829,24 +1830,24 @@ contains
                 tmix = ptenh(jl,jk+1)
                 qmix = pqenh(jl,jk+1)
                 zmix = pgeoh(jl,jk+1)
-              end if
+            end if
 
-              pqu(jl,jk+1) = qmix + deltq
-              dhen(jl,jk+1)= zmix + tmix*cpd
-              dh(jl,jk+1)  = dhen(jl,jk+1) + deltt*cpd
+            pqu(jl,jk+1) = qmix + deltq
+            dhen(jl,jk+1)= zmix + tmix*cpd
+            dh(jl,jk+1)  = dhen(jl,jk+1) + deltt*cpd
               ptu(jl,jk+1) = (dh(jl,jk+1)-pgeoh(jl,jk+1)) * rcpd
-              kup(jl,jk+1) = 0.5
-              klab(jl,jk+1)= 1
+            kup(jl,jk+1) = 0.5
+            klab(jl,jk+1)= 1
               vptu(jl,jk+1) = ptu(jl,jk+1) * (1.+vtmpc1*pqu(jl,jk+1))
               vten(jl,jk+1) = ptenh(jl,jk+1) * (1.+vtmpc1*pqenh(jl,jk+1))
               zbuo(jl,jk+1) = (vptu(jl,jk+1)-vten(jl,jk+1)) / vten(jl,jk+1)
-            end if
+          end if
           end do
         end if ! end if(jk .eq. levels) then
 
         ! the next levels, we use the variables at the first level as initial values
         do jl=1,klon
-          if(loflag(jl)) then
+           if(loflag(jl)) then
 
             ! calculate parcel entrainment rate for deep convection
             fscale = min(1.,(pqsen(jl,jk)/pqsen(jl,levels))**3)                         ! (env. qvsat / (env. qvsat at cloud base))**3
@@ -1857,18 +1858,18 @@ contains
             coef(jl) = 0.5 * eta(jl) * dz(jl)
 
             ! dry static energy of environment
-            dhen(jl,jk) = pgeoh(jl,jk) + cpd*ptenh(jl,jk)   
+             dhen(jl,jk) = pgeoh(jl,jk) + cpd*ptenh(jl,jk)
             ! dry static energy for entraining parcel
             dh(jl,jk) = (coef(jl)*(dhen(jl,jk+1)+dhen(jl,jk)) + (1.-coef(jl))*dh(jl,jk+1)) / (1.+coef(jl))
             ! mixing ratio for entraining parcel
             pqu(jl,jk) = ( coef(jl)*(pqenh(jl,jk+1)+pqenh(jl,jk)) + (1.-coef(jl))*pqu(jl,jk+1) ) / (1.+coef(jl))
             ! temperature for entraining parcel
-            ptu(jl,jk) = (dh(jl,jk)-pgeoh(jl,jk))*rcpd
+             ptu(jl,jk) = (dh(jl,jk)-pgeoh(jl,jk))*rcpd
 
-            zqold(jl) = pqu(jl,jk)
+             zqold(jl) = pqu(jl,jk)
             zph(jl) = paph(jl,jk)
 
-          end if
+           end if
         end do
 
         ! check if the parcel is saturated
@@ -1876,23 +1877,23 @@ contains
         icall=1
         call cuadjtqn(klon,klev,ik,zph,ptu,pqu,loflag,icall)
 
-        do jl=1,klon
-          if( loflag(jl) ) then
-            zdq = max((zqold(jl) - pqu(jl,jk)),0.)
-            plu(jl,jk) = plu(jl,jk+1) + zdq
-            zlglac=zdq*((1.-foealfa(ptu(jl,jk))) - &
-                        (1.-foealfa(ptu(jl,jk+1))))
-            plu(jl,jk) = 0.5*plu(jl,jk)
-            dh(jl,jk) =  pgeoh(jl,jk) + cpd*(ptu(jl,jk)+ralfdcp*zlglac)
+      do jl=1,klon
+        if( loflag(jl) ) then
+          zdq = max((zqold(jl) - pqu(jl,jk)),0.)
+          plu(jl,jk) = plu(jl,jk+1) + zdq
+          zlglac=zdq*((1.-foealfa(ptu(jl,jk))) - &
+                      (1.-foealfa(ptu(jl,jk+1))))
+          plu(jl,jk) = 0.5*plu(jl,jk)
+          dh(jl,jk) =  pgeoh(jl,jk) + cpd*(ptu(jl,jk)+ralfdcp*zlglac)
             ! compute the updraft speed
             vptu(jl,jk) = ptu(jl,jk)*(1.+vtmpc1*pqu(jl,jk)-plu(jl,jk)) + ralfdcp*zlglac
-            vten(jl,jk) = ptenh(jl,jk)*(1.+vtmpc1*pqenh(jl,jk))
+          vten(jl,jk) = ptenh(jl,jk)*(1.+vtmpc1*pqenh(jl,jk))
             zbuo(jl,jk) = (vptu(jl,jk) - vten(jl,jk)) / vten(jl,jk)
             abuoy(jl,jk) = (zbuo(jl,jk)+zbuo(jl,jk+1))*0.5*g
-            atop1 = 1.0 - 2.*coef(jl)
+          atop1 = 1.0 - 2.*coef(jl)
             atop2 = 2.0 * dz(jl) * abuoy(jl,jk)
-            abot =  1.0 + 2.*coef(jl)
-            kup(jl,jk)  = (atop1*kup(jl,jk+1) + atop2) / abot
+          abot =  1.0 + 2.*coef(jl)
+          kup(jl,jk)  = (atop1*kup(jl,jk+1) + atop2) / abot
 
             ! let's find the exact cloud base
             if( plu(jl,jk) > 0. .and. klab(jl,jk+1) == 1 ) then
@@ -1928,25 +1929,25 @@ contains
                 kcbot(jl) = jk
               end if
 
-            end if
+          end if
 
-            if(kup(jl,jk) .lt. 0.)then
-              loflag(jl) = .false.
-              if(plu(jl,jk+1) .gt. 0.) then
-                kctop(jl) = jk
-                lldcum(jl) = .true.
-              else
-                lldcum(jl) = .false.
-              end if
+          if(kup(jl,jk) .lt. 0.)then
+            loflag(jl) = .false.
+            if(plu(jl,jk+1) .gt. 0.) then
+              kctop(jl) = jk
+              lldcum(jl) = .true.
             else
-              if(plu(jl,jk) .gt. 0.)then
-                klab(jl,jk)=2
-              else
-                klab(jl,jk)=1
-              end if
+              lldcum(jl) = .false.
+            end if
+          else
+            if(plu(jl,jk) .gt. 0.)then
+              klab(jl,jk)=2
+            else
+              klab(jl,jk)=1
             end if
           end if
-        end do
+        end if
+      end do
 
       end do ! end all the levels
 
@@ -2083,141 +2084,141 @@ contains
 !       kcum [icum] - flag to control the call
 
     !--- input arguments:
-    integer,intent(in):: klev,klon,klevp1,klevm1
-    integer,intent(in),dimension(klon):: lndj
-    integer,intent(in),dimension(klon):: klwmin
-    integer,intent(in),dimension(klon):: kdpl
+      integer,intent(in):: klev,klon,klevp1,klevm1
+      integer,intent(in),dimension(klon):: lndj
+      integer,intent(in),dimension(klon):: klwmin
+      integer,intent(in),dimension(klon):: kdpl
 
-    real(kind=kind_phys),intent(in):: ztmst
-    real(kind=kind_phys),intent(in),dimension(klon):: wbase
-    real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,pqsen,puen,pven,pqte,pverv
-    real(kind=kind_phys),intent(in),dimension(klon,klev):: pap,pgeo
-    real(kind=kind_phys),intent(in),dimension(klon,klevp1):: paph,pgeoh
+      real(kind=kind_phys),intent(in):: ztmst
+      real(kind=kind_phys),intent(in),dimension(klon):: wbase
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pten,pqen,pqsen,puen,pven,pqte,pverv
+      real(kind=kind_phys),intent(in),dimension(klon,klev):: pap,pgeo
+      real(kind=kind_phys),intent(in),dimension(klon,klevp1):: paph,pgeoh
 
     !--- inout arguments:
-    logical,intent(inout),dimension(klon):: ldcum
+      logical,intent(inout),dimension(klon):: ldcum
 
-    integer,intent(inout):: kcum
-    integer,intent(inout),dimension(klon):: kcbot,kctop,kctop0
-    integer,intent(inout),dimension(klon,klev):: klab
+      integer,intent(inout):: kcum
+      integer,intent(inout),dimension(klon):: kcbot,kctop,kctop0
+      integer,intent(inout),dimension(klon,klev):: klab
 
-    real(kind=kind_phys),intent(inout),dimension(klon):: phcbase
-    real(kind=kind_phys),intent(inout),dimension(klon):: pmfub
-    real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptenh,pqenh,pqsenh
-    real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptu,pqu,plu,puu,pvu
-    real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfu,pmfus,pmfuq,pmful,plude,pdmfup
+      real(kind=kind_phys),intent(inout),dimension(klon):: phcbase
+      real(kind=kind_phys),intent(inout),dimension(klon):: pmfub
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptenh,pqenh,pqsenh
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: ptu,pqu,plu,puu,pvu
+      real(kind=kind_phys),intent(inout),dimension(klon,klev):: pmfu,pmfus,pmfuq,pmful,plude,pdmfup
 
     !--- output arguments:
-    integer,intent(out),dimension(klon):: ktype
+      integer,intent(out),dimension(klon):: ktype
 
-    real(kind=kind_phys),intent(out),dimension(klon):: wup
-    real(kind=kind_phys),intent(out),dimension(klon,klev):: plglac,pmfude_rate
+      real(kind=kind_phys),intent(out),dimension(klon):: wup
+      real(kind=kind_phys),intent(out),dimension(klon,klev):: plglac,pmfude_rate
 
     !--- local variables and arrays:
-    logical:: llo2,llo3
-    logical,dimension(klon):: loflag,llo1
+      logical:: llo2,llo3
+      logical,dimension(klon):: loflag,llo1
 
-    integer:: jl,jk
-    integer::ikb,icum,itopm2,ik,icall,is,jlm,jll
-    integer,dimension(klon):: jlx
+      integer:: jl,jk
+      integer::ikb,icum,itopm2,ik,icall,is,jlm,jll
+      integer,dimension(klon):: jlx
 
-    real(kind=kind_phys):: zcons2,zfacbuo,zprcdgw,z_cwdrag,z_cldmax,z_cwifrac,z_cprc2
-    real(kind=kind_phys):: zmftest,zmfmax,zqeen,zseen,zscde,zqude
-    real(kind=kind_phys):: zmfusk,zmfuqk,zmfulk
-    real(kind=kind_phys):: zbc,zbe,zkedke,zmfun,zwu,zprcon,zdt,zcbf,zzco
-    real(kind=kind_phys):: zlcrit,zdfi,zc,zd,zint,zlnew,zvw,zvi,zalfaw,zrold
-    real(kind=kind_phys):: zrnew,zz,zdmfeu,zdmfdu,dp
-    real(kind=kind_phys):: zfac,zbuoc,zdkbuo,zdken,zvv,zarg,zchange,zxe,zxs,zdshrd
-    real(kind=kind_phys):: atop1,atop2,abot
+      real(kind=kind_phys):: zcons2,zfacbuo,zprcdgw,z_cwdrag,z_cldmax,z_cwifrac,z_cprc2
+      real(kind=kind_phys):: zmftest,zmfmax,zqeen,zseen,zscde,zqude
+      real(kind=kind_phys):: zmfusk,zmfuqk,zmfulk
+      real(kind=kind_phys):: zbc,zbe,zkedke,zmfun,zwu,zprcon,zdt,zcbf,zzco
+      real(kind=kind_phys):: zlcrit,zdfi,zc,zd,zint,zlnew,zvw,zvi,zalfaw,zrold
+      real(kind=kind_phys):: zrnew,zz,zdmfeu,zdmfdu,dp
+      real(kind=kind_phys):: zfac,zbuoc,zdkbuo,zdken,zvv,zarg,zchange,zxe,zxs,zdshrd
+      real(kind=kind_phys):: atop1,atop2,abot
 
-    real(kind=kind_phys),dimension(klon):: eta,dz,zoentr,zdpmean
-    real(kind=kind_phys),dimension(klon):: zph,zdmfen,zdmfde,zmfuu,zmfuv,zpbase,zqold,zluold,zprecip
-    real(kind=kind_phys),dimension(klon,klev):: zlrain,zbuo,kup,zodetr,pdmfen
+      real(kind=kind_phys),dimension(klon):: eta,dz,zoentr,zdpmean
+      real(kind=kind_phys),dimension(klon):: zph,zdmfen,zdmfde,zmfuu,zmfuv,zpbase,zqold,zluold,zprecip
+      real(kind=kind_phys),dimension(klon,klev):: zlrain,zbuo,kup,zodetr,pdmfen
 
     !--------------------------------
     !*    1. specify parameters
     !--------------------------------
     zcons2 = 3./ (g*ztmst)
     zfacbuo = 0.5 / (1.+0.5)
-    zprcdgw = cprcon*zrg
-    z_cldmax = 5.e-3
-    z_cwifrac = 0.5
-    z_cprc2 = 0.5
-    z_cwdrag = (3.0/8.0)*0.506/0.2
+      zprcdgw = cprcon*zrg
+      z_cldmax = 5.e-3
+      z_cwifrac = 0.5
+      z_cprc2 = 0.5
+      z_cwdrag = (3.0/8.0)*0.506/0.2
     !---------------------------------
     !     2. set default values
     !---------------------------------
-    llo3 = .false.
-    do jl=1,klon
-      zluold(jl)=0.
-      wup(jl)=0.
-      zdpmean(jl)=0.
-      zoentr(jl)=0.
-      if(.not.ldcum(jl)) then
-        ktype(jl)=0
-        kcbot(jl) = -1
-        pmfub(jl) = 0.
-        pqu(jl,klev) = 0.
-      end if
-    end do
+      llo3 = .false.
+      do jl=1,klon
+        zluold(jl)=0.
+        wup(jl)=0.
+        zdpmean(jl)=0.
+        zoentr(jl)=0.
+        if(.not.ldcum(jl)) then
+          ktype(jl)=0
+          kcbot(jl) = -1
+          pmfub(jl) = 0.
+          pqu(jl,klev) = 0.
+        end if
+      end do
 
-    ! initialize variout quantities
-    do jk=1,klev
-    do jl=1,klon
-        if(jk.ne.kcbot(jl)) plu(jl,jk)=0.
-        pmfu(jl,jk)=0.
-        pmfus(jl,jk)=0.
-        pmfuq(jl,jk)=0.
-        pmful(jl,jk)=0.
-        plude(jl,jk)=0.
-        plglac(jl,jk)=0.
-        pdmfup(jl,jk)=0.
-        zlrain(jl,jk)=0.
-        zbuo(jl,jk)=0.
-        kup(jl,jk)=0.
-        pdmfen(jl,jk) = 0.
-        pmfude_rate(jl,jk) = 0.
-        if(.not.ldcum(jl).or.ktype(jl).eq.3) klab(jl,jk)=0
-        if(.not.ldcum(jl).and.paph(jl,jk).lt.4.e4) kctop0(jl)=jk
-    end do
-    end do
+ ! initialize variout quantities
+      do jk=1,klev
+      do jl=1,klon
+          if(jk.ne.kcbot(jl)) plu(jl,jk)=0.
+          pmfu(jl,jk)=0.
+          pmfus(jl,jk)=0.
+          pmfuq(jl,jk)=0.
+          pmful(jl,jk)=0.
+          plude(jl,jk)=0.
+          plglac(jl,jk)=0.
+          pdmfup(jl,jk)=0.
+          zlrain(jl,jk)=0.
+          zbuo(jl,jk)=0.
+          kup(jl,jk)=0.
+          pdmfen(jl,jk) = 0.
+          pmfude_rate(jl,jk) = 0.
+          if(.not.ldcum(jl).or.ktype(jl).eq.3) klab(jl,jk)=0
+          if(.not.ldcum(jl).and.paph(jl,jk).lt.4.e4) kctop0(jl)=jk
+      end do
+      end do
 
-    do jl = 1,klon
-      if ( ktype(jl) == 3 ) ldcum(jl) = .false.
-    end do
+      do jl = 1,klon
+        if ( ktype(jl) == 3 ) ldcum(jl) = .false.
+      end do
     !------------------------------------------------
     ! 3.0 initialize values at cloud base level
     !------------------------------------------------
-    do jl=1,klon
-      kctop(jl)=kcbot(jl)
-      if(ldcum(jl)) then
-        ikb = kcbot(jl)
-        kup(jl,ikb) = 0.5*wbase(jl)**2
-        pmfu(jl,ikb) = pmfub(jl)
-        pmfus(jl,ikb) = pmfub(jl)*(cpd*ptu(jl,ikb)+pgeoh(jl,ikb))
-        pmfuq(jl,ikb) = pmfub(jl)*pqu(jl,ikb)
-        pmful(jl,ikb) = pmfub(jl)*plu(jl,ikb)
-      end if
-    end do
+      do jl=1,klon
+        kctop(jl)=kcbot(jl)
+        if(ldcum(jl)) then
+          ikb = kcbot(jl)
+          kup(jl,ikb) = 0.5*wbase(jl)**2
+          pmfu(jl,ikb) = pmfub(jl)
+          pmfus(jl,ikb) = pmfub(jl)*(cpd*ptu(jl,ikb)+pgeoh(jl,ikb))
+          pmfuq(jl,ikb) = pmfub(jl)*pqu(jl,ikb)
+          pmful(jl,ikb) = pmfub(jl)*plu(jl,ikb)
+        end if
+      end do
     !-----------------------------------------------------------------
     ! 4. do ascent: subcloud layer (klab=1) ,clouds (klab=2)
     !    by doing first dry-adiabatic ascent and then
     !    by adjusting t,q and l accordingly in *cuadjtqn*,
     !    then check for buoyancy and set flags accordingly
     !-----------------------------------------------------------------
-    do jk=klevm1,3,-1
+      do jk=klevm1,3,-1
       ! -----------------------------------------------------
       ! specify cloud base values for midlevel convection
       ! in *cubasmc* in case there is not already convection
       ! -----------------------------------------------------
       ik=jk
       call cubasmcn&
-        &    (klon,     klev,     klevm1,   ik,      pten,          &
-        &     pqen,     pqsen,    puen,     pven,    pverv,         &
-        &     pgeo,     pgeoh,    ldcum,    ktype,   klab,  zlrain, &
-        &     pmfu,     pmfub,    kcbot,    ptu,                    &
-        &     pqu,      plu,      puu,      pvu,      pmfus,        &
-        &     pmfuq,    pmful,    pdmfup)
+     &    (klon,     klev,     klevm1,   ik,      pten,          &
+     &     pqen,     pqsen,    puen,     pven,    pverv,         &
+     &     pgeo,     pgeoh,    ldcum,    ktype,   klab,  zlrain, &
+     &     pmfu,     pmfub,    kcbot,    ptu,                    &
+     &     pqu,      plu,      puu,      pvu,      pmfus,        &
+     &     pmfuq,    pmful,    pdmfup)
       is = 0
       jlm = 0
       do jl = 1,klon
@@ -2256,7 +2257,7 @@ contains
       ! -------------------------------------------------------
       ! do adiabatic ascent for entraining/detraining plume
       if(llo3) then
-        
+
         do jl = 1,klon
           zqold(jl) = 0.
         end do
@@ -2270,7 +2271,7 @@ contains
           ! Why is it negative?
           !---------------------------------------
           if ( jk == kcbot(jl) ) then
-            
+
             zoentr(jl) = -entorg*(min(1.,pqen(jl,jk)/pqsen(jl,jk)) - &
                          1.)*(pgeoh(jl,jk)-pgeoh(jl,jk+1))*zrg
             zoentr(jl) = min(0.4,zoentr(jl))*pmfu(jl,jk+1)
@@ -2289,8 +2290,8 @@ contains
             zdmfen(jl) = zoentr(jl)
             !---------------------------------------
             ! Set entrainment/detrainment rates for
-            ! shallow or mid-level convection. This 
-            ! overwrites the values from the call 
+            ! shallow or mid-level convection. This
+            ! overwrites the values from the call
             ! to cuentr.
             !---------------------------------------
             if ( ktype(jl) >= 2 ) then
@@ -2300,9 +2301,9 @@ contains
               zdmfde(jl) = zdmfen(jl)
             end if
             !---------------------------------------
-            ! Multiply detrainment rate by (1.6-RH) 
+            ! Multiply detrainment rate by (1.6-RH)
             ! (Eq. 6.8/6.9 IFS Cy48r1)
-            ! For deep convection, will be value 
+            ! For deep convection, will be value
             ! from call to cuentr.
             ! For shallow convection, value is set above.
             !---------------------------------------
@@ -2343,15 +2344,15 @@ contains
           ptu(jl,jk) = max(100.,ptu(jl,jk)) ! updraft can't get colder than 100 K
           ptu(jl,jk) = min(400.,ptu(jl,jk)) ! updraft can't get warmer than 400 K
 
-          zqold(jl) = pqu(jl,jk)  ! store parcel humidity, used later to determine how much 
+          zqold(jl) = pqu(jl,jk)  ! store parcel humidity, used later to determine how much
                                   ! cloud water to condense after adjusting 'pqu' for saturation
-          
+
           zlrain(jl,jk) = zlrain(jl,jk+1)*(pmfu(jl,jk+1)-zdmfde(jl)) * &
                           (1./max(cmfcmin,pmfu(jl,jk)))
           zluold(jl) = plu(jl,jk)
         end do
         !---------------------------------------
-        ! Reset parcel values to environmental 
+        ! Reset parcel values to environmental
         ! values if below departure level
         !---------------------------------------
         do jl = 1,klon
@@ -2369,10 +2370,10 @@ contains
         !------------------------------------------------
         ik = jk
         icall = 1   ! flag for condensation in updrafts
-        
-        if ( jlm > 0 ) then
-          call cuadjtqn(klon,klev,ik,zph,ptu,pqu,loflag,icall)
-        end if
+
+      if ( jlm > 0 ) then
+        call cuadjtqn(klon,klev,ik,zph,ptu,pqu,loflag,icall)
+      end if
 
         ! compute the updraft speed in cloud layer
         do jll = 1 , jlm
@@ -2414,9 +2415,6 @@ contains
             ! If layer below is within the cloud layer
             !----------------------------------------------
             if ( klab(jl,jk+1) == 2 ) then
-              !--------------------------------------------
-              ! 
-              !--------------------------------------------
               if ( zbuo(jl,jk) < 0. ) then
                 ptenh(jl,jk) = 0.5*(pten(jl,jk)+pten(jl,jk-1))
                 pqenh(jl,jk) = 0.5*(pqen(jl,jk)+pqen(jl,jk-1))
@@ -2440,12 +2438,12 @@ contains
                            (1.+zdken)
               !----------------------------------------------
               ! Organized detrainment for negatively buoyant
-              ! updraft (generally at cloud top) based 
-              ! on the decrease of updraft velocity with height 
+              ! updraft (generally at cloud top) based
+              ! on the decrease of updraft velocity with height
               ! (Eq. 6.12 IFS Cy48r1 without RH term)
               !
-              ! Is stable -> no org. entrainment. This overwrites 
-              ! PMFU for current level which has been calculated 
+              ! Is stable -> no org. entrainment. This overwrites
+              ! PMFU for current level which has been calculated
               ! above with organised entrainment (ICON comment)
               !----------------------------------------------
               if ( zbuo(jl,jk) < 0. ) then
@@ -2463,8 +2461,8 @@ contains
               ! set to zero (Eq. 6.7 IFS Cy48r1)
               !----------------------------------------------
               if ( zbuo(jl,jk) > -0.2  ) then
-                ! when positively buoyant, have organised entrainment 
-                ! which increases MF with height, while detrainment 
+                ! when positively buoyant, have organised entrainment
+                ! which increases MF with height, while detrainment
                 ! is pretty small and constant (ICON comment)
                 ikb = kcbot(jl)
                 ! zoentr is overwritten, but not used until
@@ -2472,7 +2470,7 @@ contains
                 zoentr(jl) = entorg*(0.3-(min(1.,pqen(jl,jk-1) /    &
                   pqsen(jl,jk-1))-1.))*(pgeoh(jl,jk-1)-pgeoh(jl,jk)) * &
                   zrg*min(1.,pqsen(jl,jk)/pqsen(jl,ikb))**3
-                  
+
                 zoentr(jl) = min(0.4,zoentr(jl))*pmfu(jl,jk)
               else
                 zoentr(jl) = 0.
@@ -2485,8 +2483,8 @@ contains
               end if
               !-------------------------------------------
               ! determine convection top level;
-              ! the last set of criteria serves to limit 
-              ! the overshooting of updrafts 
+              ! the last set of criteria serves to limit
+              ! the overshooting of updrafts
               ! through the tropopause (ICON comment)
               !-------------------------------------------
               if ( kup(jl,jk) > 0. .and. pmfu(jl,jk) > 0. ) then
@@ -2585,17 +2583,17 @@ contains
     !----------------------------------------------------------------------
     ! 5.       final calculations
     ! ------------------
-    do jl = 1,klon
-      if ( kctop(jl) == -1 ) ldcum(jl) = .false.
-      kcbot(jl) = max(kcbot(jl),kctop(jl))
-      if ( ldcum(jl) ) then
-        wup(jl) = max(1.e-2,wup(jl)/max(1.,zdpmean(jl)))
-        wup(jl) = sqrt(2.*wup(jl))
-      end if
-    end do
+      do jl = 1,klon
+       if ( kctop(jl) == -1 ) ldcum(jl) = .false.
+        kcbot(jl) = max(kcbot(jl),kctop(jl))
+        if ( ldcum(jl) ) then
+          wup(jl) = max(1.e-2,wup(jl)/max(1.,zdpmean(jl)))
+          wup(jl) = sqrt(2.*wup(jl))
+        end if
+      end do
 
-    return
-    end subroutine cuascn
+      return
+      end subroutine cuascn
 !---------------------------------------------------------
 !  level 3 souroutines
 !--------------------------------------------------------
@@ -3102,7 +3100,7 @@ contains
 !    *lndj*       land sea mask (1 for land)
 !    *ldcum*        flag: .true. for convective points
 
-!    input parameters (real):                                                  
+!    input parameters (real):
 
 !    *ztmst*        time step for the physics                       s
 !    *pten*         provisional environment temperature (t+1)       k
@@ -3122,7 +3120,7 @@ contains
 
 !    *lddraf*       set to .false. if ldcum=.false. or kdtop<kctop
 
-!    updated parameters (real):                                                
+!    updated parameters (real):
 
 !    *pmfu*         massflux in updrafts                          kg/(m2*s)
 !    *pmfd*         massflux in downdrafts                        kg/(m2*s)
@@ -3135,7 +3133,7 @@ contains
 !    *pdmfup*       flux difference of precip. in updrafts        kg/(m2*s)
 !    *pdmfdp*       flux difference of precip. in downdrafts      kg/(m2*s)
 
-!    output parameters (real):                                                 
+!    output parameters (real):
 
 !    *pdpmel*       change in precip.-fluxes due to melting       kg/(m2*s)
 !    *plglac*       flux of frozen cloud water in updrafts        kg/(m2*s)
@@ -3271,11 +3269,6 @@ contains
           if(ktype(jl).eq.3) then
             zzp=zzp**2
           endif
-
-          ! experiments to alter subcloud mass flux profile
-          !if(ktype(jl).eq.1 .or. ktype(jl).eq.2) zzp=zzp**2
-          !if(ktype(jl).eq.2) zzp=zzp**2
-
           pmfu(jl,ik)=pmfu(jl,ikb)*zzp
           pmfus(jl,ik)=(pmfus(jl,ikb)-                         &
      &         foelhm(ptenh(jl,ikb))*pmful(jl,ikb))*zzp
@@ -3293,11 +3286,6 @@ contains
             if(ktype(jl).eq.3) then
               zzp=zzp**2
             endif
-
-            ! experiments to alter subcloud mass flux profile
-            !if(ktype(jl).eq.1 .or. ktype(jl).eq.2) zzp=zzp**2
-            !if(ktype(jl).eq.2) zzp=zzp**2
-
             pmfu(jl,jk)=pmfu(jl,ikb)*zzp
             pmfus(jl,jk)=pmfus(jl,ikb)*zzp
             pmfuq(jl,jk)=pmfuq(jl,ikb)*zzp
@@ -3459,7 +3447,7 @@ contains
       if ( jk < klev ) then
         do jl = 1,klon
           if ( ldcum(jl) ) then
-            
+
             zalv = foelhm(pten(jl,jk))
 
             zdtdt(jl,jk) = zdp(jl,jk)*rcpd * &

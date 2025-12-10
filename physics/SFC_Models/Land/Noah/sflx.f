@@ -3575,7 +3575,7 @@
 !  --- ...  store ice content at each soil layer before calling srt & sstep
 
       do i = 1, nsoil
-        sice(i) = smc(i) - sh2o(i) ! cray: ignore compiler warning smc used before set
+        sice(i) = smc(i) - sh2o(i)
       enddo
 
 !  --- ...  call subroutines srt and sstep to solve the soil moisture

@@ -407,6 +407,7 @@
           enddo
         endif
       endif
+!
       if ( lextop ) then                 ! values for extra top layer
         do i = 1, IM
           plvl(i,llb) = prsmin

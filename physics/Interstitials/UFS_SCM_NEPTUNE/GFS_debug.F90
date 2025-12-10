@@ -1,5 +1,6 @@
 !> \file GFS_debug.F90
 
+
 !!
 !! This is the place to switch between different debug outputs.
 !! - The default behavior for Intel (or any compiler other than GNU)
@@ -300,14 +301,15 @@
 
     module GFS_diagtoscreen
 
-      use GFS_typedefs,          only: GFS_control_type, GFS_statein_type,  &
-                                       GFS_stateout_type, GFS_sfcprop_type, &
-                                       GFS_coupling_type, GFS_grid_type,    &
-                                       GFS_tbd_type, GFS_cldprop_type,      &
-                                       GFS_radtend_type, GFS_diag_type
-      use CCPP_typedefs,         only: GFS_interstitial_type
-
       use print_var_chksum, only: print_var
+
+      use GFS_typedefs, only: GFS_control_type, GFS_statein_type,  &
+                              GFS_stateout_type, GFS_sfcprop_type, &
+                              GFS_coupling_type, GFS_grid_type,    &
+                              GFS_tbd_type, GFS_cldprop_type,      &
+                              GFS_radtend_type, GFS_diag_type
+
+      use CCPP_typedefs, only: GFS_interstitial_type
 
       implicit none
 
@@ -623,7 +625,7 @@
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Tbd%in_nm'           , Tbd%in_nm)
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Tbd%ccn_nm'          , Tbd%ccn_nm)
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Tbd%aer_nm'          , Tbd%aer_nm)
-                     if (Model%imfdeepcnv == Model%imfdeepcnv_gf .or. Model%imfdeepcnv == Model%imfdeepcnv_c3) then
+                     if (Model%imfdeepcnv == Model%imfdeepcnv_gf) then
                        call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Tbd%cactiv'        , Tbd%cactiv)
                        call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Tbd%cactiv_m'      , Tbd%cactiv_m)
                        call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Tbd%aod_gf'        , Tbd%aod_gf)
@@ -881,13 +883,6 @@
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%v10mi_cpl   ', Coupling%v10mi_cpl    )
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%tsfci_cpl   ', Coupling%tsfci_cpl    )
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%psurfi_cpl  ', Coupling%psurfi_cpl   )
-!                        if (Model%use_med_flux) then
-!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dusfcino_cpl ', Coupling%dusfcino_cpl  )
-!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dvsfcino_cpl ', Coupling%dvsfcino_cpl  )
-!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dtsfcino_cpl ', Coupling%dtsfcino_cpl  )
-!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%dqsfcino_cpl ', Coupling%dqsfcino_cpl  )
-!                           call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%ulwsfcino_cpl', Coupling%ulwsfcino_cpl )
-!                        end if
                      end if
                      if (Model%cplchm) then
                         call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Coupling%rainc_cpl', Coupling%rainc_cpl)
@@ -970,17 +965,19 @@
 
     end module GFS_diagtoscreen
 
+
     module GFS_interstitialtoscreen
 
-      use GFS_typedefs,          only: GFS_control_type, GFS_statein_type,  &
-                                       GFS_stateout_type, GFS_sfcprop_type, &
-                                       GFS_coupling_type, GFS_grid_type,    &
-                                       GFS_tbd_type, GFS_cldprop_type,      &
-                                       GFS_radtend_type, GFS_diag_type
-      use CCPP_typedefs,         only: GFS_interstitial_type
-
-
       use print_var_chksum, only: print_var
+
+      use GFS_typedefs, only: GFS_control_type, GFS_statein_type,  &
+                              GFS_stateout_type, GFS_sfcprop_type, &
+                              GFS_coupling_type, GFS_grid_type,    &
+                              GFS_tbd_type, GFS_cldprop_type,      &
+                              GFS_radtend_type, GFS_diag_type
+
+      use CCPP_typedefs, only: GFS_interstitial_type
+
 
       implicit none
 
@@ -1307,7 +1304,6 @@
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%qss_ice             ', Interstitial%qss_ice                 )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%qss_land            ', Interstitial%qss_land                )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%qss_water           ', Interstitial%qss_water               )
-                     call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%fullradar_diag      ', Interstitial%fullradar_diag          )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%raddt               ', Interstitial%raddt                   )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%raincd              ', Interstitial%raincd                  )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%raincs              ', Interstitial%raincs                  )
@@ -1361,6 +1357,9 @@
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%vdftra              ', Interstitial%vdftra                  )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%vegf1d              ', Interstitial%vegf1d                  )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%wcbmax              ', Interstitial%wcbmax                  )
+!                     call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%weasd_ice           ', Interstitial%weasd_ice              )
+!                    call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%weasd_land          ', Interstitial%weasd_land              )
+!                    call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%weasd_water         ', Interstitial%weasd_water             )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%wind                ', Interstitial%wind                    )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%work1               ', Interstitial%work1                   )
                      call print_var(mpirank, omprank, blkno, Grid%xlat_d, Grid%xlon_d, 'Interstitial%work2               ', Interstitial%work2                   )
@@ -1543,7 +1542,7 @@
 !! \htmlinclude GFS_checkland_run.html
 !!
       subroutine GFS_checkland_run (me, master, blkno, im, kdt, iter, flag_iter, flag_guess, &
-              flag_init, flag_restart, frac_grid, isot, ivegsrc, stype,scolor, vtype, slope,        &
+              flag_init, flag_restart, frac_grid, isot, ivegsrc, stype,scolor, vtype, slope, &
               dry, icy, wet, lake, ocean, oceanfrac, landfrac, lakefrac, slmsk, islmsk,      &
               zorl, zorlw, zorll, zorli, fice, errmsg, errflg )
 

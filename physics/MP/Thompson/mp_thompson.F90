@@ -42,7 +42,7 @@ module mp_thompson
                                   nwfa, nifa, tgrs, prsl, phil, area,      &
                                   aerfld, mpicomm, mpirank, mpiroot,       &
                                   threads, ext_diag, diag3d,               &
-                                  instance,                             &
+                                  instance,                                &
                                   errmsg, errflg)
 
          implicit none

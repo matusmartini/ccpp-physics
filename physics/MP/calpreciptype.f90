@@ -161,6 +161,7 @@ contains
 
 !> - Call calwxt_ramer() to calculate instantaneous precipitation type component 2.
         call calwxt_ramer(lm,lp1,t,q,pmid,rh,td,pint,iwx)
+
 !
         snow(2)   = mod(iwx,2)
         sleet(2)  = mod(iwx,4)/2

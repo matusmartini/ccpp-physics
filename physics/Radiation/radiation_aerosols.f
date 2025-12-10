@@ -2920,7 +2920,6 @@
 !  ---  map grid in longitude direction, lon from 0 to 355 deg resolution
 
 !       print *,' Seeking lon index for point i =',i
-! NRL bugfix: Setting i3 to 1 fixes an issue with restart reproducibility
         i3 = 1
         lab_do_IMXAE : do while ( i3 <= IMXAE )
           tmp1 = dltg * (i3 - 1)
@@ -2958,7 +2957,6 @@
 !  ---  map grid in latitude direction, lat from 90n to 90s in 5 deg resolution
 
 !       print *,' Seeking lat index for point i =',i
-! NRL bugfix: Setting j3 to 1 fixes an issue with restart reproducibility
         j3 = 1
         lab_do_JMXAE : do while ( j3 <= JMXAE )
           tmp2 = 90.0 - dltg * (j3 - 1)
@@ -3174,8 +3172,8 @@
           do m = 1, NBDSW
             do k = 1, NLAY
               aerosw(i,k,m,1) = tauae(k,m)
-              aerosw(i,k,m,2) = ssaae(k,m)  ! cray: ignore use b4 set warning
-              aerosw(i,k,m,3) = asyae(k,m)  ! cray: ignore use b4 set warning
+              aerosw(i,k,m,2) = ssaae(k,m)
+              aerosw(i,k,m,3) = asyae(k,m)
             enddo
           enddo
 
@@ -3198,8 +3196,8 @@
             do m = 1, NBDLW
               do k = 1, NLAY
                 aerolw(i,k,m,1) = tauae(k,m1)
-                aerolw(i,k,m,2) = ssaae(k,m1) ! cray: ignore use b4 set warning
-                aerolw(i,k,m,3) = asyae(k,m1) ! cray: ignore use b4 set warning
+                aerolw(i,k,m,2) = ssaae(k,m1)
+                aerolw(i,k,m,3) = asyae(k,m1)
               enddo
             enddo
           else

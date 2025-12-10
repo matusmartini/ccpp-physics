@@ -342,6 +342,7 @@
           endif read_and_broadcast_co2_v1
 
         else   lab_ictm                           ! input from observed data
+
           if ( ico2flg == 1 ) then
             if ( mpirank==mpiroot ) then
               print *,' - Using observed co2 global annual mean value'

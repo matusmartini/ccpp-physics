@@ -75,6 +75,7 @@
   intent = in
 [im]
   standard_name = horizontal_dimension
+  long_name = horizontal dimension
   units = count
   dimensions = ()
   type = integer

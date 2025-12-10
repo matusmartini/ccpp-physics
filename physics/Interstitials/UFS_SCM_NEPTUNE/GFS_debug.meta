@@ -9,21 +9,21 @@
   type = scheme
 [Model]
   standard_name = GFS_control_type_instance
-  long_name = instance of derived type GFS_control_type in FV3
+  long_name = instance of derived type GFS_control_type
   units = DDT
   dimensions = ()
   type = GFS_control_type
   intent = in
 [Statein]
   standard_name = GFS_statein_type_instance
-  long_name = instance of derived type GFS_statein_type
+  long_name = prognostic state data in from dycore
   units = DDT
   dimensions = ()
   type = GFS_statein_type
   intent = in
 [Stateout]
   standard_name = GFS_stateout_type_instance
-  long_name = instance of derived type GFS_stateout_type
+  long_name = prognostic state or tendencies return to dycore
   units = DDT
   dimensions = ()
   type = GFS_stateout_type
@@ -113,14 +113,14 @@
   intent = in
 [Statein]
   standard_name = GFS_statein_type_instance
-  long_name = instance of derived type GFS_statein_type
+  long_name = prognostic state data in from dycore
   units = DDT
   dimensions = ()
   type = GFS_statein_type
   intent = in
 [Stateout]
   standard_name = GFS_stateout_type_instance
-  long_name = instance of derived type GFS_stateout_type
+  long_name = prognostic state or tendencies return to dycore
   units = DDT
   dimensions = ()
   type = GFS_stateout_type
@@ -327,14 +327,14 @@
   intent = in
 [Statein]
   standard_name = GFS_statein_type_instance
-  long_name = instance of derived type GFS_statein_type
+  long_name = prognostic state data in from dycore
   units = DDT
   dimensions = ()
   type = GFS_statein_type
   intent = in
 [Stateout]
   standard_name = GFS_stateout_type_instance
-  long_name = instance of derived type GFS_stateout_type
+  long_name = prognostic state or tendencies return to dycore
   units = DDT
   dimensions = ()
   type = GFS_stateout_type
@@ -424,14 +424,14 @@
   intent = in
 [Statein]
   standard_name = GFS_statein_type_instance
-  long_name = instance of derived type GFS_statein_type
+  long_name = prognostic state data in from dycore
   units = DDT
   dimensions = ()
   type = GFS_statein_type
   intent = in
 [Stateout]
   standard_name = GFS_stateout_type_instance
-  long_name = instance of derived type GFS_stateout_type
+  long_name = prognostic state or tendencies return to dycore
   units = DDT
   dimensions = ()
   type = GFS_stateout_type

@@ -62,6 +62,7 @@ MODULE module_mp_thompson
       USE machine, only : kind_phys
 
       USE module_mp_radar
+
 #ifdef MPI
       use mpi_f08
 #endif
@@ -1572,63 +1573,63 @@ MODULE module_mp_thompson
              jmax_qc = j
              kmax_qc = k
              qc_max = qc1d(k)
-             elseif (qc1d(k) .lt. 0.0) then
-              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qc ', qc1d(k),        &
-                         ' at i,j,k=', i,j,k
+            elseif (qc1d(k) .lt. 0.0) then
+             write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qc ', qc1d(k),        &
+                        ' at i,j,k=', i,j,k
             endif
             if (qr1d(k) .gt. qr_max) then
              imax_qr = i
              jmax_qr = j
              kmax_qr = k
              qr_max = qr1d(k)
-             elseif (qr1d(k) .lt. 0.0) then
-              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qr ', qr1d(k),        &
-                         ' at i,j,k=', i,j,k
+            elseif (qr1d(k) .lt. 0.0) then
+             write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qr ', qr1d(k),        &
+                        ' at i,j,k=', i,j,k
             endif
             if (nr1d(k) .gt. nr_max) then
              imax_nr = i
              jmax_nr = j
              kmax_nr = k
              nr_max = nr1d(k)
-             elseif (nr1d(k) .lt. 0.0) then
-              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative nr ', nr1d(k),        &
-                         ' at i,j,k=', i,j,k
+            elseif (nr1d(k) .lt. 0.0) then
+             write(*,'(a,e16.7,a,3i8)') 'WARNING, negative nr ', nr1d(k),        &
+                        ' at i,j,k=', i,j,k
             endif
             if (qs1d(k) .gt. qs_max) then
              imax_qs = i
              jmax_qs = j
              kmax_qs = k
              qs_max = qs1d(k)
-             elseif (qs1d(k) .lt. 0.0) then
-              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qs ', qs1d(k),        &
-                         ' at i,j,k=', i,j,k
+            elseif (qs1d(k) .lt. 0.0) then
+             write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qs ', qs1d(k),        &
+                        ' at i,j,k=', i,j,k
             endif
             if (qi1d(k) .gt. qi_max) then
              imax_qi = i
              jmax_qi = j
              kmax_qi = k
              qi_max = qi1d(k)
-             elseif (qi1d(k) .lt. 0.0) then
-              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qi ', qi1d(k),        &
-                         ' at i,j,k=', i,j,k
+            elseif (qi1d(k) .lt. 0.0) then
+             write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qi ', qi1d(k),        &
+                        ' at i,j,k=', i,j,k
             endif
             if (qg1d(k) .gt. qg_max) then
              imax_qg = i
              jmax_qg = j
              kmax_qg = k
              qg_max = qg1d(k)
-             elseif (qg1d(k) .lt. 0.0) then
-              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qg ', qg1d(k),        &
-                         ' at i,j,k=', i,j,k
+            elseif (qg1d(k) .lt. 0.0) then
+             write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qg ', qg1d(k),        &
+                        ' at i,j,k=', i,j,k
             endif
             if (ni1d(k) .gt. ni_max) then
              imax_ni = i
              jmax_ni = j
              kmax_ni = k
              ni_max = ni1d(k)
-             elseif (ni1d(k) .lt. 0.0) then
-              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative ni ', ni1d(k),        &
-                         ' at i,j,k=', i,j,k
+            elseif (ni1d(k) .lt. 0.0) then
+             write(*,'(a,e16.7,a,3i8)') 'WARNING, negative ni ', ni1d(k),        &
+                        ' at i,j,k=', i,j,k
             endif
             if (qv1d(k) .lt. 0.0) then
              write(*,'(a,e16.7,a,3i8)') 'WARNING, negative qv ', qv1d(k),        &
@@ -2029,6 +2030,9 @@ MODULE module_mp_thompson
       REAL:: Ef_ra, Ef_sa, Ef_ga
       REAL:: dtsave, odts, odt, odzq, hgt_agl, SR
       REAL:: xslw1, ygra1, zans1, eva_factor
+! DH* NOT IN ORIGINAL NEPTUNE CODE 2025/12/09
+!      REAL:: av_i
+! *DH
       INTEGER:: i, k, k2, n, nn, nstep, k_0, kbot, IT, iexfrq
       INTEGER, DIMENSION(5):: ksed1
       INTEGER:: nir, nis, nig, nii, nic, niin
@@ -2053,6 +2057,10 @@ MODULE module_mp_thompson
       odt = 1./dt
       odts = 1./dtsave
       iexfrq = 1
+! DH* NOT IN ORIGINAL NEPTUNE CODE 2025/12/09?!?
+! Transition value of coefficient matching at crossover from cloud ice to snow
+!      av_i = av_s * D0s ** (bv_s - bv_i)
+! *DH
 
 !+---+-----------------------------------------------------------------+
 !> - Initialize Source/sink terms.  First 2 chars: "pr" represents source/sink of

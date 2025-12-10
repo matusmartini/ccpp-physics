@@ -299,29 +299,29 @@
       gord = con_g/con_rd
 
       if (me == 0) then
-        print *, VTAGCLD       !print out version tag
-        print *,' - Using Prognostic Cloud Method'
-        if (imp_physics == 99) then
-          print *,'   --- Zhao/Carr/Sundqvist microphysics'
-       elseif (imp_physics == 98) then
-          print *,'   --- zhao/carr/sundqvist + pdf cloud'
-       elseif (imp_physics == 11) then
-          print *,'   --- GFDL Lin cloud microphysics'
-       elseif (imp_physics == 8) then
-          print *,'   --- Thompson cloud microphysics'
-       elseif (imp_physics == 6) then
-          print *,'   --- WSM6 cloud microphysics'
-       elseif (imp_physics == 10) then
-          print *,'   --- MG cloud microphysics'
-       elseif (imp_physics == 15) then
-          print *,'   --- Ferrier-Aligo cloud microphysics'
-       elseif (imp_physics == 17) then
-          print *,'   --- NSSL cloud microphysics'
-       else
-          print *,'  !!! ERROR in cloud microphysc specification!!!',   &
-     &            '  imp_physics (NP3D) =',imp_physics
-          call ccpp_external_abort("radiation_clouds.f:cld_init2")
-        endif
+         print *, VTAGCLD       !print out version tag
+         print *,' - Using Prognostic Cloud Method'
+         if (imp_physics == 99) then
+            print *,'   --- Zhao/Carr/Sundqvist microphysics'
+         elseif (imp_physics == 98) then
+            print *,'   --- zhao/carr/sundqvist + pdf cloud'
+         elseif (imp_physics == 11) then
+            print *,'   --- GFDL Lin cloud microphysics'
+         elseif (imp_physics == 8) then
+            print *,'   --- Thompson cloud microphysics'
+         elseif (imp_physics == 6) then
+            print *,'   --- WSM6 cloud microphysics'
+         elseif (imp_physics == 10) then
+            print *,'   --- MG cloud microphysics'
+         elseif (imp_physics == 15) then
+            print *,'   --- Ferrier-Aligo cloud microphysics'
+         elseif (imp_physics == 17) then
+            print *,'   --- NSSL cloud microphysics'
+         else
+            print *,'  !!! ERROR in cloud microphysc specification!!!', &
+     &              '  imp_physics (NP3D) =',imp_physics
+            call ccpp_external_abort("radiation_clouds.f:cld_init2")
+         endif
       endif
 !
       return

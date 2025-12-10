@@ -1,4 +1,4 @@
-!>\file cu_gf_deep.F90
+!>\file cu_gf_deep.F90 
 !! This file is the Grell-Freitas deep convection scheme.
 
 !> This module contains the Grell_Freitas deep convection scheme
@@ -135,7 +135,7 @@ contains
               ,rand_vmas     &  ! for stochastics vertmass, if temporal and spatial patterns exist
               ,rand_clos     &  ! for stochastics closures, if temporal and spatial patterns exist
               ,nranflag      &  ! flag to what you want perturbed
-                                !! 1 = momentum transport
+                                !! 1 = momentum transport 
                                 !! 2 = normalized vertical mass flux profile
                                 !! 3 = closures
                                 !! more is possible, talk to developer or
@@ -162,7 +162,7 @@ contains
      real(kind=kind_phys), intent(in), dimension(:), optional :: cap_suppress_j
 !$acc declare create(cap_suppress_j)
   !
-  !
+  ! 
   !
       real(kind=kind_phys),    dimension (its:ite,1:maxens3) :: xf_ens,pr_ens
 !$acc declare create(xf_ens,pr_ens)
@@ -323,7 +323,7 @@ contains
         entr_rate_2d,mentrd_rate_2d,he,hes,qes,z, heo,heso,qeso,zo,     &                    
         xhe,xhes,xqes,xz,xt,xq,qes_cup,q_cup,he_cup,hes_cup,z_cup,      &
         p_cup,gamma_cup,t_cup, qeso_cup,qo_cup,heo_cup,heso_cup,        &
-        zo_cup,po_cup,gammao_cup,tn_cup,                                &
+        zo_cup,po_cup,gammao_cup,tn_cup,                                &    
         xqes_cup,xq_cup,xhe_cup,xhes_cup,xz_cup,                        &
         xt_cup, dby,hc,zu,clw_all,                                      &
         dbyo,qco,qrcdo,pwdo,pwo,hcdo,qcdo,dbydo,hco,qrco,               &
@@ -406,7 +406,7 @@ contains
 !$acc declare create(up_massentr,up_massdetr,c1d,up_massentro,up_massdetro,dd_massentro,dd_massdetro, &
 !$acc                up_massentru,up_massdetru,dd_massentru,dd_massdetru)
      real(kind=kind_phys) c1_max,buo_flux,pgcon,pgc,blqe
-
+    
      real(kind=kind_phys) :: xff_mid(its:ite,2)
 !$acc declare create(xff_mid)
      integer :: iversion=1
@@ -425,7 +425,7 @@ contains
 !$acc declare copy(forcing)
      integer :: turn,pmin_lev(its:ite),start_level(its:ite),ktopkeep(its:ite)
      real(kind=kind_phys),    dimension (its:ite,kts:kte) :: dtempdz
-     integer, dimension (its:ite,kts:kte) ::  k_inv_layers
+     integer, dimension (its:ite,kts:kte) ::  k_inv_layers 
      real(kind=kind_phys),    dimension (its:ite) :: c0    ! HCB
      real(kind=kind_phys),    dimension (its:ite,kts:kte) :: c0t3d    ! hli for smoke/dust wet scavenging
 !$acc declare create(pmin_lev,start_level,ktopkeep,dtempdz,k_inv_layers,c0,c0t3d)
@@ -514,7 +514,7 @@ contains
          if(zws(i) > tiny(pgeoh)) then
             !-convective-scale velocity w*
             zws(i) = 1.2*zws(i)**.3333
-            !- temperature excess
+            !- temperature excess 
             ztexec(i)     = max(flux_tun(i)*hfx(i)/(rho(i,1)*zws(i)*cp),0.0)
             !- moisture  excess
             zqexec(i)     = max(flux_tun(i)*qfx(i)/xlv/(rho(i,1)*zws(i)),0.)
@@ -598,7 +598,7 @@ contains
 !$acc end kernels
       sig_thresh = (1.-frh_thresh)**2
 
-
+      
 !
 !--- entrainment of mass
 !
@@ -641,7 +641,7 @@ contains
       if(dx(its)<dx_thresh)depth_min=5000.
       if(imid.eq.1)depth_min=2500.
 !
-!--- maximum depth (mb) of capping
+!--- maximum depth (mb) of capping 
 !--- inversion (larger cap = no convection)
 !
 !$acc kernels
@@ -772,7 +772,7 @@ contains
 !$acc end parallel
 
 !
-!> - call get_cloud_bc() and cup_kbcon() to determine the
+!> - call get_cloud_bc() and cup_kbcon() to determine the 
 !! level of convective cloud base (\p kbcon)
 !
 !$acc parallel loop private(x_add)
@@ -833,8 +833,8 @@ contains
 !> - Call get_inversion_layer() to get inversion layers for mid level cloud tops
 !
       if(imid.eq.1)then
-        call get_inversion_layers(ierr,p_cup,t_cup,z_cup,q_cup,qes_cup,k_inv_layers, &
-                                  kbcon,kstabi,dtempdz,itf,ktf,its,ite, kts,kte)
+      call get_inversion_layers(ierr,p_cup,t_cup,z_cup,q_cup,qes_cup,k_inv_layers, &
+                               kbcon,kstabi,dtempdz,itf,ktf,its,ite, kts,kte)
       endif
 !$acc kernels
       do i=its,itf
@@ -959,7 +959,7 @@ contains
          k=start_level(i)
          hc (i,k)=hkb(i)
          hco(i,k)=hkbo(i)
-       endif
+       endif 
       enddo
 !$acc end kernels
 !
@@ -971,11 +971,11 @@ contains
       do i=its,itf
        ktopkeep(i)=0
        dbyt(i,:)=0.
-       if(ierr(i) /= 0) cycle
+       if(ierr(i) /= 0) cycle                 
        ktopkeep(i)=ktop(i)
 !$acc loop seq
        do k=start_level(i) +1,ktop(i)  !mass cons option
-
+         
           denom=zuo(i,k-1)-.5*up_massdetro(i,k-1)+up_massentro(i,k-1)
           if(denom.lt.1.e-8)then
            ierr(i)=51
@@ -1062,7 +1062,7 @@ contains
              endif
            enddo
          enddo
-         jmin(i) = jmini
+         jmin(i) = jmini 
          if ( jmini .le. 5 ) then
            ierr(i)=4
 #ifndef _OPENACC
@@ -1105,11 +1105,11 @@ contains
 
        ktopkeep(i)=0
        dbyt(i,:)=0.
-       if(ierr(i) /= 0) cycle
+       if(ierr(i) /= 0) cycle                 
        ktopkeep(i)=ktop(i)
 !$acc loop seq
        do k=start_level(i) +1,ktop(i)  !mass cons option
-
+         
           denom=zuo(i,k-1)-.5*up_massdetro(i,k-1)+up_massentro(i,k-1)
           if(denom.lt.1.e-8)then
            ierr(i)=51
@@ -1133,8 +1133,8 @@ contains
                          (zuo(i,k-1)-.5*up_massdetro(i,k-1)+up_massentro(i,k-1))
 !---meltglac-------------------------------------------------
           !
-          !- include glaciation effects on hc,hco
-          !                    ------ ice content --------
+          !- include glaciation effects on hc,hco	  
+          !                    ------ ice content --------     
           hc (i,k)= hc (i,k)+(1.-p_liq_ice(i,k))*qrco(i,k)*xlf
           hco(i,k)= hco(i,k)+(1.-p_liq_ice(i,k))*qrco(i,k)*xlf
 
@@ -1162,7 +1162,7 @@ contains
 41    continue
 !$acc kernels
       do i=its,itf
-       if(ierr(i) /= 0) cycle
+       if(ierr(i) /= 0) cycle                 
        do k=ktop(i)+1,ktf
            hc(i,k)=hes_cup(i,k)
            uc(i,k)=u_cup(i,k)
@@ -1365,7 +1365,7 @@ contains
 !$acc end kernels
 
 !
-!--- diurnal cycle closure
+!--- diurnal cycle closure 
 !
       !--- aa1 from boundary layer (bl) processes only
 !$acc kernels
@@ -1386,13 +1386,13 @@ contains
 !$acc kernels
       do i=its,itf
             if(ierr(i).eq.0)then
-                !- mean vertical velocity
+                !- mean vertical velocity 
                 wmean(i) = 3.0 ! m/s ! in the future change for wmean == integral( w dz) / cloud_depth
                 if(imid.eq.1)wmean(i) = 3.0
                 !- time-scale cape removal from  betchold et al. 2008
-                tau_ecmwf(i)=( zo_cup(i,ktop(i))- zo_cup(i,kbcon(i)) ) / wmean(i)
+                tau_ecmwf(i)=( zo_cup(i,ktop(i))- zo_cup(i,kbcon(i)) ) / wmean(i) 
                 tau_ecmwf(i)=max(tau_ecmwf(i),720.)
-                tau_ecmwf(i)= tau_ecmwf(i) * (1.0061 + 1.23e-2 * (dx(i)/1000.))! dx(i) must be in meters
+                tau_ecmwf(i)= tau_ecmwf(i) * (1.0061 + 1.23e-2 * (dx(i)/1000.))! dx(i) must be in meters 
             endif
       enddo
       tau_bl(:)     = 0.
@@ -1402,12 +1402,12 @@ contains
       if(dicycle == 1) then
 !$acc kernels
         do i=its,itf
-
+            
             if(ierr(i).eq.0)then
                 if(xland1(i) ==  0 ) then
                   !- over water
                   umean= 2.0+sqrt(0.5*(us(i,1)**2+vs(i,1)**2+us(i,kbcon(i))**2+vs(i,kbcon(i))**2))
-                  tau_bl(i) = (zo_cup(i,kbcon(i))- z1(i)) /umean
+                  tau_bl(i) = (zo_cup(i,kbcon(i))- z1(i)) /umean        
                 else
                   !- over land
                   tau_bl(i) =( zo_cup(i,ktopdby(i))- zo_cup(i,kbcon(i)) ) / wmean(i)
@@ -1440,9 +1440,9 @@ contains
                               ierr,z1,                                                           &
                               itf,ktf,its,ite, kts,kte)
 
-        if(iversion == 1) then
+        if(iversion == 1) then 
         !-- version ecmwf
-        t_star=1.
+        t_star=1.  
 
            !-- calculate pcape from bl forcing only
 !> - Call cup_up_aa1bl() to calculate ECMWF version diurnal cycle closure
@@ -1456,25 +1456,25 @@ contains
             if(ierr(i).eq.0)then
 
                !- only for convection rooting in the pbl
-               !if(zo_cup(i,kbcon(i))-z1(i) > zo(i,kpbl(i)+1)) then
+               !if(zo_cup(i,kbcon(i))-z1(i) > zo(i,kpbl(i)+1)) then 
                !   aa1_bl(i) = 0.0
                !else
                !- multiply aa1_bl the " time-scale" - tau_bl
                !  aa1_bl(i) = max(0.,aa1_bl(i)/t_star* tau_bl(i))
                   aa1_bl(i) = ( aa1_bl(i)/t_star)* tau_bl(i)
-               !endif
+               !endif 
             endif
             enddo
 !$acc end kernels
             
         else
-
+        
           !- version for real cloud-work function
-
+          
 !$acc kernels
           do i=its,itf
             if(ierr(i).eq.0)then
-               hkbo_bl(i)=heo_cup_bl(i,k22(i))
+               hkbo_bl(i)=heo_cup_bl(i,k22(i)) 
             endif ! ierr
           enddo
           do k=kts,ktf
@@ -1493,8 +1493,8 @@ contains
              dbyo_bl(i,k)=hkbo_bl(i) - heso_cup_bl(i,k)
             endif
           enddo
-!
-!
+!          
+!          
           do i=its,itf
             if(ierr(i).eq.0)then
                do k=kbcon(i)+1,ktop(i)
@@ -1516,7 +1516,7 @@ contains
                         itf,ktf,its,ite, kts,kte)
 !$acc kernels
           do i=its,itf
-
+            
             if(ierr(i).eq.0)then
                 !- get the increment on aa0 due the bl processes
                 aa1_bl(i) = aa1_bl(i) - aa0(i)
@@ -1677,7 +1677,7 @@ contains
                             zuo(i,k  )*(vc (i,k  )-v_cup(i,k  ) ) )*g/dp                         &
                          +(zdo(i,k+1)*(vcd(i,k+1)-v_cup(i,k+1) ) -                               &
                             zdo(i,k  )*(vcd(i,k  )-v_cup(i,k  ) ) )*g/dp*edto(i)*pgcd
-
+ 
        enddo   ! k
 
     enddo
@@ -1701,13 +1701,13 @@ contains
          g_rain=  0.5*(pwo (i,1)+pwo (i,2))*g/dp
          e_dn  = -0.5*(pwdo(i,1)+pwdo(i,2))*g/dp*edto(i)  ! pwdo < 0 and e_dn must > 0
          dellaq(i,1) = dellaq(i,1)+ e_dn-g_rain
-
+         
          !--- conservation check
          !- water mass balance
-         !trash = trash  + (dellaq(i,1)+dellaqc(i,1)+g_rain-e_dn)*dp/g
+         !trash = trash  + (dellaq(i,1)+dellaqc(i,1)+g_rain-e_dn)*dp/g          
          !- h  budget
          !trash2 = trash2+ (dellah(i,1))*dp/g
-
+         
 
          do k=kts+1,ktop(i)
             dp=100.*(po_cup(i,k)-po_cup(i,k+1))
@@ -1717,7 +1717,7 @@ contains
                            zuo(i,k  )*(hco (i,k  )-heo_cup(i,k  ) ) )*g/dp            &
                          +(zdo(i,k+1)*(hcdo(i,k+1)-heo_cup(i,k+1) ) -                 &
                            zdo(i,k  )*(hcdo(i,k  )-heo_cup(i,k  ) ) )*g/dp*edto(i)
-
+                        
 !---meltglac-------------------------------------------------
 
            dellah(i,k) = dellah(i,k) + xlf*((1.-p_liq_ice(i,k))*0.5*(qrco(i,k+1)+qrco(i,k)) &
@@ -1725,15 +1725,15 @@ contains
 
 !---meltglac-------------------------------------------------
 
-            !- check h conservation
+            !- check h conservation 
             ! trash2 = trash2+ (dellah(i,k))*dp/g
-
-
+        
+        
             !-- take out cloud liquid water for detrainment
             detup=up_massdetro(i,k)
             dz=zo_cup(i,k)-zo_cup(i,k-1)
             if(k.lt.ktop(i)) then
-                dellaqc(i,k) = zuo(i,k)*c1d(i,k)*qrco(i,k)*dz/dp*g
+                dellaqc(i,k) = zuo(i,k)*c1d(i,k)*qrco(i,k)*dz/dp*g 
             else
                 dellaqc(i,k)=  detup*0.5*(qrco(i,k+1)+qrco(i,k)) *g/dp
             endif
@@ -1742,7 +1742,7 @@ contains
             e_dn  = -0.5*(pwdo(i,k)+pwdo(i,k+1))*g/dp*edto(i) ! pwdo < 0 and e_dn must > 0
             !-- condensation source term = detrained + flux divergence of
             !-- cloud liquid water (qrco) + converted to rain
-
+        
             c_up = dellaqc(i,k)+(zuo(i,k+1)* qrco(i,k+1) -                           &
                                 zuo(i,k  )* qrco(i,k  )  )*g/dp + g_rain
 !            c_up = dellaqc(i,k)+ g_rain
@@ -1858,8 +1858,8 @@ contains
 
 !---meltglac-------------------------------------------------
           !
-          !- include glaciation effects on xhc
-          !                          ------ ice content --------
+          !- include glaciation effects on xhc  
+          !                          ------ ice content --------     
           xhc (i,k)= xhc (i,k)+ xlf*(1.-p_liq_ice(i,k))*qrco(i,k)
 !---meltglac-------------------------------------------------
 
@@ -1881,7 +1881,7 @@ contains
            itf,ktf,                                      &
            its,ite, kts,kte)
 !$acc parallel loop
-      do i=its,itf
+      do i=its,itf 
          if(ierr(i).eq.0)then
            xaa0_ens(i,1)=xaa0(i)
 !$acc loop seq
@@ -1891,7 +1891,7 @@ contains
                  if(nens3.eq.7)then
 !--- b=0
                  pr_ens(i,nens3)=pr_ens(i,nens3)  &
-                                    +pwo(i,k)+edto(i)*pwdo(i,k)
+                                    +pwo(i,k)+edto(i)*pwdo(i,k) 
 !--- b=beta
                  else if(nens3.eq.8)then
                  pr_ens(i,nens3)=pr_ens(i,nens3)+ &
@@ -1928,7 +1928,7 @@ contains
 !--- large scale forcing
 !
 !
-!------- check wether aa0 should have been zero, assuming this
+!------- check wether aa0 should have been zero, assuming this 
 !        ensemble is chosen
 !
 !
@@ -1988,7 +1988,7 @@ contains
            dellaq_ens (i,k,1)=dellaq(i,k)
            dellaqc_ens(i,k,1)=dellaqc(i,k)
            pwo_ens    (i,k,1)=pwo(i,k) +edto(i)*pwdo(i,k)
-        else
+        else 
            dellat_ens (i,k,1)=0.
            dellaq_ens (i,k,1)=0.
            dellaqc_ens(i,k,1)=0.
@@ -2005,7 +2005,7 @@ contains
        if(imid.eq.1 .and. ichoice .le.2)then
 !$acc kernels
          do i=its,itf
-          !-boundary layer qe
+          !-boundary layer qe 
           xff_mid(i,1)=0.
           xff_mid(i,2)=0.
           if(ierr(i).eq.0)then
@@ -2229,11 +2229,11 @@ contains
              forcing(i,6)=sig(i)
              pre(i)=max(pre(i),0.)
              xmb_out(i)=xmb(i)
-             outu(i,1)=dellu(i,1)*xmb(i)
+             outu(i,1)=dellu(i,1)*xmb(i) 
              outv(i,1)=dellv(i,1)*xmb(i)
              do k=kts+1,ktop(i)
-               outu(i,k)=.25*(dellu(i,k-1)+2.*dellu(i,k)+dellu(i,k+1))*xmb(i)
-               outv(i,k)=.25*(dellv(i,k-1)+2.*dellv(i,k)+dellv(i,k+1))*xmb(i)
+               outu(i,k)=.25*(dellu(i,k-1)+2.*dellu(i,k)+dellu(i,k+1))*xmb(i) 
+               outv(i,k)=.25*(dellv(i,k-1)+2.*dellv(i,k)+dellv(i,k+1))*xmb(i) 
              enddo
           elseif(ierr(i).ne.0 .or. pre(i).eq.0.)then
              ktop(i)=0
@@ -2335,7 +2335,7 @@ contains
                 dp=(po_cup(i,k)-po_cup(i,k+1))*100.
 !total ke dissiptaion estimate
                 dts= dts -(outu(i,k)*us(i,k)+outv(i,k)*vs(i,k))*dp/g
-! fpi needed for calcualtion of conversion to pot. energyintegrated
+! fpi needed for calcualtion of conversion to pot. energyintegrated 
                 fpi = fpi  +sqrt(outu(i,k)*outu(i,k) + outv(i,k)*outv(i,k))*dp
              enddo
              if(fpi.gt.0.)then
@@ -2790,7 +2790,7 @@ contains
         ,intent (in   )                   ::                     &
                                   itf,ktf,                       &
                                   its,ite, kts,kte
-  ! cdd= detrainment function
+  ! cdd= detrainment function 
   ! q = environmental q on model levels
   ! q_cup = environmental q on model cloud levels
   ! qes_cup = saturation q on model cloud levels
@@ -2804,7 +2804,7 @@ contains
   ! qrch = saturation q in cloud
   ! pwd = evaporate at that level
   ! pwev = total normalized integrated evaoprate (i2)
-  ! entr= entrainment rate
+  ! entr= entrainment rate 
   !
      real(kind=kind_phys),    dimension (its:ite,kts:kte)               &
         ,intent (in   )                   ::            &
@@ -3230,7 +3230,7 @@ contains
         xaa0
      real(kind=kind_phys),    dimension (its:ite,4)                                    &
         ,intent (in   )                   ::                           &
-       rand_clos
+       rand_clos 
      real(kind=kind_phys),    dimension (its:ite)                                      &
         ,intent (in   )                   ::                           &
         aa1,edt,edtm
@@ -3322,10 +3322,10 @@ contains
              xff_ens3(3)=max(0.,(aa1(i)-aa0(i))/dtime)
              xff_ens3(16)=max(0.,(aa1(i)-aa0(i))/dtime)
              forcing(i,1)=xff_ens3(2)
-!
+!   
 !--- omeg is in bar/s, mconv done with omeg in pa/s
 !     more like brown (1979), or frank-cohen (199?)
-!
+!  
 ! average aaround kbcon
 !
              xomg=0.
@@ -3340,7 +3340,7 @@ contains
                      endif
              enddo
              if(kk.gt.0)xff_ens3(4)=xomg/float(kk)
-
+            
 !
 ! max below kbcon
 !             xff_ens3(6)=-omeg(i,k22(i))/9.81
@@ -3544,14 +3544,14 @@ contains
 
 !-
 !- diurnal cycle mass flux
-!-
+!-              
 if(dicycle == 1 )then
 !$acc kernels
 !$acc loop private(xk)
-       do i=its,itf
+       do i=its,itf           
           xf_dicycle(i) = 0.
           if(ierr(i) /=  0)cycle
-
+             
             xk(1)=(xaa0(i,1)-aa1(i))/mbdt
 !            forcing(i,8)=xk(1)
             if(xk(1).lt.0.and.xk(1).gt.-.01*mbdt) xk(1)=-.01*mbdt
@@ -3593,9 +3593,9 @@ endif
         ,intent (in   )                   ::                           &
         jprnt,itf,ktf,imid,                                            &
         its,ite, kts,kte
-  !
-  !
-  !
+  ! 
+  ! 
+  ! 
   ! ierr error value, maybe modified in this routine
   !
      real(kind=kind_phys),    dimension (its:ite,kts:kte)                              &
@@ -3838,21 +3838,21 @@ endif
          i,k,kstop
 
 !$acc kernels
-     do 200 i=its,itf
-       kt(i)=ks(i)
-       if(ierr(i).eq.0)then
-         x(i)=array(i,ks(i))
-         kstop=max(ks(i)+1,kend(i))
+       do 200 i=its,itf
+      kt(i)=ks(i)
+      if(ierr(i).eq.0)then
+      x(i)=array(i,ks(i))
+       kstop=max(ks(i)+1,kend(i))
 !
 !$acc loop seq
-         do 100 k=ks(i)+1,kstop
-           if(array(i,k).lt.x(i)) then
-                x(i)=array(i,k)
-                kt(i)=k
-           endif
- 100     continue
-       endif
- 200 continue
+       do 100 k=ks(i)+1,kstop
+         if(array(i,k).lt.x(i)) then
+              x(i)=array(i,k)
+              kt(i)=k
+         endif
+ 100  continue
+      endif
+ 200  continue
  !$acc end kernels
 
    end subroutine cup_minimi
@@ -3879,7 +3879,7 @@ endif
   ! t_cup = temperature (kelvin) on model cloud levels
   ! dby = buoancy term
   ! zu= normalized updraft mass flux
-  ! z = heights of model levels
+  ! z = heights of model levels 
   ! ierr error value, maybe modified in this routine
   !
      real(kind=kind_phys),    dimension (its:ite,kts:kte)                     &
@@ -3959,7 +3959,7 @@ endif
         ,intent (in  )                   ::                                   &
         dt
      real(kind=kind_phys) :: names,scalef,thresh,qmem,qmemf,qmem2,qtest,qmem1
-     integer :: i,k,icheck
+     integer :: icheck
 !
 ! first do check on vertical heating rate
 !
@@ -4005,12 +4005,12 @@ endif
          outv(i,k)=outv(i,k)*qmemf
          outqc(i,k)=outqc(i,k)*qmemf
       enddo
-      pret(i)=pret(i)*qmemf
+      pret(i)=pret(i)*qmemf 
       enddo
 !$acc end kernels
 !      return
 !
-! check whether routine produces negative q's. this can happen, since
+! check whether routine produces negative q's. this can happen, since 
 ! tendencies are calculated based on forced q's. this should have no
 ! influence on conservation properties, it scales linear through all
 ! tendencies
@@ -4046,7 +4046,7 @@ endif
          outv(i,k)=outv(i,k)*qmemf
          outqc(i,k)=outqc(i,k)*qmemf
       enddo
-      pret(i)=pret(i)*qmemf
+      pret(i)=pret(i)*qmemf 
       enddo
 !$acc end kernels
    end subroutine neg_check
@@ -4164,7 +4164,7 @@ endif
 !
 !--- calculate ensemble average mass fluxes
 !
-
+       
 !
 !-- now do feedback
 !
@@ -4179,7 +4179,7 @@ endif
          do n=1,maxens3
           k=k+1
           xmb_ave(i)=xmb_ave(i)+xf_ens(i,n)
-
+           
          enddo
          !print *,'xf_ens',xf_ens
          xmb_ave(i)=xmb_ave(i)/float(k)
@@ -4330,12 +4330,12 @@ endif
                                   autoconv,                       &
                                   itest,itf,ktf,                  &
                                   its,ite, kts,kte
-  ! cd= detrainment function
+  ! cd= detrainment function 
   ! q = environmental q on model levels
   ! qe_cup = environmental q on model cloud levels
   ! qes_cup = saturation q on model cloud levels
   ! dby = buoancy term
-  ! cd= detrainment function
+  ! cd= detrainment function 
   ! zu = normalized updraft mass flux
   ! gamma_cup = gamma on model cloud levels
   !
@@ -4471,9 +4471,9 @@ endif
       if(ierr(i).eq.0)then
          start_level=k22(i)
          call get_cloud_bc(kte,qe_cup (i,1:kte),qaver,k22(i),zero)
-         qaver = qaver
+         qaver = qaver 
          k=start_level(i)
-         qc (i,k)= qaver
+         qc (i,k)= qaver 
          qch (i,k)= qaver
          do k=1,start_level(i)-1
            qc (i,k)= qe_cup(i,k)
@@ -4512,8 +4512,8 @@ endif
               if(k.lt.kbcon(i))qrch=qc(i,k)
               if(qc(i,k).gt.qrch)then
                 dz=z_cup(i,k)-z_cup(i,k-1)
-                qrc(i,k)=(qc(i,k)-qrch)/(1.+c0t*dz)
-                pw(i,k)=c0t*dz*qrc(i,k)*zu(i,k)
+                qrc(i,k)=(qc(i,k)-qrch)/(1.+c0t*dz)   
+                pw(i,k)=c0t*dz*qrc(i,k)*zu(i,k) 
                 qc(i,k)=qrch+qrc(i,k)
                 clw_all(i,k)=qrc(i,k)
               endif
@@ -4544,7 +4544,7 @@ endif
                 exit
                endif
 
-
+   
                rhoc=.5*(rho(i,k)+rho(i,k-1))
                dz=z_cup(i,k)-z_cup(i,k-1)
                dp=-100.*(p_cup(i,k)-p_cup(i,k-1))
@@ -4649,7 +4649,7 @@ endif
                    pw(i,k)=c0t*dz*qrc(i,k)*zu(i,k)
 
 !-----srf-08aug2017-----begin
-! pw(i,k)=(c1d(i,k)+c0)*dz*max(0.,qrc(i,k) -qrc_crit)! units kg[rain]/kg[air]
+! pw(i,k)=(c1d(i,k)+c0)*dz*max(0.,qrc(i,k) -qrc_crit)! units kg[rain]/kg[air] 
 !-----srf-08aug2017-----end
                    if(qrc(i,k).lt.0)then
                      qrc(i,k)=0.
@@ -4952,11 +4952,7 @@ endif
          endif
 
 !    fzu = gamma(alpha2 + beta_deep)/(g_alpha2*g_beta_deep)
-#ifdef GAMMA_EXTRINSIC
-    fzu = my_gamma(alpha2 + beta_deep)/(my_gamma(alpha2)*my_gamma(beta_deep))
-#else
     fzu = gamma(alpha2 + beta_deep)/(gamma(alpha2)*gamma(beta_deep))
-#endif
       zu(kb_adj)=zubeg
   do k=kb_adj+1,min(kte,kt-1)
       kratio= (p(k)-p(kb_adj))/(p(kt)-p(kb_adj)) !float(k)/float(kt+1)
@@ -5012,11 +5008,7 @@ endif
            g_alpha2=g_alpha(k1)
          endif
 
-#ifdef GAMMA_EXTRINSIC
-    fzu = my_gamma(alpha2 + beta_sh)/(g_alpha2*g_beta_sh)
-#else
     fzu = gamma(alpha2 + beta_sh)/(g_alpha2*g_beta_sh)
-#endif
       zu(kb_adj) = zubeg
   do k=kb_adj+1,min(kte,kt-1)
       kratio= (p(k)-p(kb_adj))/(p(kt)-p(kb_adj)) !float(k)/float(kt+1)
@@ -5067,11 +5059,7 @@ endif
          endif
 
 !    fzu = gamma(alpha2 + beta_deep)/(g_alpha2*g_beta_deep)
-#ifdef GAMMA_EXTRINSIC
-    fzu = my_gamma(alpha2 + beta_mid)/(my_gamma(alpha2)*my_gamma(beta_mid))
-#else
     fzu = gamma(alpha2 + beta_mid)/(gamma(alpha2)*gamma(beta_mid))
-#endif
 !    fzu = gamma(alpha2 + beta_mid)/(g_alpha2*g_beta_mid)
       zu(kb_adj) = zubeg
   do k=kb_adj+1,min(kte,kt-1)
@@ -5120,11 +5108,7 @@ endif
            g_alpha2=g_alpha(k1)
          endif
 
-#ifdef GAMMA_EXTRINSIC
-   fzu = my_gamma(alpha2 + beta_dd)/(g_alpha2*g_beta_dd)
-#else
    fzu = gamma(alpha2 + beta_dd)/(g_alpha2*g_beta_dd)
-#endif
 !   fzu = gamma(alpha2 + beta_dd)/(gamma(alpha2)*gamma(beta_dd))
   zu(:)=0.
   do k=2,min(kte,kt-1)
@@ -5167,7 +5151,7 @@ endif
   ! t_cup = temperature (kelvin) on model cloud levels
   ! dby = buoancy term
   ! zu= normalized updraft mass flux
-  ! z = heights of model levels
+  ! z = heights of model levels 
   ! ierr error value, maybe modified in this routine
   !
      real(kind=kind_phys),    dimension (its:ite,kts:kte)                              &
@@ -5215,18 +5199,18 @@ endif
  end subroutine cup_up_aa1bl
 !---------------------------------------------------------------------- 
 !> Finds temperature inversions using the first and second derivative of temperature.
- subroutine get_inversion_layers(ierr,p_cup,t_cup,z_cup,qo_cup,qeso_cup,k_inv_layers,&
+ subroutine get_inversion_layers(ierr,p_cup,t_cup,z_cup,qo_cup,qeso_cup,k_inv_layers,&           
                      kstart,kend,dtempdz,itf,ktf,its,ite, kts,kte)
-
+                                    
         implicit none
         integer                      ,intent (in ) :: itf,ktf,its,ite,kts,kte
         integer, dimension (its:ite) ,intent (in ) :: ierr,kstart,kend
 !$acc declare copyin(ierr,kstart,kend)
         integer, dimension (its:ite) :: kend_p3
 !$acc declare create(kend_p3)
-
-        real(kind=kind_phys),    dimension (its:ite,kts:kte), intent (in ) :: p_cup,t_cup,z_cup,qo_cup,qeso_cup
-        real(kind=kind_phys),    dimension (its:ite,kts:kte), intent (out) :: dtempdz
+                    
+        real(kind=kind_phys),    dimension (its:ite,kts:kte), intent (in ) :: p_cup,t_cup,z_cup,qo_cup,qeso_cup                            
+        real(kind=kind_phys),    dimension (its:ite,kts:kte), intent (out) :: dtempdz                    
         integer, dimension (its:ite,kts:kte), intent (out) :: k_inv_layers
 !$acc declare copyin(p_cup,t_cup,z_cup,qo_cup,qeso_cup)
 !$acc declare copyout(dtempdz,k_inv_layers)
@@ -5241,87 +5225,88 @@ endif
         k_inv_layers(:,:) = 1
 !$acc end kernels
 !$acc parallel loop private(first_deriv,sec_deriv,ilev,ix,k,kadd,ken)
-        do i = its,itf
-          if(ierr(i) == 0)then
-            sec_deriv(:)=0.
-            kend_p3(i)=kend(i)+3
-            do k = kts+1,kend_p3(i)+4
-             !-  get the 1st der
-             first_deriv(k)= (t_cup(i,k+1)-t_cup(i,k-1))/(z_cup(i,k+1)-z_cup(i,k-1))        
-             dtempdz(i,k)=first_deriv(k)
-            enddo
-            do k = kts+2,kend_p3(i)+3
-             !  get the 2nd der
-             sec_deriv(k)= (first_deriv(k+1)-first_deriv(k-1))/(z_cup(i,k+1)-z_cup(i,k-1))        
-             sec_deriv(k)= abs(sec_deriv(k))        
-            enddo
-            ilev=max(kts+3,kstart(i)+1)
-            ix=1
-            k=ilev
-            do while (ilev < kend_p3(i)) !(z_cup(i,ilev)<15000.)
+         do i = its,itf
+           if(ierr(i) == 0)then
+           sec_deriv(:)=0.
+           kend_p3(i)=kend(i)+3
+           do k = kts+1,kend_p3(i)+4
+            !-  get the 1st der
+            first_deriv(k)= (t_cup(i,k+1)-t_cup(i,k-1))/(z_cup(i,k+1)-z_cup(i,k-1))        
+            dtempdz(i,k)=first_deriv(k)
+               enddo
+           do k = kts+2,kend_p3(i)+3
+            !  get the 2nd der
+            sec_deriv(k)= (first_deriv(k+1)-first_deriv(k-1))/(z_cup(i,k+1)-z_cup(i,k-1))        
+            sec_deriv(k)= abs(sec_deriv(k))        
+           enddo
+        
+         ilev=max(kts+3,kstart(i)+1)
+         ix=1
+         k=ilev
+         do while (ilev < kend_p3(i)) !(z_cup(i,ilev)<15000.)
 !$acc loop seq
-              do kk=k,kend_p3(i)+2 !k,ktf-2
-              
-                if(sec_deriv(kk) <        sec_deriv(kk+1) .and.  &
-                   sec_deriv(kk) < sec_deriv(kk-1)        ) then
-                 k_inv_layers(i,ix)=kk
-                 ix=min(5,ix+1)
-                 ilev=kk+1
-                 exit   
-                endif
-                ilev=kk+1
-              enddo
-              k=ilev
-            enddo         
+           do kk=k,kend_p3(i)+2 !k,ktf-2
+             
+             if(sec_deriv(kk) <        sec_deriv(kk+1) .and.  &
+                sec_deriv(kk) < sec_deriv(kk-1)        ) then
+              k_inv_layers(i,ix)=kk
+              ix=min(5,ix+1)
+              ilev=kk+1
+              exit   
+             endif
+              ilev=kk+1
+               enddo
+           k=ilev
+         enddo         
         !- 2nd criteria
-            kadd=0
-            ken=maxloc(k_inv_layers(i,:),1)
+         kadd=0
+         ken=maxloc(k_inv_layers(i,:),1)
 !$acc loop seq
-            do k=1,ken
-              kk=k_inv_layers(i,k+kadd)
-              if(kk.eq.1)exit
+         do k=1,ken
+           kk=k_inv_layers(i,k+kadd)
+           if(kk.eq.1)exit
 
-              if( dtempdz(i,kk) < dtempdz(i,kk-1) .and. &
-                  dtempdz(i,kk) < dtempdz(i,kk+1) ) then ! the layer is not a local maximum
-                  kadd=kadd+1
+           if( dtempdz(i,kk) < dtempdz(i,kk-1) .and. &
+               dtempdz(i,kk) < dtempdz(i,kk+1) ) then ! the layer is not a local maximum
+               kadd=kadd+1
                 do kj = k,ken
-                  if(k_inv_layers(i,kj+kadd).gt.1)k_inv_layers(i,kj) = k_inv_layers(i,kj+kadd)
-                  if(k_inv_layers(i,kj+kadd).eq.1)k_inv_layers(i,kj) = 1
+               if(k_inv_layers(i,kj+kadd).gt.1)k_inv_layers(i,kj) = k_inv_layers(i,kj+kadd)
+               if(k_inv_layers(i,kj+kadd).eq.1)k_inv_layers(i,kj) = 1
                 enddo
-              endif
-            enddo
-          endif
+           endif
+         enddo
+        endif
         enddo
 !$acc end parallel
-100 format(1x,16i3)
+100 format(1x,16i3)        
         !- find the locations of inversions around 800 and 550 hpa
 !$acc parallel loop private(sec_deriv,shal,mid)
         do i = its,itf
-          if(ierr(i) /= 0) cycle
+         if(ierr(i) /= 0) cycle
 
-          !- now find the closest layers of 800 and 550 hpa.
-          sec_deriv(:)=1.e9
-          do k=1,maxloc(k_inv_layers(i,:),1) !kts,kte !kstart(i),kend(i) !kts,kte
-            dp=p_cup(i,k_inv_layers(i,k))-p_cup(i,kstart(i))
-            sec_deriv(k)=abs(dp)-l_shal
-          enddo
-          k800=minloc(abs(sec_deriv),1)
-          sec_deriv(:)=1.e9
+         !- now find the closest layers of 800 and 550 hpa.         
+         sec_deriv(:)=1.e9
+         do k=1,maxloc(k_inv_layers(i,:),1) !kts,kte !kstart(i),kend(i) !kts,kte
+           dp=p_cup(i,k_inv_layers(i,k))-p_cup(i,kstart(i))
+           sec_deriv(k)=abs(dp)-l_shal
+         enddo
+         k800=minloc(abs(sec_deriv),1)
+        sec_deriv(:)=1.e9
 
-          do k=1,maxloc(k_inv_layers(i,:),1) !kts,kte !kstart(i),kend(i) !kts,kte
-            dp=p_cup(i,k_inv_layers(i,k))-p_cup(i,kstart(i))
-            sec_deriv(k)=abs(dp)-l_mid
-          enddo
-          k550=minloc(abs(sec_deriv),1)
-          !-save k800 and k550 in k_inv_layers array
-          shal=1
-          mid=2
-          k_inv_layers(i,shal)=k_inv_layers(i,k800) ! this is for shallow convection
-          k_inv_layers(i,mid )=k_inv_layers(i,k550) ! this is for mid/congestus convection
-          k_inv_layers(i,mid+1:kte)=-1
+         do k=1,maxloc(k_inv_layers(i,:),1) !kts,kte !kstart(i),kend(i) !kts,kte
+           dp=p_cup(i,k_inv_layers(i,k))-p_cup(i,kstart(i))
+           sec_deriv(k)=abs(dp)-l_mid
+         enddo
+         k550=minloc(abs(sec_deriv),1)
+         !-save k800 and k550 in k_inv_layers array
+         shal=1
+         mid=2
+         k_inv_layers(i,shal)=k_inv_layers(i,k800) ! this is for shallow convection
+         k_inv_layers(i,mid )=k_inv_layers(i,k550) ! this is for mid/congestus convection
+         k_inv_layers(i,mid+1:kte)=-1
         enddo
 !$acc end parallel
-
+        
  end subroutine get_inversion_layers
 !-----------------------------------------------------------------------------------
 ! DH* 20220604 - this isn't used at all
@@ -5425,7 +5410,7 @@ endif
     !real(kind=kind_phys),    intent(in),  optional , dimension(its:ite):: lambau
      real(kind=kind_phys),    intent(inout),  optional , dimension(its:ite):: lambau
      real(kind=kind_phys),    intent(in)   , dimension(its:ite,kts:kte) :: zo_cup,zuo
-     real(kind=kind_phys),    intent(inout), dimension(its:ite,kts:kte) :: cd,entr_rate_2d
+     real(kind=kind_phys),    intent(inout), dimension(its:ite,kts:kte) :: cd,entr_rate_2d   
      real(kind=kind_phys),    intent(  out), dimension(its:ite,kts:kte) :: up_massentro, up_massdetro  &
                                                           ,up_massentr,  up_massdetr
      real(kind=kind_phys),    intent(  out), dimension(its:ite,kts:kte),  optional ::                  &
@@ -5435,6 +5420,7 @@ endif
      !-- local vars
      integer :: i,k, incr1,incr2,turn
      real(kind=kind_phys) :: dz,trash,trash2
+     
 !$acc kernels
      do k=kts,kte
       do i=its,ite
@@ -5463,7 +5449,7 @@ endif
           do k=max(2,k22(i)+1),maxloc(zuo(i,:),1)
            !=> below maximum value zu -> change entrainment
            dz=zo_cup(i,k)-zo_cup(i,k-1)
-
+        
            up_massdetro(i,k-1)=cd(i,k-1)*dz*zuo(i,k-1)
            up_massentro(i,k-1)=zuo(i,k)-zuo(i,k-1)+up_massdetro(i,k-1)
            if(up_massentro(i,k-1).lt.0.)then
@@ -5484,7 +5470,7 @@ endif
               up_massentro(i,k-1)=zuo(i,k)-zuo(i,k-1)
               if(zuo(i,k-1).gt.0.)entr_rate_2d(i,k-1)=(up_massentro(i,k-1))/(dz*zuo(i,k-1))
            endif
-
+        
            if(zuo(i,k-1).gt.0.)cd(i,k-1)=up_massdetro(i,k-1)/(dz*zuo(i,k-1))
          enddo
          up_massdetro(i,ktop(i))=zuo(i,ktop(i))
@@ -5535,7 +5521,7 @@ endif
          do k=k22(i)+1,kbcon(i)
             trash=trash+entr_rate_2d(i,k)
          enddo
-
+  
        endif
     enddo
 !$acc end parallel
@@ -5543,44 +5529,44 @@ endif
 !---meltglac-------------------------------------------------
 !------------------------------------------------------------------------------------
 !> Calculates the partition between cloud water and cloud ice.
-   subroutine get_partition_liq_ice(ierr,tn,po_cup, p_liq_ice,melting_layer           &
+   subroutine get_partition_liq_ice(ierr,tn,po_cup, p_liq_ice,melting_layer           & 
                                    ,itf,ktf,its,ite, kts,kte, cumulus          )
      implicit none
      character *(*), intent (in)                          :: cumulus
-     integer  ,intent (in   )                             :: itf,ktf, its,ite, kts,kte
+     integer  ,intent (in   )	                          :: itf,ktf, its,ite, kts,kte
      real(kind=kind_phys),     intent (in   ), dimension(its:ite,kts:kte) :: tn,po_cup
      real(kind=kind_phys),     intent (inout), dimension(its:ite,kts:kte) :: p_liq_ice,melting_layer
 !$acc declare copyin(tn,po_cup) copy(p_liq_ice,melting_layer)
      integer  , intent (in  ), dimension(its:ite) :: ierr
 !$acc declare copyin(ierr)
      integer :: i,k
-     real(kind=kind_phys)    :: dp
+     real(kind=kind_phys)    :: dp     
      real(kind=kind_phys), dimension(its:ite) :: norm
-!$acc declare create(norm)
-     real(kind=kind_phys), parameter ::  t1=276.16
-
+!$acc declare create(norm) 
+     real(kind=kind_phys), parameter ::  t1=276.16    
+     
      ! hli initialize at the very beginning
 !$acc kernels
         p_liq_ice     (:,:) = 1.
         melting_layer(:,:) = 0.
 !$acc end kernels
-     !-- get function of t for partition of total condensate into liq and ice phases.
+     !-- get function of t for partition of total condensate into liq and ice phases.     
      if(melt_glac .and. cumulus == 'deep') then
 !$acc kernels
           do i=its,itf
            if(ierr(i).eq.0)then
            do k=kts,ktf
-
+             
              if    (tn(i,k) <= t_ice) then
 
-                p_liq_ice(i,k) = 0.
+                p_liq_ice(i,k) = 0.               
              elseif(  tn(i,k) > t_ice .and. tn(i,k) < t_0) then
-
-                p_liq_ice(i,k) =  ((tn(i,k)-t_ice)/(t_0-t_ice))**2
-             else
+             
+                p_liq_ice(i,k) =  ((tn(i,k)-t_ice)/(t_0-t_ice))**2        
+             else             
                 p_liq_ice(i,k) = 1.
              endif
-
+             
              !melting_layer(i,k) = p_liq_ice(i,k) * (1.-p_liq_ice(i,k))
           enddo
           endif
@@ -5592,11 +5578,11 @@ endif
             do k=kts,ktf
              if    (tn(i,k) <= t_0+1) then
                 melting_layer(i,k) = 0.
-
-             elseif(  tn(i,k) > t_0+1 .and. tn(i,k) < t1) then
-                melting_layer(i,k) =  ((tn(i,k)-t_0+1)/(t1-t_0+1))**2
-
-             else
+                              
+             elseif(  tn(i,k) > t_0+1 .and. tn(i,k) < t1) then             
+                melting_layer(i,k) =  ((tn(i,k)-t_0+1)/(t1-t_0+1))**2        
+                
+             else             
                 melting_layer(i,k) = 1.
              endif
              melting_layer(i,k) = melting_layer(i,k)*(1-melting_layer(i,k))
@@ -5611,7 +5597,7 @@ endif
            if(ierr(i).eq.0)then
 !$acc loop independent
            do k=kts,ktf-1
-             dp = 100.*(po_cup(i,k)-po_cup(i,k+1))
+             dp = 100.*(po_cup(i,k)-po_cup(i,k+1)) 
 !$acc atomic update
              norm(i) = norm(i) + melting_layer(i,k)*dp/g
           enddo
@@ -5628,12 +5614,12 @@ endif
 !       norm(:)=0.
 !        do k=kts,ktf-1
 !          do i=its,itf
-!             dp = 100.*(po_cup(i,k)-po_cup(i,k+1))
+!             dp = 100.*(po_cup(i,k)-po_cup(i,k+1)) 
 !             norm(i) = norm(i) + melting_layer(i,k)*dp/g/(100*(po_cup(i,kts)-po_cup(i,ktf))/g)
 !             !print*,"n=",i,k,norm(i)
 !          enddo
 !        enddo
-!$acc end kernels
+!$acc end kernels    
      else
 !$acc kernels
         p_liq_ice     (:,:) = 1.
@@ -5645,7 +5631,7 @@ endif
 !------------------------------------------------------------------------------------
 !> Calculates the melting profile.
    subroutine get_melting_profile(ierr,tn_cup,po_cup, p_liq_ice,melting_layer,qrco    &
-                                 ,pwo,edto,pwdo,melting                                &
+                                 ,pwo,edto,pwdo,melting                                &    
                                  ,itf,ktf,its,ite, kts,kte, cumulus              )
      implicit none
      character *(*), intent (in)                          :: cumulus
@@ -5657,18 +5643,18 @@ endif
      real(kind=kind_phys)     ,intent (inout), dimension(its:ite,kts:kte) :: melting
 !$acc declare copyin(ierr,edto,tn_cup,po_cup,qrco,pwo,pwdo,p_liq_ice,melting_layer,melting)
      integer :: i,k
-     real(kind=kind_phys)    :: dp
+     real(kind=kind_phys)    :: dp     
      real(kind=kind_phys), dimension(its:ite) :: norm,total_pwo_solid_phase
      real(kind=kind_phys), dimension(its:ite,kts:kte) :: pwo_solid_phase,pwo_eff
 !$acc declare create(norm,total_pwo_solid_phase,pwo_solid_phase,pwo_eff)
-
+     
      if(melt_glac .and. cumulus == 'deep') then
 !$acc kernels
         !-- set melting mixing ratio to zero for columns that do not have deep convection
         do i=its,itf
             if(ierr(i) > 0) melting(i,:) = 0.
         enddo
-
+        
        !-- now, get it for columns where deep convection is activated
        total_pwo_solid_phase(:)=0.
 
@@ -5676,24 +5662,24 @@ endif
        do k=kts,ktf-1
           do i=its,itf
            if(ierr(i) /= 0) cycle
-             dp = 100.*(po_cup(i,k)-po_cup(i,k+1))
-
+             dp = 100.*(po_cup(i,k)-po_cup(i,k+1)) 
+             
              !-- effective precip (after evaporation by downdraft)
              pwo_eff(i,k) = 0.5*(pwo(i,k)+pwo(i,k+1) + edto(i)*(pwdo(i,k)+pwdo(i,k+1)))
-
+             
              !-- precipitation at solid phase(ice/snow)
              pwo_solid_phase(i,k) = (1.-p_liq_ice(i,k))*pwo_eff(i,k)
-
+             
              !-- integrated precip at solid phase(ice/snow)
              total_pwo_solid_phase(i) = total_pwo_solid_phase(i)+pwo_solid_phase(i,k)*dp/g
           enddo
         enddo
-
+        
         do k=kts,ktf
           do i=its,itf
            if(ierr(i) /= 0) cycle
              !-- melting profile (kg/kg)
-             melting(i,k) = melting_layer(i,k)*(total_pwo_solid_phase(i)/(100*(po_cup(i,kts)-po_cup(i,ktf))/g))
+             melting(i,k) = melting_layer(i,k)*(total_pwo_solid_phase(i)/(100*(po_cup(i,kts)-po_cup(i,ktf))/g))        
              !print*,"mel=",k,melting(i,k),pwo_solid_phase(i,k),po_cup(i,k)
           enddo
         enddo
@@ -5702,15 +5688,15 @@ endif
 !       norm(:)=0.
 !        do k=kts,ktf-1
 !          do i=its,itf
-!             dp = 100.*(po_cup(i,k)-po_cup(i,k+1))
+!             dp = 100.*(po_cup(i,k)-po_cup(i,k+1)) 
 !             norm(i) = norm(i) + melting(i,k)*dp/g
 !          enddo
 !        enddo
-!
+!        
 !       do i=its,itf
 !         print*,"cons=",i,norm(i),total_pwo_solid_phase(i)
 !        enddo
-!--
+!--        
 !$acc end kernels
      else
 !$acc kernels
@@ -5741,12 +5727,12 @@ endif
      integer, dimension (its:ite) :: start_level
 !$acc declare create(start_level)
      integer,parameter :: find_ktop_option = 1 !0=original, 1=new
-
+     
      dbythresh=0.8 !0.95  ! the range of this parameter is 0-1, higher => lower
                     ! overshoting (cheque aa0 calculation)
                     ! rainfall is too sensible this parameter
                     ! for now, keep =1.
-     if(name == 'shallow'.or. name == 'mid')then
+     if(name == 'shallow'.or. name == 'mid')then 
          dbythresh=1.0
      endif
      !         print*,"================================cumulus=",name; call flush(6)
@@ -5763,7 +5749,7 @@ endif
 
        dz=z_cup(i,start_level(i))-z_cup(i,start_level(i)-1)
        dby(start_level(i))=(hcot(i,start_level(i))-heso_cup(i,start_level(i)))*dz
-
+       
        !print*,'hco1=',start_level(i),kbcon(i),hcot(i,start_level(i))/heso_cup(i,start_level(i))
 !$acc loop seq
        do k=start_level(i)+1,ktf-2
@@ -5776,10 +5762,10 @@ endif
            !print*,'hco2=',k,hcot(i,k)/heso_cup(i,k),dby(k),entr_rate_2d(i,k-1)
 
        enddo
-       if(find_ktop_option==0) then
+       if(find_ktop_option==0) then 
         do k=maxloc(dby(:),1),ktf-2
           !~ print*,'hco30=',k,dby(k),dbythresh*maxval(dby)
-
+      
           if(dby(k).lt.dbythresh*maxval(dby))then
               kfinalzu = k - 1
               ktop(i)  = kfinalzu
@@ -5791,7 +5777,7 @@ endif
        else
          do k=start_level(i)+1,ktf-2
           !~ print*,'hco31=',k,dby(k),dbythresh*maxval(dby)
-
+      
           if(hcot(i,k) < heso_cup(i,k) )then
               kfinalzu = k - 1
               ktop(i)  = kfinalzu
@@ -5808,92 +5794,5 @@ endif
 !$acc end parallel
   end subroutine get_cloud_top
 !------------------------------------------------------------------------------------
-
-
-! https://rosettacode.org/wiki/my_gamma_function#Fortran
-
-  pure function intfuncgamma(x, y) result(z)
-    real :: z
-    real, intent(in) :: x, y
-
-    z = x**(y-1.0) * exp(-x)
-  end function intfuncgamma
-
-  function my_gamma(a) result(g)
-    real :: g
-    real, intent(in) :: a
-
-    real, parameter :: small = 1.0e-4
-    integer, parameter :: points = 100000
-
-    real :: infty, dx, p, sp(2, points), x
-    integer :: i
-    logical :: correction
-
-    x = a
-
-    correction = .false.
-    ! value with x<1 gives \infty, so we use
-    ! \Gamma(x+1) = x\Gamma(x)
-    ! to avoid the problem
-    if ( x < 1.0 ) then
-       correction = .true.
-       x = x + 1
-    end if
-
-    ! find a "reasonable" infinity...
-    ! we compute this integral indeed
-    ! \int_0^M dt t^{x-1} e^{-t}
-    ! where M is such that M^{x-1} e^{-M} <= \epsilon
-    infty = 1.0e4
-    do while ( intfuncgamma(infty, x) > small )
-       infty = infty * 10.0
-    end do
-
-    ! using simpson
-    dx = infty/real(points)
-    sp = 0.0
-    forall(i=1:points/2-1) sp(1, 2*i) = intfuncgamma(2.0*(i)*dx, x)
-    forall(i=1:points/2) sp(2, 2*i - 1) = intfuncgamma((2.0*(i)-1.0)*dx, x)
-    g = (intfuncgamma(0.0, x) + 2.0*sum(sp(1,:)) + 4.0*sum(sp(2,:)) + &
-         intfuncgamma(infty, x))*dx/3.0
-
-    if ( correction ) g = g/a
-
-  end function my_gamma
-
-
-  recursive function lacz_gamma(a) result(g)
-    real, intent(in) :: a
-    real :: g
-
-    real, parameter :: pi = 3.14159265358979324
-    integer, parameter :: cg = 7
-
-    ! these precomputed values are taken by the sample code in Wikipedia,
-    ! and the sample itself takes them from the GNU Scientific Library
-    real, dimension(0:8), parameter :: p = &
-         (/ 0.99999999999980993, 676.5203681218851, -1259.1392167224028, &
-         771.32342877765313, -176.61502916214059, 12.507343278686905, &
-         -0.13857109526572012, 9.9843695780195716e-6, 1.5056327351493116e-7 /)
-
-    real :: t, w, x
-    integer :: i
-
-    x = a
-
-    if ( x < 0.5 ) then
-       g = pi / ( sin(pi*x) * lacz_gamma(1.0-x) )
-    else
-       x = x - 1.0
-       t = p(0)
-       do i=1, cg+2
-          t = t + p(i)/(x+real(i))
-       end do
-       w = x + real(cg) + 0.5
-       g = sqrt(2.0*pi) * w**(x+0.5) * exp(-w) * t
-    end if
-  end function lacz_gamma
-
 !> @}
 end module cu_gf_deep

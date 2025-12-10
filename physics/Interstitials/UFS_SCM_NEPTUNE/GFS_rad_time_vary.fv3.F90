@@ -57,7 +57,7 @@
 
          if (lsswr .or. lslwr) then
 
-           !--- call to GFS_radupdate_run is now in GFS_rrtmg_setup_run
+           !--- call to GFS_radupdate_timestep_init is now in GFS_rrtmg_setup_timestep_init
 
            !--- set up random seed index in a reproducible way for entire cubed-sphere face (lat-lon grid)
            if ((isubc_lw==2) .or. (isubc_sw==2)) then
