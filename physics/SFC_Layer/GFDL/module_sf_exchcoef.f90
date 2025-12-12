@@ -730,7 +730,9 @@ CONTAINS
               call  znot_t_v8(windmks,zt1)
            else
              write(0,*)'stop, icoef_sf must be one of 0,1,2,3,4,5,6,7,8'
-             call ccpp_external_abort("module_sf_exchcoef.f90")
+             errflg = 1
+             errmsg = 'ERROR(znot_wind10m): icoef_sf must be one of 0,1,2,3,4,5,6,7,8'
+             return
           endif
           znott=zt1
           znotm=zm1

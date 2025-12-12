@@ -456,7 +456,11 @@
             inquire (file=solar_fname, exist=file_exist)
             if ( .not. file_exist ) then
               print *,' !!! ERROR! Can not find solar constant file!!!'
-              call ccpp_external_abort("radiation_astronomy.f:sol_upd")
+              errflg = 1
+              errmsg = "ERROR(radiation_astronomy): solar constant file"//&
+     &             " not found"
+              return
+
             endif
 
             close(NIRADSF)

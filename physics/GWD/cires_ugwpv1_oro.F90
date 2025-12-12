@@ -1002,8 +1002,9 @@ contains
 !    
           enddo
           print *
-          write(0,*)'ERROR(orogw_v1): '
-          call ccpp_external_abort(__FILE__)
+          errflg = 1
+          errmsg = 'ERROR(orogw_v1): '
+          return
         endif
        endif
        

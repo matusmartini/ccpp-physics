@@ -288,9 +288,10 @@
           read_and_broadcast_co2_v1: if ( mpirank==mpiroot ) then
             inquire (file=co2usr_file, exist=file_exist)
             if ( .not. file_exist ) then
-              print *,' Can not find user CO2 data file: ',co2usr_file, &
-     &              ' - Stopped in subroutine gas_init !!'
-              call ccpp_external_abort("radiation_gases.f:gas_init2")
+              print *,' Can not find user CO2 data file: ',co2usr_file
+              errflg = 1
+              errmsg = 'ERROR(gas_init): Can not find user CO2 data file'
+              return
             else
               close (NICO2CN)
               open(NICO2CN,file=co2usr_file,form='formatted',           &
@@ -328,9 +329,10 @@
                   print *, (co2vmr_sav(1,j,imo),j=1,jmxco2)
                 enddo
               else
-                print *,' ICO2=',ico2flg,' is not a valid selection',   &
-     &                  ' - Stoped in subroutine gas_init!!!'
-                call ccpp_external_abort("radiation_gases.f:gas_init3")
+                print *,' ICO2=',ico2flg,' is not a valid selection'
+                errflg = 1
+                errmsg = 'ERROR(gas_init): ICO2 is not valid'
+                return
               endif    ! endif_ico2flg_block
 
               close (NICO2CN)
@@ -353,9 +355,10 @@
               print *,' - Using observed co2 monthly 2-d data'
             endif
           else
-            print *,' ICO2=',ico2flg,' is not a valid selection',       &
-     &              ' - Stoped in subroutine gas_init!!!'
-            call ccpp_external_abort("radiation_gases.f:gas_init4")
+            print *,' ICO2=',ico2flg,' is not a valid selection'
+            errflg = 1
+            errmsg = 'ERROR(gas_init): ICO2 is not valid'
+            return
           endif
 
           if ( ictmflg == -2 ) then
@@ -363,8 +366,10 @@
               inquire (file=co2cyc_file, exist=file_exist)
               if ( .not. file_exist ) then
                 print *,'   Can not find seasonal cycle CO2 data: ',    &
-     &               co2cyc_file,' - Stopped in subroutine gas_init !!'
-                call ccpp_external_abort("radiation_gases.f:gas_init5")
+     &               co2cyc_file
+                errflg = 1
+                errmsg = 'ERROR(gas_init): Can not find seasonal cycle '//&
+     &               'CO2 data'
               else
                 allocate( co2cyc_sav(IMXCO2,JMXCO2,12) )
 
@@ -566,8 +571,11 @@
           inquire (file=co2gbl_file, exist=file_exist)
           if ( .not. file_exist ) then
             print *,'   Requested co2 data file "',co2gbl_file,         &
-     &              '" not found - Stopped in subroutine gas_update!!'
-            call ccpp_external_abort("radiation_gases.f:gas_update")
+     &              '" not found'
+            errflg = 1
+            errmsg = 'ERROR(gas_update): Requested co2 data file not '//&
+     &           'found'
+            return
           else
             close(NICO2CN)
             open(NICO2CN,file=co2gbl_file,form='formatted',status='old')
@@ -631,8 +639,10 @@
             Lab_if_ictm : if ( ictmflg  > 10 ) then    ! specified year of data not found
               print *,'   Specified co2 data for year',idyr,            &
      &               ' not found !!  Need to change namelist ICTM !!'
-              print *,'   *** Stopped in subroutine gas_update !!'
-              call ccpp_external_abort("radiation_gases.f:gas_update1")
+              errflg = 1
+              errmsg = 'ERROR(gas_update): Specified co2 data for year '//&
+     &             'not found'
+              return
             else Lab_if_ictm                        ! looking for latest available data
               print *,'   Requested co2 data for year',idyr,            &
      &              ' not found, check for other available data set'
@@ -650,9 +660,11 @@
               enddo   Lab_dowhile2
 
               if ( .not. file_exist ) then
-               print *,'   Can not find co2 data source file'
-               print *,'   *** Stopped in subroutine gas_update !!'
-               call ccpp_external_abort("radiation_gases.f:gas_update2")
+                print *,'   Can not find co2 data source file'
+                errflg = 1
+                errmsg = 'ERROR(gas_update): Can not find co2 data '//  &
+     &               'source file'
+                return
               endif
             endif  Lab_if_ictm
           endif   ! end if_file_exist_block
