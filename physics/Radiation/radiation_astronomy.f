@@ -457,8 +457,8 @@
             if ( .not. file_exist ) then
               print *,' !!! ERROR! Can not find solar constant file!!!'
               errflg = 1
-              errmsg = "ERROR(radiation_astronomy): solar constant file"//&
-     &             " not found"
+              errmsg = "ERROR(radiation_astronomy): solar constant file"&
+     &              // " not found"
               return
 
             endif

@@ -290,7 +290,7 @@
             if ( .not. file_exist ) then
               print *,' Can not find user CO2 data file: ',co2usr_file
               errflg = 1
-              errmsg = 'ERROR(gas_init): Can not find user CO2 data file'
+              errmsg = 'ERROR(gas_init): Cannot find user CO2 data file'
               return
             else
               close (NICO2CN)
@@ -368,8 +368,8 @@
                 print *,'   Can not find seasonal cycle CO2 data: ',    &
      &               co2cyc_file
                 errflg = 1
-                errmsg = 'ERROR(gas_init): Can not find seasonal cycle '//&
-     &               'CO2 data'
+                errmsg = 'ERROR(gas_init): Can not find seasonal cycle '&
+     &                 // 'CO2 data'
               else
                 allocate( co2cyc_sav(IMXCO2,JMXCO2,12) )
 
@@ -640,8 +640,8 @@
               print *,'   Specified co2 data for year',idyr,            &
      &               ' not found !!  Need to change namelist ICTM !!'
               errflg = 1
-              errmsg = 'ERROR(gas_update): Specified co2 data for year '//&
-     &             'not found'
+              errmsg = 'ERROR(gas_update): Specified co2 data for year '&
+     &               // 'not found'
               return
             else Lab_if_ictm                        ! looking for latest available data
               print *,'   Requested co2 data for year',idyr,            &
