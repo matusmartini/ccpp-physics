@@ -390,16 +390,22 @@ c-----------------------------
 !         CLOSE(59)
 
          IF (DEFINED_SOIL .GT. MAX_SOILTYP) THEN
-            WRITE(0,*) 'Warning: DEFINED_SOIL too large in namelist'
-            call ccpp_external_abort("set_soilveg.f:set_soilveg")
+            errflg = 222
+            errmsg = 'ERROR(set_soilveg): DEFINED_SOIL too large in '// &
+     &           'namelist'
+            return
          ENDIF
          IF (DEFINED_VEG .GT. MAX_VEGTYP) THEN
-            WRITE(0,*) 'Warning: DEFINED_VEG too large in namelist'
-            call ccpp_external_abort("set_soilveg.f:set_soilveg1")
+            errflg = 222
+            errmsg = 'ERROR(set_soilveg): DEFINED_VEG too large in '//  &
+     &           'namelist'
+            return
          ENDIF
          IF (DEFINED_SLOPE .GT. MAX_SLOPETYP) THEN
-            WRITE(0,*) 'Warning: DEFINED_SLOPE too large in namelist'
-            call ccpp_external_abort("set_soilveg.f:set_soilveg2")
+            errflg = 222
+            errmsg = 'ERROR(set_soilveg): DEFINED_SLOPE too large in '//&
+     &           'namelist'
+            return
          ENDIF
          
          SMLOW  = SMLOW_DATA

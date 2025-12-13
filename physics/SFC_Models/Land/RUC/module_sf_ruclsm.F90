@@ -7113,7 +7113,9 @@ print *, 'SNOWTEMP: SNHEI,SNTH,SOILT1: ',SNHEI,SNTH,SOILT1,soilt
        if (area.gt.one) area=one
        if (area <= zero) then
           print *,'Bad area of grid box', area
-          call ccpp_external_abort(__FILE__)
+          errflg = 1
+          errmsg = 'ERROR(SOILVEGIN): Bad area of grid box'
+          return
        endif
 
     IF (debug_print ) THEN

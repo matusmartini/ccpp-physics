@@ -1888,17 +1888,23 @@
       if (soiltyp > defined_soil) then
         write(*,*) 'warning: too many soil types,soiltyp=',soiltyp,     &
      &   'defined_soil=',defined_soil
-        call ccpp_external_abort("sflx.f:redprm")
+        errflg = 1
+        errmsg = 'ERROR(sflx.f): too many soil types'
+        return
       endif
 
       if (vegtyp > defined_veg) then
         write(*,*) 'warning: too many veg types'
-        call ccpp_external_abort("sflx.f:redprm1")
+        errflg = 1
+        errmsg = 'ERROR(sflx.f): too many veg types'
+        return
       endif
 
       if (slopetyp > defined_slope) then
         write(*,*) 'warning: too many slope types'
-        call ccpp_external_abort("sflx.f:redprm2")
+        errflg = 1
+        errmsg = 'ERROR(sflx.f): too many slope types'
+        return
       endif
 
 !  --- ...  set-up universal parameters (not dependent on soiltyp, vegtyp
@@ -1955,7 +1961,9 @@
 
       if (nroot > nsoil) then
         write(*,*) 'warning: too many root layers'
-        call ccpp_external_abort("sflx.f:redprm3")
+        errflg = 1
+        errmsg = 'ERROR(sflx.f): too many root layers'
+        return
       endif
 
 !  --- ...  calculate root distribution.  present version assumes uniform

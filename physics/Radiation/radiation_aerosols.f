@@ -654,7 +654,10 @@
           if ( mpirank == mpiroot ) then
             print *,'  !!! ERROR in aerosol model scheme selection',    &
      &              ' iaermdl =',iaermdl
-            call ccpp_external_abort("radiation_aerosols.f:aer_init")
+            errflg = 1
+            errmsg = 'ERROR(aer_init): aerosol model scheme selected'// &
+     &           'is invalid'
+            return
           endif
         endif
 
@@ -736,7 +739,10 @@
       else
         print *,' !!! ERROR in selection of aerosol model scheme',      &
      &          ' IAER_MDL =',iaermdl
-            call ccpp_external_abort("radiation_aerosols.f:wrt_aerlog")
+        errflg = 1
+        errmsg = 'ERROR(wrt_aerlog): Selected aerosol model scheme is'//&
+     &       'is invalid'
+        return
       endif   ! end_if_iaermdl_block
 
       print *,'   IAER=',iaerflg,'  LW-trop-aer=',lalwflg,              &
@@ -1163,7 +1169,10 @@
           print *,'    Requested aerosol data file "',aeros_file,       &
      &            '" not found!'
           print *,'    *** Stopped in subroutine aero_init !!'
-           call ccpp_external_abort("radiation_aerosols.f:set_aercoef")
+          errflg = 1
+          errmsg = 'ERROR(set_aercoef): Requested aerosol data file '// &
+     &         aeros_file//' not found'
+          return
         endif     ! end if_file_exist_block
 
 !  --- ...  skip monthly global distribution
@@ -1844,7 +1853,9 @@
         print *,' ***** ERROR in specifying requested month !!! ',      &
      &          'imon=', imon
         print *,' ***** STOPPED in subroutinte aer_update !!!'
-        call ccpp_external_abort("radiation_aerosols.f:aer_update")
+        errflg = 1
+        errmsg = 'ERROR(aer_update): Requested month not valid'
+        return
       endif
 
 !> -# Call trop_update() to update monthly tropospheric aerosol data.
@@ -1950,7 +1961,10 @@
           print *,'    Requested aerosol data file "',aeros_file,         &
      &            '" not found!'
           print *,'    *** Stopped in subroutine trop_update !!'
-          call ccpp_external_abort("radiation_aerosols.f:trop_update")
+          errflg = 1
+          errmsg = 'ERROR(trop_update):Requested aerosol data file '//    &
+     &         aeros_file // ' not found.'
+          return
         endif      ! end if_file_exist_block
       endif
 
@@ -2164,7 +2178,10 @@
               print *,'   Requested volcanic data file "',              &
      &                volcano_file,'" not found!'
               print *,'   *** Stopped in subroutine VOLC_AERINIT !!'
-              call ccpp_external_abort("radiation_aerosols.f:volc_upd.")
+              errflg = 1
+              errmsg = 'ERROR(volc_update): Requested volcanic data '// &
+     &                'file '//volcano_file//' not found!'
+              return
             endif   ! end if_file_exist_block
           endif read_and_broadcast
           ! Prevent warnings for potentially unused variables
@@ -2931,7 +2948,9 @@
             if ( i3 > IMXAE ) then
               print *,' ERROR! In setclimaer alon>360. ipt =',i,        &
      &           ',  dltg,alon,tlon,dlon =',dltg,alon(i),tmp1,dtmp
-              call ccpp_external_abort("radiation_aerosols.f:aer_prop1")
+              errflg = 1
+              errmsg = 'ERROR(aer_property)'
+              return
             endif
           elseif ( dtmp >= f_zero ) then
             i1 = i3
@@ -2949,7 +2968,9 @@
             if ( i3 < 1 ) then
               print *,' ERROR! In setclimaer alon< 0. ipt =',i,         &
      &           ',  dltg,alon,tlon,dlon =',dltg,alon(i),tmp1,dtmp
-              call ccpp_external_abort("radiation_aerosols.f:aer_prop2")
+              errflg = 1
+              errmsg = 'ERROR(aer_property)'
+              return
             endif
           endif
         enddo  lab_do_IMXAE
@@ -2968,7 +2989,9 @@
             if ( j3 >= JMXAE ) then
               print *,' ERROR! In setclimaer alat<-90. ipt =',i,        &
      &           ',  dltg,alat,tlat,dlat =',dltg,alat(i),tmp2,dtmp
-              call ccpp_external_abort("radiation_aerosols.f:aer_prop3")
+              errflg = 1
+              errmsg = 'ERROR(aer_property)'
+              return
             endif
           elseif ( dtmp >= f_zero ) then
             j1 = j3
@@ -2986,7 +3009,9 @@
             if ( j3 < 1 ) then
               print *,' ERROR! In setclimaer alat>90. ipt =',i,         &
      &           ',  dltg,alat,tlat,dlat =',dltg,alat(i),tmp2,dtmp
-              call ccpp_external_abort("radiation_aerosols.f:aer_prop4")
+              errflg = 1
+              errmsg = 'ERROR(aer_property)'
+              return
             endif
           endif
         enddo  lab_do_JMXAE
@@ -3090,7 +3115,9 @@
           else
             print *,' !!! (1) Error in subr radiation_aerosols:',       &
      &              ' unrealistic surface pressure =', i,prsi(i,1)
-            call ccpp_external_abort("radiation_aerosols.f:aer_prop5")
+            errflg = 1
+            errmsg = 'ERROR(aer_property): Unrealistic surface pressure'
+            return
           endif
 
           ii = 1
@@ -3631,7 +3658,9 @@
 
       if (KCM /= ntrcaerm ) then
         print *, 'ERROR in # of gocart aer species',KCM
-        call ccpp_external_abort("radiation_aerosols.f:gocart_aerinit")
+        errflg = 1
+        errmsg = 'ERROR(gocart_init): Incorrect # of species'
+        return
       endif
 
 !  --- ...  aloocate and input aerosol optical data
@@ -3952,7 +3981,9 @@
        else
          print *,' Requested luts file ',trim(fin),' not found'
          print *,' ** Stopped in rd_gocart_luts ** '
-         call ccpp_external_abort("radiation_aerosols.f:rd_gocart_lut1")
+         errflg = 1
+         errmsg = 'Requested luts file '//trim(fin)//' not found'
+         return
        endif      ! end if_file_exist_block
 
        iradius = 5
@@ -4017,7 +4048,9 @@
         else
           print *,' Requested luts file ',trim(fin),' not found'
           print *,' ** Stopped in rd_gocart_luts ** '
-         call ccpp_external_abort("radiation_aerosols.f:rd_gocart_lut2")
+          errflg = 1
+          errmsg = 'Requested luts file '//trim(fin)//' not found'
+          return
         endif      ! end if_file_exist_block
 
         ibeg  =  radius_lower(ib) - kcm1

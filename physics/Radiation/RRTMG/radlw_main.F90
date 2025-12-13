@@ -7625,7 +7625,9 @@
                return
 
             elseif(inflag .eq. 1) then
-                call ccpp_external_abort('INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA')
+                errflg = 1
+                errmsg = 'ERROR(rlwinit): INFLAG = 1 OPTION NOT AVAILABLE WITH MCICA'
+                return
 !               cwp = ciwpmc(ig,lay) + clwpmc(ig,lay)
 !               taucmc(ig,lay) = abscld1 * cwp
 
