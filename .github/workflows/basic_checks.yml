@@ -10,6 +10,7 @@ on:
 
 jobs:
   build:
+    if: github.repository == 'NCAR/ccpp-physics' || github.repository == 'ufs-community/ccpp-physics'
 
     #runs-on: macos-latest
     runs-on: ['self-hosted','neptune-org-atlantis']

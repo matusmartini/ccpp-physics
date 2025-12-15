@@ -94,13 +94,10 @@
 
         real(kind=kind_phys), parameter :: con_24  =   24.0_kind_phys
         real(kind=kind_phys), parameter :: con_hr  = 3600.0_kind_phys
-
-        real(kind=kind_sngl_prec) :: rinc4(5)
         real(kind=kind_dbl_prec)  :: rinc8(5)
 
-        integer :: w3kindreal,w3kindint
-
-        integer ::  iw3jdn
+        integer :: w3kindreal, w3kindint
+        integer :: iw3jdn
         integer :: jd0, jd1
         real    :: fjd
 
@@ -115,22 +112,19 @@
            return
         end if
 
+        !--- jdat is being updated by the host model
         !--- update calendars and triggers
-        rinc8(1:5) = 0
-        call w3kind(w3kindreal,w3kindint)
-        if (w3kindreal == kind_dbl_prec) then
+        call w3kind(w3kindreal, w3kindint)
+        !--- CCPP uses w3emc_d, therefore expecting the following values
+        if (w3kindreal == 8 .and. w3kindint==4) then
            rinc8(1:5) = 0
            call w3difdat(jdat,idat,4,rinc8)
            sec = rinc8(4)
-        else if (w3kindreal == kind_sngl_prec) then
-           rinc4(1:5) = 0
-           call w3difdat(jdat,idat,4,rinc4)
-           sec = rinc4(4)
         else
-           errmsg = "FATAL ERROR: Invalid w3kindreal"
-           errflg = -1
+           write(errmsg,'(*(a))') "FATAL ERROR: Invalid w3kindreal or w3kindint:", w3kindreal, w3kindint
+           errflg = 1
            return
-        endif
+        end if
         phour = sec/con_hr
 
         !--- set current bucket hour

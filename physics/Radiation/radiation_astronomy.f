@@ -322,7 +322,6 @@
         endif
       endif       ! end if_isolar_block
 !
-      return
 !...................................
       end subroutine sol_init
 !-----------------------------------
@@ -679,7 +678,6 @@
 
 !     if (me == 0) print*,'in sol_update completed sr solar'
 !
-      return
 !...................................
       end subroutine sol_update
 !-----------------------------------
@@ -843,7 +841,6 @@
       if (sun < 0.0) sun = sun + tpi
       sollag = sun - alp - 0.03255e0
 !
-      return
 !...................................
       end subroutine solar
 !-----------------------------------
@@ -942,7 +939,6 @@
         endif 
       enddo
 !
-      return
 !...................................
       end subroutine coszmn
 !-----------------------------------
@@ -1068,7 +1064,6 @@
      &       '  SOLAR CONSTANT',8X,F12.7,' (DISTANCE AJUSTED)'//)
 
 !
-      return
 !...................................
       end subroutine prtime
 !-----------------------------------
