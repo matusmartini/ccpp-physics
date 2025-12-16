@@ -292,8 +292,7 @@
          if (iaerclm) then
            call setindxaer (im, xlat_d, jindx1_aer,          &
                             jindx2_aer, ddy_aer, xlon_d,     &
-                            iindx1_aer, iindx2_aer, ddx_aer, &
-                            mpirank, mpiroot)
+                            iindx1_aer, iindx2_aer, ddx_aer)
            iamin = min(minval(iindx1_aer), iamin)
            iamax = max(maxval(iindx2_aer), iamax)
            jamin = min(minval(jindx1_aer), jamin)
@@ -879,8 +878,7 @@
 !> - Update stratospheric h2o concentration.
          if (h2o_phys) then
             call find_photochem_time_index(h2ophys%ntime, h2ophys%time, rjday, n1, n2)
-
-            call h2ophys%update(mpirank, jindx1_h, jindx2_h, ddy_h, rjday, n1, n2, h2opl)
+            call h2ophys%update(jindx1_h, jindx2_h, ddy_h, rjday, n1, n2, h2opl)
          endif
 
 !$OMP section
