@@ -38,7 +38,7 @@ contains
       END function netcdf_check
 !!!!!!!
       SUBROUTINE read_aerdata_dl (mpicomm, mpirank, mpiroot, iflip, idate, fhour, errmsg, errflg)
-      use machine, only: kind_phys
+      use machine, only: kind_phys, kind_dbl_prec
       use mpiutil, only: ccpp_bcast
       use aerclm_def
       use netcdf
@@ -54,6 +54,7 @@ contains
       integer      :: i, j, k, n, ii, imon, klev
       character    :: fname*50, mn*2, vname*10, dy*2, myr*4
       logical      :: file_exist
+      integer      :: ierr
       integer :: dimids(NF90_MAX_VAR_DIMS)
       integer :: dimlen(NF90_MAX_VAR_DIMS)
       integer  IDAT(8),JDAT(8)
@@ -318,7 +319,7 @@ contains
 !     rjday is the minutes in a day
       rjday =  jdat(5)*60+jdat(6)+jdat(7)/60.
       if(rjday >= t2sv .or. jdat(3).ne.n1sv) then !!need to either to read in a record or open a new file
-        call read_netfaer_dl(fname_dl,n2sv, iflip, 1, errmsg, errflg)
+        call read_netfaer_dl(mpicomm, mpirank, mpiroot, fname_dl,n2sv, iflip, 1, errmsg, errflg)
       end if
 !! ===================================================================
       if(jdat(3).ne.n1sv) then  ! a new day is produced from n2sv=1440
@@ -440,6 +441,7 @@ contains
 
       SUBROUTINE read_aerdata (mpicomm, mpirank, mpiroot, iflip, idate, errmsg, errflg)
       use machine, only: kind_phys
+      use mpiutil, only: ccpp_bcast
       use aerclm_def
       use netcdf
 
@@ -898,6 +900,7 @@ contains
       real(kind=kind_io4),allocatable,dimension(:,:,:,:):: buffx
       real(kind=kind_io4),allocatable,dimension(:,:)   :: pres_tmp
       integer lstart(4), lcount(4)
+      integer ierr
 
 !! ===================================================================
       read_and_broadcast: if (mpirank==mpiroot) then
