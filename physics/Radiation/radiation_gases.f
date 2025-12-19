@@ -766,7 +766,17 @@
           close ( NICO2CN )
         endif read_and_broadcast_co2_v2
       endif  Lab_if_idyr
-!
+
+      ! Broadcast all necessary fields
+      call ccpp_bcast(co2_glb, mpiroot, mpicomm, ierr)
+      call ccpp_bcast(gco2cyc, mpiroot, mpicomm, ierr)
+      if (allocated(co2vmr_sav)) then
+        call ccpp_bcast(co2vmr_sav, mpiroot, mpicomm, ierr)
+      endif
+      if (allocated(co2cyc_sav)) then
+        call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
+      endif
+
 !...................................
       end subroutine gas_update
 !-----------------------------------
