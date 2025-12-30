@@ -173,10 +173,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUA
     # Need to determine the name of the scheme with its path
     list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
     SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
-                                # NCAR:
-                                # APPEND_STRING PROPERTY COMPILE_FLAGS
-                                # " ${CMAKE_Fortran_FLAGS_PHYSICS} ${OpenMP_Fortran_FLAGS} -O1")
-                                # NEPTUNE:
                                 APPEND_STRING PROPERTY COMPILE_FLAGS " -O1")
   endforeach()
 endif()
@@ -191,9 +187,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUA
     # Need to determine the name of the scheme with its path
     list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
     SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
-                                # NCAR:
-                                # APPEND_STRING PROPERTY COMPILE_FLAGS " ${CMAKE_Fortran_FLAGS_PHYSICS} ${OpenMP_Fortran_FLAGS} -O0")
-                                # NEPTUNE:
                                 APPEND_STRING PROPERTY COMPILE_FLAGS " -O0")
   endforeach()
 endif()
@@ -232,11 +225,6 @@ target_link_libraries(ccpp_physics PRIVATE ESMF::ESMF)
 if(HA_PHYSICS)
   target_link_libraries(ccpp_physics PRIVATE msis)
   target_link_libraries(ccpp_physics PRIVATE iri)
-endif()
-
-#add FMS for FV3 only
-if(FV3 OR MPAS)
-  target_link_libraries(ccpp_physics PUBLIC fms)
 endif()
 
 # Define where to install the library
