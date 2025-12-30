@@ -2,3 +2,7 @@
   path = physics/Radiation/RRTMGP/rte-rrtmgp
   url = https://github.nrlmry.navy.mil/NEPTUNE/rte-rrtmgp
   branch = main
+[submodule "physics/MP/TEMPO/TEMPO"]
+  path = physics/MP/TEMPO/TEMPO
+  url = https://github.nrlmry.navy.mil/NEPTUNE/TEMPO
+  branch = main

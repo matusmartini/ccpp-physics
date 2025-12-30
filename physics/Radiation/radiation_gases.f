@@ -357,7 +357,7 @@
           else
             print *,' ICO2=',ico2flg,' is not a valid selection'
             errflg = 1
-            errmsg = 'ERROR(gas_init): ICO2 is not valid'
+            errmsg = 'ERROR(gas_init): ICO2 is not a valid selection'
             return
           endif
 
@@ -370,6 +370,7 @@
                 errflg = 1
                 errmsg = 'ERROR(gas_init): Can not find seasonal cycle '&
      &                 // 'CO2 data'
+                return
               else
                 allocate( co2cyc_sav(IMXCO2,JMXCO2,12) )
 
@@ -421,8 +422,6 @@
       if (allocated(co2cyc_sav)) then
         call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
       endif
-
-      return
 !
 !...................................
       end subroutine gas_init
@@ -778,8 +777,6 @@
         call ccpp_bcast(co2cyc_sav, mpiroot, mpicomm, ierr)
       endif
 
-      return
-!
 !...................................
       end subroutine gas_update
 !-----------------------------------
@@ -944,9 +941,7 @@
           endif
         enddo
       endif
-
 !
-      return
 !...................................
       end subroutine getgases
 !-----------------------------------

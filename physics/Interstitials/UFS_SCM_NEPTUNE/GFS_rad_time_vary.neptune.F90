@@ -10,9 +10,8 @@
 
       contains
 
-!>\defgroup mod_GFS_rad_time_vary GFS Radiation Time Update
-!! This module contains code related to GFS radiation setup.
-!> @{
+!> This module contains code related to GFS radiation setup.
+
 !> \section arg_table_GFS_rad_time_vary_timestep_init Argument Table
 !! \htmlinclude GFS_rad_time_vary_timestep_init.html
 !!
@@ -58,7 +57,7 @@
 
          if (lsswr .or. lslwr) then
 
-           !--- call to GFS_radupdate_run is now in GFS_rrtmg_setup_run
+           !--- call to GFS_radupdate_timestep_init is now in GFS_rrtmg_setup_timestep_init
 
            !--- set up random seed index in a reproducible way for entire cubed-sphere face (lat-lon grid)
            if ((isubc_lw==2) .or. (isubc_sw==2)) then
@@ -97,6 +96,5 @@
          endif
 
       end subroutine GFS_rad_time_vary_timestep_init
-!> @}
 
    end module GFS_rad_time_vary

@@ -228,10 +228,10 @@ contains
    real(kind=kind_phys), dimension (im,km) :: qcheck,zo,t2d,q2d,po,p2d,rhoi,clw_ten
    real(kind=kind_phys), dimension (im,km) :: tn,qo,tshall,qshall,dz8w,omeg
    real(kind=kind_phys), dimension (im)    :: z1,psur,cuten,cutens,cutenm
-   real(kind=kind_phys), dimension (im)    :: umean,vmean,pmean
+   real(kind=kind_phys), dimension (im)    :: umean,vmean,pmean,mc_thresh
    real(kind=kind_phys), dimension (im)    :: xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv
 !$acc declare create(qcheck,zo,t2d,q2d,po,p2d,rhoi,clw_ten,tn,qo,tshall,qshall,dz8w,omeg, &
-!$acc                z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,           &
+!$acc                z1,psur,cuten,cutens,cutenm,umean,vmean,pmean,mc_thresh,           &
 !$acc                xmbs,xmbs2,xmb,xmbm,xmb_dumm,mconv)
 
    integer :: i,j,k,icldck,ipr,jpr,jpr_deep,ipr_deep,uidx,vidx,tidx,qidx
@@ -603,6 +603,7 @@ contains
       hfx(i)=hfx2(i)*cp*rhoi(i,1)
       qfx(i)=qfx2(i)*xlv*rhoi(i,1)
       dx(i) = sqrt(garea(i))
+      mc_thresh(i)=3.25/dx(i)
      enddo    
 
      do i=its,itf
@@ -656,7 +657,9 @@ contains
      enddo
      do i = its,itf
       if(mconv(i).lt.0.)mconv(i)=0.
-      if((dx(i)<6500.).and.do_mynnedmf.and.(maxMF(i).gt.0.))ierr(i)=555
+      if(do_mynnedmf) then
+        if((dx(i)<6500.).and.(maxMF(i).gt.0.))ierr(i)=555
+      endif
      enddo
 !$acc end kernels
      if (dx(its)<6500.) then
@@ -788,7 +791,7 @@ contains
                                ! betwee -1 and +1
               ,do_cap_suppress_here,cap_suppress_j &
               ,k22m          &
-              ,jminm,tropics)
+              ,jminm,mc_thresh)
 !$acc kernels
             do i=its,itf
              do k=kts,ktf
@@ -882,7 +885,7 @@ contains
                                ! betwee -1 and +1
               ,do_cap_suppress_here,cap_suppress_j &
               ,k22          &
-              ,jmin,tropics)
+              ,jmin,mc_thresh)
           jpr=0
           ipr=0
 !$acc kernels
