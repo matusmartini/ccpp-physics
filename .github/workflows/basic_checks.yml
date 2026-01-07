@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    if: github.repository == 'NCAR/ccpp-physics' || github.repository == 'ufs-community/ccpp-physics'
+    #if: github.repository == 'NCAR/ccpp-physics' || github.repository == 'ufs-community/ccpp-physics'
 
     #runs-on: macos-latest
     runs-on: ['self-hosted','neptune-org-atlantis']
@@ -28,5 +28,5 @@ jobs:
     - name: Check for ASCII encoding
       run: |
         module use ${PWD}/modulefiles
-        module load atlantis/llvm-20.1.5
+        module load atlantis/llvm-21.1.0
         ./tools/check_encoding.py
