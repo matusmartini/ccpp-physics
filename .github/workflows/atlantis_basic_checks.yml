@@ -9,7 +9,7 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build:
+  basic-checks:
     #if: github.repository == 'NCAR/ccpp-physics' || github.repository == 'ufs-community/ccpp-physics'
 
     #runs-on: macos-latest
