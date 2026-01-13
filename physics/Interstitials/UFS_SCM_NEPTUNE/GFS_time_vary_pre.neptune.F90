@@ -107,7 +107,8 @@
 
         ! Check initialization status
         if (.not.is_initialized) then
-           write(errmsg,'(*(a))') "Logic error: GFS_time_vary_pre_timestep_init called before GFS_time_vary_pre_init"
+           write(errmsg,'(*(a))') "Logic error: GFS_time_vary_pre_timestep_init called &
+                                  &before GFS_time_vary_pre_init"
            errflg = 1
            return
         end if
@@ -121,7 +122,7 @@
            call w3difdat(jdat,idat,4,rinc8)
            sec = rinc8(4)
         else
-           write(errmsg,'(*(a))') "FATAL ERROR: Invalid w3kindreal or w3kindint:", w3kindreal, w3kindint
+           write(errmsg,'(a,2i4)') "FATAL ERROR: Invalid w3kindreal or w3kindint:", w3kindreal, w3kindint
            errflg = 1
            return
         end if

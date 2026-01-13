@@ -561,7 +561,7 @@
                 if ( i == iyr .and. iyr == jyr ) then
                   solc0  = smean + solc1
 
-                  if (mpirank == 0) then
+                  if (mpirank == mpiroot) then
                     print *,' CHECK: Solar constant data used for year',&
      &                       iyr, solc1, solc0
                   endif
@@ -588,7 +588,7 @@
                   enddo
                   solc0  = smean + smon(imon)
 
-                  if (mpirank == 0) then
+                  if (mpirank == mpiroot) then
                     print *,' CHECK: Solar constant data used for year',&
      &                      iyr,' and month',imon
                   endif
