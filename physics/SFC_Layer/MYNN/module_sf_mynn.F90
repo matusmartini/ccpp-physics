@@ -43,6 +43,7 @@ MODULE module_sf_mynn
 !             =2: z0 from Davis et al (2008), zt & zq from Garratt (1992)
 !             =3: z0 from Taylor and Yelland (2004), zt and zq from COARE 3.0/3.5
 !             =4: GFS - taken from sfc_diff.f, for comparison/testing
+!             =5: COAMPSTC - taken from coamps-tc, zt and zq from COARE 3.0/3.5
 !
 !   SNOW/ICE only:
 !   Andreas (2002) snow/ice parameterization for thermal and
@@ -1276,6 +1277,8 @@ CONTAINS
              ELSEIF ( ISFTCFLX .EQ. 4 ) THEN
                 !GFS surface layer scheme
                 CALL GFS_z0_wat(ZNT_wat(i),UST_wat(i),WSPD(i),ZA(I),sfc_z0_type,redrag)
+             ELSEIF ( ISFTCFLX .EQ. 5 ) THEN
+                CALL COAMPSTC_2016(ZNT_wat(i),UST_wat(i),WSPD(i),visc,ZA(I))
              ENDIF
           ELSE
              !DEFAULT TO COARE 3.0/3.5
@@ -1316,7 +1319,7 @@ CONTAINS
        ENDIF
 
        IF ( PRESENT(ISFTCFLX) ) THEN
-          IF ( ISFTCFLX .EQ. 0 ) THEN
+          IF ( ISFTCFLX .EQ. 0 .OR. ISFTCFLX .EQ. 5 ) THEN
              IF (COARE_OPT .EQ. 3.0) THEN
                 CALL fairall_etal_2003(ZT_wat(i),ZQ_wat(i),restar,UST_wat(i),visc,&
                                        rstoch1D(i),spp_sfc)
@@ -2689,6 +2692,61 @@ END SUBROUTINE SFCLAY1D_mynn
 
    END SUBROUTINE Taylor_Yelland_2001
 !--------------------------------------------------------------------
+!>\ingroup mynn_sfc
+!>Formulation "15" from COAMPS-TC
+!! Charnock parameter, similar to COARE3.0 [Fairall et al. (2003)].
+!! for wsp < 35 m/s.  Decays above 35 m/s.
+   SUBROUTINE COAMPSTC_2016(Z_0,ustar,wsp10,visc,zu)
+       IMPLICIT NONE
+
+       REAL, INTENT(IN)  :: ustar, visc, wsp10, zu
+       REAL, INTENT(OUT) :: Z_0
+
+       REAL, PARAMETER :: cdcri = 2.5e-3
+       REAL, PARAMETER :: c1 = -5.24444444444443e-09
+       REAL, PARAMETER :: c2 = -1.25846153846154e-07
+       REAL, PARAMETER :: c3 =  3.10170940170938e-06
+       REAL, PARAMETER :: c4 =  2.054662004662e-05
+       REAL, PARAMETER :: c5 = -0.000104334887334883
+       REAL, PARAMETER :: c6 = -0.00555412587412587
+       REAL, PARAMETER :: c7 =  1.23518881118881
+       REAL, PARAMETER :: vc = 65.0
+       REAL, PARAMETER :: z0minx = 9.6649e-5
+
+       REAL, PARAMETER :: vkrmn = 0.4
+       REAL, PARAMETER :: charnk = 0.016
+       REAL, PARAMETER :: gravity = 9.81
+       REAL, PARAMETER :: visk = 1.45e-05
+       REAL, PARAMETER :: cvisk = 0.11
+       REAL, PARAMETER :: CZO2 = 0.011
+
+       REAL :: z0cri, vcd, cdm, wsp10m, tpc, CZC
+
+       z0cri=zu*exp(-vkrmn/sqrt(cdcri))
+
+       wsp10m = wsp10*log(10./1e-4)/log(zu/1e-4)
+       CZC = CZO2 + 0.007*MIN(MAX((wsp10m-10.)/8., 0.), 1.0)
+
+       !tpc = charnk/gravity
+       tpc = CZC/gravity
+
+       z_0 = min(tpc*ustar**2 + cvisk*visc/max(ustar,0.05), z0cri)
+
+       if(wsp10 .ge. 35.0) then
+         vcd = wsp10 - vc
+
+         cdm = (c1*vcd**6 + c2*vcd**5 + c3*vcd**4 +c4*vcd**3 + c5*vcd**2 &
+             + c6*vcd + c7) * 1.0e-3
+
+         z_0 = zu*exp(-vkrmn/(sqrt(cdm)))
+       end if 
+
+       Z_0 = MAX( Z_0, 1.27e-7)  !These max/mins were suggested by
+       Z_0 = MIN( Z_0, 2.85e-3)  !Davis et al. (2008)
+
+       !z_0 = min(z_0,z0cri)
+       !z_0 = max(z_0,z0minx)
+   END SUBROUTINE COAMPSTC_2016
 !>\ingroup mynn_sfc
 !>This version of Charnock's relation employs a varying
 !! Charnock parameter, similar to COARE3.0 [Fairall et al. (2003)].

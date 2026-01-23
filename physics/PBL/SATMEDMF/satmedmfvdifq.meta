@@ -580,6 +580,14 @@
   type = real
   kind = kind_phys
   intent = out
+[elm]
+  standard_name = turbulent_mixing_length
+  long_name = mixing length in meters
+  units = m
+  dimensions = (horizontal_loop_extent,vertical_layer_dimension)
+  type = real
+  kind = kind_phys
+  intent = out
 [dku3d_h]
   standard_name = horizontal_atmosphere_momentum_diffusivity_for_dynamics
   long_name = horizontal atmospheric momentum diffusivity for dynamics

@@ -50,7 +50,7 @@ module mp_thompson
          use module_mp_thompson, only : R_uni, k_b, M_w, M_a, N_avo, lvap0, lfus
          use module_mp_thompson, only : av_i, av_s, D0s, bv_s, bv_i
          use module_mp_thompson, only : nt_c_l, nt_c_o, xnc_max, ssati_min, Nt_i_max, rr_min
-         
+
          implicit none
 
          ! Interface variables

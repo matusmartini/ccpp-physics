@@ -309,7 +309,7 @@
      &                             kind_phys, kind_dbl_prec
 
       use module_radsw_parameters
-      use mersenne_twister, only : random_setseed, random_number,       &
+      use mersenne_twister_ccpp, only : random_setseed, random_number,  &
      &                             random_stat
       use module_radsw_ref, only : preflog, tref
       use module_radsw_sflux

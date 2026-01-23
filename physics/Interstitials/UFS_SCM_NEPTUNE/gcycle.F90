@@ -249,7 +249,8 @@ contains
 !
       enddo
 !
-#ifndef INTERNAL_FILE_NML
+#if 0
+# ifndef INTERNAL_FILE_NML
       inquire (file=trim(fn_nml),exist=exists)
       if (.not. exists) then
         errflg = 1
@@ -259,6 +260,7 @@ contains
         open (unit=nlunit, file=trim(fn_nml), action='READ', status='OLD', iostat=ios)
         rewind (nlunit)
       endif
+# endif
 #endif
       CALL SFCCYCLE (9998, npts, max(lsoil,lsoil_lsm), sig1t, fhcyc, &
                      idate(4), idate(2), idate(3), idate(1),         &
@@ -273,8 +275,10 @@ contains
                      nlunit, size(input_nml_file), input_nml_file,   &
                      min_ice, ialb, isot, ivegsrc,                   &
                      trim(tile_num_ch), i_indx, j_indx)
-#ifndef INTERNAL_FILE_NML
+#if 0
+# ifndef INTERNAL_FILE_NML
       close (nlunit)
+# endif
 #endif
 !
 ! The gcycle resulted change is applied to some variables in the way of the coupled mode dependent, water surface type (ocean or lake)

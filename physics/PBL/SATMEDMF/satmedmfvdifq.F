@@ -95,7 +95,7 @@
      &     psk,rbsoil,zorl,u10m,v10m,fm,fh,                             &
      &     tsea,heat,evap,stress,spd1,kpbl,                             &
      &     prsi,del,prsl,prslk,phii,phil,delt,tte_edmf,                 &
-     &     dspheat,dusfc,dvsfc,dtsfc,dqsfc,hpbl,dkt,dku,tkeh,           &
+     &     dspheat,dusfc,dvsfc,dtsfc,dqsfc,hpbl,dkt,dku,tkeh,elm,       &
      &     kinver,xkzm_m,xkzm_h,xkzm_s,dspfac,bl_upfr,bl_dnfr,          &
      &     rlmx,elmx,sfc_rlm,tc_pbl,use_lpt,                            &
 !IVAI: canopy inputs from AQM
@@ -165,6 +165,8 @@
      &                     hpbl(:)
       real(kind=kind_phys), intent(out) ::                              &
      &                     dkt(:,:), dku(:,:)
+      real(kind=kind_phys), intent(out) ::                              &
+     &                     elm(:,:)
 
 !
       logical, intent(in)  :: sa3dtke !flag for SA-3D-TKE scheme
@@ -225,7 +227,7 @@
      &                     al(im,km-1),  ad(im,km),   au(im,km-1),
      &                     f1(im,km),    f2(im,km*(ntrac-1))
 !
-      real(kind=kind_phys) elm(im,km),   ele(im,km),
+      real(kind=kind_phys) ele(im,km),
      &                     ckz(im,km),   chz(im,km),
      &                     diss(im,km-1),prod(im,km-1),
      &                     bf(im,km-1),  shr2(im,km-1), wush(im,km),
@@ -315,6 +317,8 @@
       real(kind=kind_phys) qlcr, zstblmax, hcrinv
 !
       real(kind=kind_phys) h1
+!
+      real(kind=kind_phys), parameter :: ric = 0.0
 
       real(kind=kind_phys) bfac, mffac
 
@@ -1020,6 +1024,41 @@
            thermal(i)= thermal(i) + tem
          endif
       enddo
+      ! DH* THIS CODE IS NOT IN NCAR MAIN AS OF 2025/12/15
+      ! WHAT IS THIS DOING?
+      do k = 2, kmpbl
+      do i = 1, im
+        if(.not.flg(i)) then
+          rbdn(i) = rbup(i)
+          spdk2   = max((u1(i,k)**2+v1(i,k)**2),1.)
+          rbup(i) = (thlvx(i,k)-thermal(i))*
+     &              (g*zl(i,k)/thlvx(i,1))/spdk2
+          kpbl(i) = k
+          flg(i)  = rbup(i) > crb(i)
+        endif
+      enddo
+      enddo
+      do i = 1,im
+        if(pcnvflg(i)) then
+           k = kpbl(i)
+           if(rbdn(i) >= crb(i)) then
+             rbint = 0.
+           elseif(rbup(i) <= crb(i)) then
+             rbint = 1.
+           else
+             rbint = (crb(i)-rbdn(i))/(rbup(i)-rbdn(i))
+           endif
+           hpbl(i) = zl(i,k-1) + rbint*(zl(i,k)-zl(i,k-1))
+           if(hpbl(i) < zi(i,kpbl(i))) then
+             kpbl(i) = kpbl(i) - 1
+           endif
+           if(kpbl(i) <= 1) then
+              pcnvflg(i) = .false.
+              pblflg(i) = .false.
+           endif
+        endif
+      enddo
+      ! *DH
 !
 !  enhance the pbl height by considering the thermal excess
 !     (overshoot pbl top)
@@ -1508,7 +1547,7 @@
                dku(i,k) = ckz(i,k) * tem
                dkt(i,k) = dku(i,k) / prn(i,k)
              else
-               if(ri < 0.) then ! unstable regime
+               if(ri < ric) then ! unstable regime
                  dku(i,k) = ckz(i,k) * tem
                  dkt(i,k) = dku(i,k) / prn(i,k)
                else             ! stable regime
@@ -1517,7 +1556,7 @@
                endif
              endif
            else
-             if(ri < 0.) then ! unstable regime
+             if(ri < ric) then ! unstable regime
                dku(i,k) = ck1 * tem
                dkt(i,k) = rchck * dku(i,k)
              else             ! stable regime

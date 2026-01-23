@@ -478,6 +478,28 @@ module module_mp_thompson
          lsub = lvap0 + lfus
          olfus = 1./lfus
 
+        ! DH* TODO SET THESE VIA NAMELIST PARAMETERS DO
+        ! OVERWRITE THE DEFAULT VALUES (DEFAULTS CORRESPOND
+        ! TO PREVIOUS "do_mp_cloud_tuning=true" PARAMETER SET
+        !if (do_mp_cloud_tuning) then
+        !  Nt_c_o = 50.E6
+        !  Nt_i_max = 4999.D3
+        !  rr_min = 1000.0
+        !  av_i = av_s * D0s ** (bv_s - bv_i)
+        !  xnc_max = 1000.E3
+        !  ssati_min = 0.15
+        !else
+! NRL undo https://github.com/ufs-community/ccpp-physics/pull/1
+        Nt_i_max = 499.E3
+        rr_min = 10.0
+! NRL undo https://github.com/ufs-community/ccpp-physics/pull/19
+        Nt_c_o = Nt_c_l
+        av_i = 1493.9
+        xnc_max = 250.E3
+        ssati_min = 0.25
+        !endif
+        ! *DH
+
 ! Set module variable is_aerosol_aware/merra2_aerosol_aware
          is_aerosol_aware = is_aerosol_aware_in
          merra2_aerosol_aware = merra2_aerosol_aware_in
@@ -1166,7 +1188,7 @@ module module_mp_thompson
          ! No need to test for every subcycling step
          test_only_once: if (first_time_step .and. istep==1) then
             ! Activate this code when removing the guard above
-      
+
             if ( (present(tt) .and. (present(th) .or. present(pii))) .or. &
                (.not.present(tt) .and. .not.(present(th) .and. present(pii))) ) then
                if (present(errmsg) .and. present(errflg)) then
@@ -1175,10 +1197,10 @@ module module_mp_thompson
                   return
                else
                   write(*,'(a)') 'Logic error in mp_gt_driver: provide either tt or th+pii'
-                  stop
+                  call ccpp_external_abort(__FILE__)
                end if
             end if
-   
+
             if (is_aerosol_aware .and. (.not.present(nc)     .or. &
                                        .not.present(nwfa)   .or. &
                                        .not.present(nifa)   .or. &
@@ -1191,8 +1213,8 @@ module module_mp_thompson
                   return
                else
                   write(*, '(*(a))') 'Logic error in mp_gt_driver: provide nc, nwfa, nifa, nwfa2d', &
-                                    ' and nifa2d for aerosol-aware version of Thompson microphysics'
-                  stop
+                                     ' and nifa2d for aerosol-aware version of Thompson microphysics'
+                  call ccpp_external_abort(__FILE__)
                end if
             else if (merra2_aerosol_aware .and. (.not.present(nc)   .or. &
                                                 .not.present(nwfa) .or. &
@@ -1204,7 +1226,7 @@ module module_mp_thompson
                   return
                else
                   write(*, '(*(a))') 'Logic error in mp_gt_driver: provide nc, nwfa, and nifa', &
-                                    ' for merra2 aerosol-aware version of Thompson microphysics'
+                                     ' for merra2 aerosol-aware version of Thompson microphysics'
                   stop
                end if
             else if (.not.is_aerosol_aware .and. .not.merra2_aerosol_aware .and. &
@@ -3979,7 +4001,7 @@ module module_mp_thompson
 
                if (rr(kts).gt.R1*rr_min) then
                   pptrain = pptrain + sed_r(kts)*DT*onstep(1)
-               endif 
+               endif
             enddo
          else !if(.not. sedi_semi)
             niter = 1

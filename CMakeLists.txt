@@ -173,21 +173,33 @@ if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUA
     # Need to determine the name of the scheme with its path
     list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
     SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
-                                APPEND_STRING PROPERTY COMPILE_FLAGS
-                                " ${CMAKE_Fortran_FLAGS_PHYSICS} ${OpenMP_Fortran_FLAGS} -O1")
+                                APPEND_STRING PROPERTY COMPILE_FLAGS " -O1")
   endforeach()
 endif()
 
 # No optimization for certain schemes when compiling with Intel in Release mode
 if(CMAKE_BUILD_TYPE STREQUAL "Release" AND (${CMAKE_Fortran_COMPILER_ID} STREQUAL "Intel" OR ${CMAKE_Fortran_COMPILER_ID} STREQUAL "IntelLLVM"))
   # Define a list of schemes that can't be optimized with Intel in Release mode
-  set(SCHEME_NAMES_NO_OPTIMIZATION GFS_typedefs.F90)
+  set(SCHEME_NAMES_NO_OPTIMIZATION aerinterp.F90
+                                   GFS_typedefs.F90)
   foreach(SCHEME_NAME IN LISTS SCHEME_NAMES_NO_OPTIMIZATION)
     set(SCHEMES_TMP ${SCHEMES})
     # Need to determine the name of the scheme with its path
     list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
     SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
-                                APPEND_STRING PROPERTY COMPILE_FLAGS " ${CMAKE_Fortran_FLAGS_PHYSICS} ${OpenMP_Fortran_FLAGS} -O0")
+                                APPEND_STRING PROPERTY COMPILE_FLAGS " -O0")
+  endforeach()
+endif()
+
+if(${CMAKE_Fortran_COMPILER_ID} STREQUAL "GNU")
+  # Define a list of schemes that can't be compiled with GNU's range check
+  set(SCHEME_NAMES_NO_RANGE_CHECK mersenne_twister.f)
+  foreach(SCHEME_NAME IN LISTS SCHEME_NAMES_NO_RANGE_CHECK)
+    set(SCHEMES_TMP ${SCHEMES})
+    # Need to determine the name of the scheme with its path
+    list(FILTER SCHEMES_TMP INCLUDE REGEX ".*${SCHEME_NAME}$")
+    SET_SOURCE_FILES_PROPERTIES(${SCHEMES_TMP}
+                                APPEND_STRING PROPERTY COMPILE_FLAGS " -fno-range-check")
   endforeach()
 endif()
 
@@ -207,12 +219,12 @@ target_include_directories(ccpp_physics PUBLIC
 
 target_link_libraries(ccpp_physics PRIVATE MPI::MPI_Fortran)
 target_link_libraries(ccpp_physics PUBLIC w3emc::w3emc_d
-                                          sp::sp_d
-                                          NetCDF::NetCDF_Fortran
-				             )
-#add FMS for FV3 only
-if(FV3 OR MPAS)
-  target_link_libraries(ccpp_physics PUBLIC fms)
+                                          NetCDF::NetCDF_Fortran)
+target_link_libraries(ccpp_physics PRIVATE ESMF::ESMF)
+
+if(HA_PHYSICS)
+  target_link_libraries(ccpp_physics PRIVATE msis)
+  target_link_libraries(ccpp_physics PRIVATE iri)
 endif()
 
 # Define where to install the library

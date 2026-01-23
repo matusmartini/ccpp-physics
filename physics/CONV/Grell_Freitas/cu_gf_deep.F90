@@ -1375,8 +1375,9 @@ contains
       tau_ecmwf    (:) = 0.
 !$acc end kernels
       !- way to calculate the fraction of cape consumed by shallow convection
-      !iversion=1 ! ecmwf
-      iversion=0 ! orig
+!NRL?
+      iversion=1 ! ecmwf
+      !iversion=0 ! orig
       !
       ! betchold et al 2008 time-scale of cape removal
 !
@@ -2534,7 +2535,7 @@ contains
 !       'final', tracr(k)-(trflx_out(k+1)-trflx_out(k))*dtovdz(k)
 ! 99    format ('(trc1d)   k =',i4/(3(a13,'=',es13.6)))
 !     end do
-     if (error) stop '(fct1d error)'
+     if (error) call ccpp_external_abort('(fct1d error)')
    end if
 #endif
 

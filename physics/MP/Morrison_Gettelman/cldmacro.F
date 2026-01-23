@@ -929,7 +929,7 @@
            sigmaqt1 = max(ALPHA/sqrt(3.0), 0.001)
          else
            write(0,*)' Aborting : invalid pdfshape=',pdfshape
-           stop
+           call ccpp_external_abort("cldmacro.F")
          endif
 
          qsnx = qsn*SCICE
@@ -2077,7 +2077,7 @@
         sigmaqt1 = max(ALPHA/sqrt(3.0), 0.001)
       else
         write(0,*)' Aborting : invalid pdfflag=',pdfflag
-        stop
+        call ccpp_external_abort("cldmacro.F")
       endif
 
       call pdffrac(pdfflag,qt,sigmaqt1,sigmaqt2,qsn,CFio)

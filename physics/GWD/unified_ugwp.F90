@@ -129,8 +129,15 @@ contains
        ! if (do_ugwp .or. cdmbgwd(3) > 0.0) then (deactivate effect of do_ugwp)
        if (cdmbgwd(3) > 0.0) then
         call cires_ugwpv0_mod_init(me, master, nlunit, input_nml_file, logunit, &
+<<<<<<< HEAD
                                 fn_nml2, lonr, levs, ak, bk, con_p0, dtp, &
                                 cdmbgwd(1:2), cgwf, pa_rf_in, tau_rf_in)
+=======
+                                fn_nml2, lonr, latr, levs, ak, bk, con_p0, dtp, &
+                                cdmbgwd(1:2), cgwf, pa_rf_in, tau_rf_in, &
+                                errmsg, errflg)
+        if (errflg/=0) return
+>>>>>>> neptune
        else
          write(errmsg,'(*(a))') "Logic error: cires_ugwp_mod_init called but &
                &do_ugwp_v0 or do_ugwp_v0_nst_only is true and cdmbgwd(3) <= 0"

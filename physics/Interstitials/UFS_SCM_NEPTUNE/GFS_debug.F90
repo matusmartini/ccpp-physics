@@ -22,7 +22,7 @@
 !!   #define PRINT_CHKSUM: mininmum, maximum and 32-bit Adler checksum for arrays
 !!
 
-#ifdef __GFORTRAN__
+#if defined(__GFORTRAN__) || defined (__flang__)
 #define PRINT_SUM
 #else
 #define PRINT_CHKSUM
@@ -302,8 +302,6 @@
     module GFS_diagtoscreen
 
       use print_var_chksum, only: print_var
-
-      use machine, only: kind_phys
 
       use GFS_typedefs, only: GFS_control_type, GFS_statein_type,  &
                               GFS_stateout_type, GFS_sfcprop_type, &
@@ -958,8 +956,6 @@
 
       use print_var_chksum, only: print_var
 
-      use machine, only: kind_phys
-
       use GFS_typedefs, only: GFS_control_type, GFS_statein_type,  &
                               GFS_stateout_type, GFS_sfcprop_type, &
                               GFS_coupling_type, GFS_grid_type,    &
@@ -1377,7 +1373,6 @@
 !!
       subroutine GFS_abort_run (Model, blkno, errmsg, errflg)
 
-         use machine,               only: kind_phys
          use GFS_typedefs,          only: GFS_control_type
 
          implicit none
@@ -1395,7 +1390,7 @@
          if (Model%kdt==1 .and. blkno==size(Model%blksz)) then
              if (Model%me==Model%master) write(0,*) "GFS_abort_run: ABORTING MODEL"
              call sleep(10)
-             stop
+             call ccpp_external_abort(__FILE__)
          end if
 
       end subroutine GFS_abort_run

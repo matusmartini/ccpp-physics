@@ -855,7 +855,7 @@ contains
      call snowalb_class_glacier(nband,qsnow,dt,alb,albold,albsnd,albsni)
      albold = alb
   end if
-  end if 
+  end if
 
 ! zero summed solar fluxes
 

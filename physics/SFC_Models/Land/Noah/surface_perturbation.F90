@@ -49,7 +49,7 @@ module surface_perturbation
           cdfz = 0.5
         else
           x = 0.5*z*z
-          call cdfgam(x,0.5,del,iflag, cdfx)
+          call cdfgam(x,0.5_kind_phys,del,iflag, cdfx)
           if (iflag.ne.0) return
           if (z.gt.0.0) then
             cdfz = 0.5+0.5*cdfx
@@ -156,7 +156,7 @@ module surface_perturbation
       data b7 / 0.641025641025641025641025641d-2 /
       data b8 / - 0.295506535947712418300653595d-1 /
 
-      if (x.le.0.0) stop '*** x<=0.0 in function dgamln ***'
+      if (x.le.0.0) call ccpp_external_abort('*** x<=0.0 in function dgamln ***')
       dx = x
       n = max(0,int(xmin - dx + 1.0d0) )
       xn = dx + n
@@ -410,7 +410,7 @@ module surface_perturbation
       data b7 / 0.641025641025641025641025641d-2 /
       data b8 / - 0.295506535947712418300653595d-1 /
 
-      if (x.le.0.0) stop '*** x<=0.0 in function gamln ***'
+      if (x.le.0.0) call ccpp_external_abort('*** x<=0.0 in function gamln ***')
       dx = x
       n = max(0,int(xmin - dx + 1.0d0) )
       xn = dx + n

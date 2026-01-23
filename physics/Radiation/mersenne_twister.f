@@ -159,7 +159,7 @@
 !   Language: Fortran 90
 !
 !$$$
-      module mersenne_twister
+      module mersenne_twister_ccpp
         use machine, only: kind_dbl_prec
         private
 !  Public declarations
